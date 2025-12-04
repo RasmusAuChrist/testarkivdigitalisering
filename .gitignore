@@ -1,0 +1,24 @@
+# Python cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+
+# Virtual environments
+venv/
+.env/
+.env.*  # if you have variants like .env.production
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Render deploy artifacts (optional)
+*.render-build

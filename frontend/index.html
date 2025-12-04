@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shelf Layout Viewer</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 1rem;
+    }
+
+    #roomSelect {
+      margin-bottom: 1rem;
+      padding: 0.3rem;
+      font-size: 1rem;
+    }
+
+    svg {
+      border: 1px solid #ccc;
+      background-color: #f9f9f9;
+    }
+
+    text {
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Shelf Layout Viewer with Dynamic Room Selector</h2>
+
+  <label for="roomSelect">Select Room in OSL1:</label>
+  <select id="roomSelect"></select>
+
+  <svg id="shelfCanvas" width="2000" height="1200">
+    <g id="zoomGroup"></g>
+  </svg>
+
+  <script src="script.js"></script>
+
+</body>
+</html>
