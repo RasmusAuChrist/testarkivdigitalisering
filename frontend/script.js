@@ -20,7 +20,7 @@ let colorScale = null;
 // -----------------------------------------------------
 // STEP 1 — Load room list dynamically from API
 // -----------------------------------------------------
-fetch("http://localhost:8000/api/rooms")
+fetch("https://testarkivdigitalisering.onrender.com/api/rooms")
   .then(res => res.json())
   .then(rooms => {
     console.log("Rooms fetched:", rooms);  
@@ -54,8 +54,8 @@ function loadRoom(room) {
   zoomGroup.selectAll("*").remove();
 
   Promise.all([
-    fetch(`http://localhost:8000/api/shelves?depot=OSL1&room=${room}`).then(res => res.json()),
-    fetch(`http://localhost:8000/api/items?depot=OSL1&room=${room}`).then(res => res.json())
+    fetch(`https://testarkivdigitalisering.onrender.com/shelves?depot=OSL1&room=${room}`).then(res => res.json()),
+    fetch(`https://testarkivdigitalisering.onrender.com/api/items?depot=OSL1&room=${room}`).then(res => res.json())
   ]).then(([shelves, items]) => {
     drawShelves(shelves, items);
   });
