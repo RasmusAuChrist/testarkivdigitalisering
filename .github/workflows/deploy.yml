@@ -19,15 +19,19 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        working-directory: backend
         run: |
+          cd backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Copy backend to root for deployment
+        run: |
+          cp backend/* .
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ask-fastapi  # 👈 Your actual Azure Web App name
+          app-name: ask-fastapi
           slot-name: production
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./backend     # 👈 Package the full backend folder
+          package: .
