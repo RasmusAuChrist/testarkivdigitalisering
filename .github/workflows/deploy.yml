@@ -27,7 +27,6 @@ jobs:
         run: |
           cp backend/main.py .
           cp backend/requirements.txt .
-          cp app_start.sh .
           cp -r frontend ./frontend
 
       - name: Deploy to Azure Web App
