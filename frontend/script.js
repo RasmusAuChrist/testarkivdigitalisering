@@ -54,7 +54,7 @@ function loadRoom(room) {
   zoomGroup.selectAll("*").remove();
 
   Promise.all([
-    fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/shelves?depot=OSL1&room=${room}`).then(res => res.json()),
+    fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/shelves?depot=OSL1&room=${room}`).then(res => res.json()),
     fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/items?depot=OSL1&room=${room}`).then(res => res.json())
   ]).then(([shelves, items]) => {
     drawShelves(shelves, items);
