@@ -18,16 +18,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies from backend
+      - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Copy backend files to root
+      - name: Copy backend and frontend files to root
         run: |
           cp backend/main.py .
           cp backend/requirements.txt .
-
+          cp app_start.sh .
+          cp -r frontend ./frontend
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
