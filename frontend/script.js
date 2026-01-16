@@ -148,22 +148,23 @@ function drawShelves(shelfData, itemData) {
           const maxPillsThatFit = Math.floor((availableWidth + pillPadding) / (pillWidth + pillPadding));
 
           // Draw pills that fit
-          items.slice(0, maxPillsThatFit).forEach((item, i) => {
-            const x = pillPadding + i * (pillWidth + pillPadding);
+          const visibleItems = items.slice(0, maxPillsThatFit);
 
-            bayGroup.append("rect")
-              .attr("x", x)
-              .attr("y", shelfY + 2)
-              .attr("width", pillWidth)
-              .attr("height", pillHeight)
-              .attr("fill", colorScale(item.arkiv))
-              .attr("rx", 3)
-              .attr("ry", 3)
-              .append("title")
-              .text(`Path: ${item.item_path || "unknown"}\nArkiv: ${item.arkiv}\nItem: ${item.item_id}`);
+          const pills = bayGroup.selectAll(`.pill-${shelfData.path.replace(/\W/g, "_")}`)
+            .data(visibleItems)
+            .enter()
+            .append("rect")
+            .attr("class", `pill pill-${shelfData.path.replace(/\W/g, "_")}`)
+            .attr("x", (d, i) => pillPadding + i * (pillWidth + pillPadding))
+            .attr("y", shelfY + 2)
+            .attr("width", pillWidth)
+            .attr("height", pillHeight)
+            .attr("fill", d => colorScale(d.arkiv))
+            .attr("rx", 3)
+            .attr("ry", 3)
+            .append("title")
+            .text(d => `Path: ${d.item_path || "unknown"}\nArkiv: ${d.arkiv}\nItem: ${d.item_id}`);
 
-
-          });
 
           // ✔ Add a "+N" indicator for overflow items
           const hiddenCount = items.length - maxPillsThatFit;
