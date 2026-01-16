@@ -150,7 +150,8 @@ function drawShelves(shelfData, itemData) {
           // Draw pills that fit
           const visibleItems = items.slice(0, maxPillsThatFit);
 
-          const pills = bayGroup.selectAll(`.pill-${shelfData.path.replace(/\W/g, "_")}`)
+          // Create pills
+          const pillGroup = bayGroup.selectAll(`.pill-${shelfData.path.replace(/\W/g, "_")}`)
             .data(visibleItems)
             .enter()
             .append("rect")
@@ -161,10 +162,11 @@ function drawShelves(shelfData, itemData) {
             .attr("height", pillHeight)
             .attr("fill", d => colorScale(d.arkiv))
             .attr("rx", 3)
-            .attr("ry", 3)
-            .append("title")
-            .text(d => `Path: ${d.item_path || "unknown"}\nArkiv: ${d.arkiv}\nItem: ${d.item_id}`);
+            .attr("ry", 3);
 
+          // Add tooltips
+          pillGroup.append("title")
+            .text(d => `Path: ${d.item_path || "unknown"}\nArkiv: ${d.arkiv}\nItem: ${d.item_id}`);
 
           // ✔ Add a "+N" indicator for overflow items
           const hiddenCount = items.length - maxPillsThatFit;
