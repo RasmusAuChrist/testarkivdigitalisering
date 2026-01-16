@@ -23,11 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Copy backend and frontend files to root
+      - name: Copy backend files to root
         run: |
           cp backend/main.py .
           cp backend/requirements.txt .
-          cp -r frontend ./frontend
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
