@@ -1,43 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Shelf Layout Viewer</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shelf Visualization</title>
   <style>
     body {
+      margin: 0;
       font-family: sans-serif;
-      margin: 1rem;
+      overflow: hidden;
     }
 
     #roomSelect {
-      margin-bottom: 1rem;
-      padding: 0.3rem;
-      font-size: 1rem;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      padding: 5px;
+      font-size: 16px;
     }
 
-    svg {
-      border: 1px solid #ccc;
-      background-color: #f9f9f9;
-    }
-
-    text {
-      pointer-events: none;
+    canvas {
+      display: block;
+      background-color: #ffffff;
     }
   </style>
 </head>
 <body>
-
-  <h2>Shelf Layout Viewer with Dynamic Room Selector</h2>
-
-  <label for="roomSelect">Select Room in OSL1:</label>
   <select id="roomSelect"></select>
+  <canvas id="shelfCanvas" width="1600" height="1000"></canvas>
 
-  <svg id="shelfCanvas" width="2000" height="1200">
-    <g id="zoomGroup"></g>
-  </svg>
-
-  <script src="script.js"></script>
-
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
