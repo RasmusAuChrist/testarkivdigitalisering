@@ -47,6 +47,24 @@
   align-items: center;
 }
 
+.spinner {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;        /* Makes it circular */
+  object-fit: cover;         /* Ensures it fills the circle nicely */
+  animation: spinCCW 1s linear infinite;
+}
+
+@keyframes spinCCW {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg); /* Counter-clockwise */
+  }
+}
+
+
 .loader {
   font-size: 24px;
   font-weight: bold;
@@ -56,8 +74,9 @@
   </style>
 </head>
 <div id="loadingOverlay">
-  <div class="loader">Loading...</div>
+  <img src="spinner.png" alt="Loading..." class="spinner" />
 </div>
+
 <body>
   <div id="controls">
     <label for="depotSelect">Depot:</label>
