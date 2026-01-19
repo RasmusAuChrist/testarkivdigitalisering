@@ -11,14 +11,23 @@
       overflow: hidden;
     }
 
-    #roomSelect {
+    #controls {
+      display: flex;
+      gap: 10px;
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 10;
-      padding: 5px;
-      font-size: 16px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 5px 10px;
+      border-radius: 5px;
+      align-items: center;
     }
+
+#controls label,
+#controls select {
+  font-size: 16px;
+}
 
     canvas {
       display: block;
@@ -27,11 +36,13 @@
   </style>
 </head>
 <body>
-  <label for="depotSelect">Depot:</label>
-  <select id="depotSelect"></select>
+  <div id="controls">
+    <label for="depotSelect">Depot:</label>
+    <select id="depotSelect"></select>
 
-  <label for="roomSelect">Room:</label>
-  <select id="roomSelect"></select>
+    <label for="roomSelect">Room:</label>
+    <select id="roomSelect"></select>
+  </div>
 
   <canvas id="shelfCanvas" width="1600" height="1000"></canvas>
 
