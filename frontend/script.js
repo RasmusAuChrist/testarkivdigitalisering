@@ -1,4 +1,4 @@
-// Canvas-based shelf renderer using D3 for layout
+import { createTooltip } from "./tooltip.js";
 
 const canvas = document.getElementById("shelfCanvas");
 const ctx = canvas.getContext("2d");
@@ -10,7 +10,6 @@ const shelfWidth = 200;
 const aisleSpacing = 200;
 const pillHeight = 10;
 const pillPadding = 2;
-let colorScale = null;
 
 canvas.width = window.innerWidth * 2;
 canvas.height = window.innerHeight * 2;
@@ -19,6 +18,10 @@ canvas.height = window.innerHeight * 2;
 let zoomX = 0;
 let zoomY = 0;
 let scale = 1;
+
+// Global data
+let globalShelves = [], globalItems = [], colorScale = null;
+let pillHitboxes = []; // For tooltips
 
 function drawText(text, x, y, color = "black", size = 12, bold = false) {
   ctx.fillStyle = color;
@@ -60,7 +63,7 @@ function setupZoom() {
   });
 }
 
-// API Fetch logic
+// Fetch rooms and initialize
 fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/rooms")
   .then(res => res.json())
   .then(rooms => {
@@ -74,8 +77,6 @@ fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/
   });
 
 roomSelect.addEventListener("change", e => loadRoom(e.target.value));
-
-let globalShelves = [], globalItems = [];
 
 function loadRoom(room) {
   Promise.all([
@@ -98,6 +99,7 @@ function loadRoom(room) {
 
 function draw() {
   clearCanvas();
+  pillHitboxes = []; // Clear previous
   ctx.save();
   ctx.translate(zoomX, zoomY);
   ctx.scale(scale, scale);
@@ -130,7 +132,9 @@ function draw() {
         ctx.fillRect(baseX, shelfY, shelfWidth, shelfHeight - 2);
         ctx.strokeRect(baseX, shelfY, shelfWidth, shelfHeight - 2);
 
-        const items = (itemsByShelf.get(shelf.path) || []).sort((a, b) => (a.item_id || "").localeCompare(b.item_id || ""));
+        const items = (itemsByShelf.get(shelf.path) || []).sort((a, b) =>
+          (a.item_id || "").localeCompare(b.item_id || "")
+        );
 
         if (items.length > 0) {
           const availableWidth = shelfWidth - pillPadding * 2;
@@ -139,8 +143,16 @@ function draw() {
 
           items.slice(0, maxFit).forEach((item, i) => {
             const x = baseX + pillPadding + i * (pillWidth + pillPadding);
+            const y = shelfY + 2;
             ctx.fillStyle = colorScale(item.arkiv);
-            ctx.fillRect(x, shelfY + 2, pillWidth, pillHeight);
+            ctx.fillRect(x, y, pillWidth, pillHeight);
+
+            pillHitboxes.push({
+              x, y,
+              width: pillWidth,
+              height: pillHeight,
+              data: item
+            });
           });
 
           if (items.length > maxFit) {
@@ -155,3 +167,4 @@ function draw() {
 }
 
 setupZoom();
+createTooltip(canvas, () => ({ zoomX, zoomY, scale }), () => pillHitboxes);
