@@ -20,6 +20,37 @@ app.add_middleware(
 )
 
 # -----------------------------
+# GET /api/depots
+# -----
+
+@app.get("/api/depots")
+def get_depots():
+    try:
+        conn = pymssql.connect(
+            server=os.getenv("AZURE_SERVER"),
+            user=os.getenv("AZURE_USERNAME"),
+            password=os.getenv("AZURE_PASSWORD"),
+            database=os.getenv("AZURE_DATABASE")
+        )
+        cursor = conn.cursor()
+
+        query = """
+        SELECT DISTINCT
+            LEFT(path, CHARINDEX('/', path) - 1) AS depot
+        FROM tbl_bronze_asta_shelf
+        WHERE path LIKE '%/%/%/%/%'
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        conn.close()
+
+        return [row[0] for row in rows if row[0] is not None]
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# -----------------------------
 # GET /api/rooms
 # -----------------------------
 @app.get("/api/rooms")

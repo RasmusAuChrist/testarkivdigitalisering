@@ -2,6 +2,7 @@ import { createTooltip } from "./tooltip.js";
 
 const canvas = document.getElementById("shelfCanvas");
 const ctx = canvas.getContext("2d");
+const depotSelect = document.getElementById("depotSelect");
 const roomSelect = document.getElementById("roomSelect");
 
 const baySpacing = 220;
@@ -14,14 +15,20 @@ const pillPadding = 2;
 canvas.width = window.innerWidth * 2;
 canvas.height = window.innerHeight * 2;
 
-// Zoom / pan config
+// Zoom / pan
 let zoomX = 0;
 let zoomY = 0;
 let scale = 1;
 
-// Global data
-let globalShelves = [], globalItems = [], colorScale = null;
-let pillHitboxes = []; // For tooltips
+// State
+let currentDepot = null;
+let currentRoom = null;
+
+// Data
+let globalShelves = [];
+let globalItems = [];
+let colorScale = null;
+let pillHitboxes = [];
 
 function drawText(text, x, y, color = "black", size = 12, bold = false) {
   ctx.fillStyle = color;
@@ -42,13 +49,14 @@ function setupZoom() {
     lastX = e.offsetX;
     lastY = e.offsetY;
   });
+
   canvas.addEventListener("mouseup", () => isDragging = false);
-  canvas.addEventListener("mouseout", () => isDragging = false);
+  canvas.addEventListener("mouseleave", () => isDragging = false);
 
   canvas.addEventListener("mousemove", e => {
     if (isDragging) {
-      zoomX += (e.offsetX - lastX);
-      zoomY += (e.offsetY - lastY);
+      zoomX += e.offsetX - lastX;
+      zoomY += e.offsetY - lastY;
       lastX = e.offsetX;
       lastY = e.offsetY;
       draw();
@@ -57,31 +65,72 @@ function setupZoom() {
 
   canvas.addEventListener("wheel", e => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    scale *= delta;
+    scale *= e.deltaY > 0 ? 0.9 : 1.1;
     draw();
   });
 }
 
-// Fetch rooms and initialize
-fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/rooms")
+/* -----------------------------
+   API LOADERS
+----------------------------- */
+
+// Load depots first
+fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/depots")
   .then(res => res.json())
-  .then(rooms => {
-    rooms.sort().forEach(room => {
+  .then(depots => {
+    depots.sort().forEach(depot => {
       const option = document.createElement("option");
-      option.value = room;
-      option.textContent = room;
-      roomSelect.appendChild(option);
+      option.value = depot;
+      option.textContent = depot;
+      depotSelect.appendChild(option);
     });
-    if (rooms.length > 0) loadRoom(rooms[0]);
+
+    if (depots.length > 0) {
+      currentDepot = depots[0];
+      depotSelect.value = currentDepot;
+      loadRooms(currentDepot);
+    }
   });
 
-roomSelect.addEventListener("change", e => loadRoom(e.target.value));
+// When depot changes
+depotSelect.addEventListener("change", e => {
+  currentDepot = e.target.value;
+  loadRooms(currentDepot);
+});
 
-function loadRoom(room) {
+// Load rooms for selected depot
+function loadRooms(depot) {
+  roomSelect.innerHTML = "";
+
+  fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/rooms?depot=${depot}`)
+    .then(res => res.json())
+    .then(rooms => {
+      rooms.sort().forEach(room => {
+        const option = document.createElement("option");
+        option.value = room;
+        option.textContent = room;
+        roomSelect.appendChild(option);
+      });
+
+      if (rooms.length > 0) {
+        currentRoom = rooms[0];
+        roomSelect.value = currentRoom;
+        loadRoom(currentDepot, currentRoom);
+      }
+    });
+}
+
+// When room changes
+roomSelect.addEventListener("change", e => {
+  currentRoom = e.target.value;
+  loadRoom(currentDepot, currentRoom);
+});
+
+// Load shelves + items
+function loadRoom(depot, room) {
   Promise.all([
-    fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/shelves?depot=OSL1&room=${room}`).then(res => res.json()),
-    fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/items?depot=OSL1&room=${room}`).then(res => res.json())
+    fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/shelves?depot=${depot}&room=${room}`).then(r => r.json()),
+    fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/items?depot=${depot}&room=${room}`).then(r => r.json())
   ]).then(([shelves, items]) => {
     globalShelves = shelves.map(d => {
       const parts = d.path.split("/");
@@ -92,14 +141,20 @@ function loadRoom(room) {
         shelf: +parts[4],
       };
     });
+
     globalItems = items;
     draw();
   });
 }
 
+/* -----------------------------
+   DRAW
+----------------------------- */
+
 function draw() {
   clearCanvas();
-  pillHitboxes = []; // Clear previous
+  pillHitboxes = [];
+
   ctx.save();
   ctx.translate(zoomX, zoomY);
   ctx.scale(scale, scale);
@@ -132,32 +187,24 @@ function draw() {
         ctx.fillRect(baseX, shelfY, shelfWidth, shelfHeight - 2);
         ctx.strokeRect(baseX, shelfY, shelfWidth, shelfHeight - 2);
 
-        const items = (itemsByShelf.get(shelf.path) || []).sort((a, b) =>
-          (a.item_id || "").localeCompare(b.item_id || "")
-        );
+        const items = (itemsByShelf.get(shelf.path) || [])
+          .sort((a, b) => (a.item_id || "").localeCompare(b.item_id || ""));
 
-        if (items.length > 0) {
-          const availableWidth = shelfWidth - pillPadding * 2;
-          const pillWidth = Math.max(4, Math.min((availableWidth / items.length) - pillPadding, 16));
-          const maxFit = Math.floor((availableWidth + pillPadding) / (pillWidth + pillPadding));
+        const availableWidth = shelfWidth - pillPadding * 2;
+        const pillWidth = Math.max(4, Math.min((availableWidth / items.length) - pillPadding, 16));
+        const maxFit = Math.floor((availableWidth + pillPadding) / (pillWidth + pillPadding));
 
-          items.slice(0, maxFit).forEach((item, i) => {
-            const x = baseX + pillPadding + i * (pillWidth + pillPadding);
-            const y = shelfY + 2;
-            ctx.fillStyle = colorScale(item.arkiv);
-            ctx.fillRect(x, y, pillWidth, pillHeight);
+        items.slice(0, maxFit).forEach((item, i) => {
+          const x = baseX + pillPadding + i * (pillWidth + pillPadding);
+          const y = shelfY + 2;
+          ctx.fillStyle = colorScale(item.arkiv);
+          ctx.fillRect(x, y, pillWidth, pillHeight);
 
-            pillHitboxes.push({
-              x, y,
-              width: pillWidth,
-              height: pillHeight,
-              data: item
-            });
-          });
+          pillHitboxes.push({ x, y, width: pillWidth, height: pillHeight, data: item });
+        });
 
-          if (items.length > maxFit) {
-            drawText(`+${items.length - maxFit}`, baseX + shelfWidth - 20, shelfY + 12, "#333", 10);
-          }
+        if (items.length > maxFit) {
+          drawText(`+${items.length - maxFit}`, baseX + shelfWidth - 20, shelfY + 12, "#333", 10);
         }
       });
     });
