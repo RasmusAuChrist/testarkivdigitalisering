@@ -267,7 +267,7 @@ function draw() {
           const y = shelfY + 2;
 
           const matches =
-            !filterPath || item.shelf_path.startsWith(filterPath);
+            !filterPath || item.item_path.startsWith(filterPath);
 
           ctx.globalAlpha = matches ? 1 : 0.2;
           ctx.fillStyle = colorScale(item.arkiv);
