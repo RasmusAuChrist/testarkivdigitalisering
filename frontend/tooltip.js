@@ -27,12 +27,12 @@ export function createTooltip(canvas, getZoom, getPillHitboxes) {
     );
 
     if (hit) {
-      tooltip.style.left = `${e.clientX + 10}px`;
-      tooltip.style.top = `${e.clientY + 10}px`;
-      tooltip.textContent = hit.item.item_path || "No path";
-      tooltip.style.display = "block";
+    tooltip.style.left = `${e.clientX + 10}px`;
+    tooltip.style.top = `${e.clientY + 10}px`;
+    tooltip.textContent = hit.data.item_path || "No path";
+    tooltip.style.display = "block";
     } else {
-      tooltip.style.display = "none";
+    tooltip.style.display = "none";
     }
   });
 
