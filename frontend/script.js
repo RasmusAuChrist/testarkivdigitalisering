@@ -5,6 +5,15 @@ const ctx = canvas.getContext("2d");
 const depotSelect = document.getElementById("depotSelect");
 const roomSelect = document.getElementById("roomSelect");
 
+// Loader functions
+function showLoading() {
+  document.getElementById("loadingOverlay").style.display = "flex";
+}
+
+function hideLoading() {
+  document.getElementById("loadingOverlay").style.display = "none";
+}
+
 const baySpacing = 220;
 const shelfHeight = 25;
 const shelfWidth = 200;
@@ -75,6 +84,7 @@ function setupZoom() {
 ----------------------------- */
 
 // Load depots first
+showLoading();
 fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/depots")
   .then(res => res.json())
   .then(depots => {
@@ -89,7 +99,13 @@ fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/
       currentDepot = depots[0];
       depotSelect.value = currentDepot;
       loadRooms(currentDepot);
+    } else {
+      hideLoading();
     }
+  })
+  .catch(err => {
+    console.error("Error loading depots:", err);
+    hideLoading();
   });
 
 // When depot changes
@@ -100,6 +116,7 @@ depotSelect.addEventListener("change", e => {
 
 // Load rooms for selected depot
 function loadRooms(depot) {
+  showLoading();
   roomSelect.innerHTML = "";
 
   fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/rooms?depot=${depot}`)
@@ -116,7 +133,13 @@ function loadRooms(depot) {
         currentRoom = rooms[0];
         roomSelect.value = currentRoom;
         loadRoom(currentDepot, currentRoom);
+      } else {
+        hideLoading();
       }
+    })
+    .catch(err => {
+      console.error("Error loading rooms:", err);
+      hideLoading();
     });
 }
 
@@ -128,23 +151,31 @@ roomSelect.addEventListener("change", e => {
 
 // Load shelves + items
 function loadRoom(depot, room) {
+  showLoading();
+
   Promise.all([
     fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/shelves?depot=${depot}&room=${room}`).then(r => r.json()),
     fetch(`https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/items?depot=${depot}&room=${room}`).then(r => r.json())
-  ]).then(([shelves, items]) => {
-    globalShelves = shelves.map(d => {
-      const parts = d.path.split("/");
-      return {
-        ...d,
-        aisle: +parts[2],
-        bay: +parts[3],
-        shelf: +parts[4],
-      };
-    });
+  ])
+    .then(([shelves, items]) => {
+      globalShelves = shelves.map(d => {
+        const parts = d.path.split("/");
+        return {
+          ...d,
+          aisle: +parts[2],
+          bay: +parts[3],
+          shelf: +parts[4],
+        };
+      });
 
-    globalItems = items;
-    draw();
-  });
+      globalItems = items;
+      draw();
+      hideLoading();
+    })
+    .catch(err => {
+      console.error("Error loading room data:", err);
+      hideLoading();
+    });
 }
 
 /* -----------------------------
