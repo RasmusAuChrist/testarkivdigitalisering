@@ -21,3 +21,8 @@ app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 # Include API routers (modular)
 app.include_router(locations.router, prefix="/api")
+
+@app.get("/debug/routes")
+def debug_routes():
+    return [route.path for route in app.routes]
+
