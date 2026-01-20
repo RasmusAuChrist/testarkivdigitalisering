@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from backend.routers import locations  # You can import more routers here later
+from routers import locations  # You can import more routers here later
 
 app = FastAPI()
 
