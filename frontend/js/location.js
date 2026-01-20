@@ -1,24 +1,5 @@
 import { createTooltip } from "./tooltip.js";
 
-const canvas = document.getElementById("shelfCanvas");
-const ctx = canvas.getContext("2d");
-const depotSelect = document.getElementById("depotSelect");
-const roomSelect = document.getElementById("roomSelect");
-const pathFilterInput = document.getElementById("pathFilter");
-
-// Loader
-function showLoading() {
-  document.getElementById("loadingOverlay").style.display = "flex";
-}
-
-function hideLoading() {
-  document.getElementById("loadingOverlay").style.display = "none";
-}
-
-// Constants
-const baySpacing = 220;
-const shelfHeight = 25;
-const shelfWidth = 200;
 const aisleSpacing = 200;
 const pillHeight = 10;
 const pillPadding = 2;
