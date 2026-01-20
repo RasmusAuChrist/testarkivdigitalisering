@@ -2,97 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Shelf Visualization</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      overflow: hidden;
-    }
-
-    #controls {
-      display: flex;
-      gap: 10px;
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 10;
-      background-color: rgba(255, 255, 255, 0.8);
-      padding: 5px 10px;
-      border-radius: 5px;
-      align-items: center;
-    }
-
-#controls label,
-#controls select {
-  font-size: 16px;
-}
-
-    canvas {
-      display: block;
-      background-color: #ffffff;
-    }
-
-#loadingOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(255, 255, 255, 0.8);
-  z-index: 10000;
-  display: none;
-  justify-content: center;
-  align-items: center;
-}
-
-.spinner {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;        /* Makes it circular */
-  object-fit: cover;         /* Ensures it fills the circle nicely */
-  animation: spinCCW 1s linear infinite;
-}
-
-@keyframes spinCCW {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(-360deg); /* Counter-clockwise */
-  }
-}
-
-
-.loader {
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-}
-
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visualization Dashboard</title>
 </head>
-<div id="loadingOverlay">
-  <img src="spinner.png" alt="Loading..." class="spinner" />
-</div>
-
 <body>
-    <div id="controls">
-      <label for="depotSelect">Depot:</label>
-      <select id="depotSelect"></select>
+  <h1>📊 Visualization Dashboard</h1>
 
-      <label for="roomSelect">Room:</label>
-      <select id="roomSelect"></select>
-
-      <label for="pathFilter">Filter Path:</label>
-      <input type="text" id="pathFilter" placeholder="e.g. 1/2/3" />
-    </div>
-
-
-  <canvas id="shelfCanvas" width="1600" height="1000"></canvas>
-
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script type="module" src="script.js"></script>
+  <ul>
+    <li><a href="views/location.html">📍 Open Location Viewer</a></li>
+    <!-- Future pages can go here -->
+    <!-- <li><a href="views/status.html">📋 Table Status</a></li> -->
+  </ul>
 </body>
 </html>
