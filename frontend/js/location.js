@@ -2,15 +2,26 @@ import { createTooltip } from "./tooltip.js";
 
 const canvas = document.getElementById("shelfCanvas");
 const ctx = canvas.getContext("2d");
+const depotSelect = document.getElementById("depotSelect");
+const roomSelect = document.getElementById("roomSelect");
+const pathFilterInput = document.getElementById("pathFilter");
 
+// Update this if your backend URL changes
+const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+
+// Constants
+const baySpacing = 220;
+const shelfHeight = 25;
+const shelfWidth = 200;
 const aisleSpacing = 200;
 const pillHeight = 10;
 const pillPadding = 2;
 
-// Zoom / Pan
-let zoomX = 0;
-let zoomY = 0;
-let scale = 1;
+canvas.width = window.innerWidth * 2;
+canvas.height = window.innerHeight * 2;
+
+// Zoom / pan
+let zoomX = 0, zoomY = 0, scale = 1;
 
 // State
 let currentDepot = null;
@@ -85,18 +96,26 @@ function setupEvents() {
   });
 }
 
+function showLoading() {
+  document.getElementById("loadingOverlay").style.display = "flex";
+}
+
+function hideLoading() {
+  document.getElementById("loadingOverlay").style.display = "none";
+}
+
 function loadDepots() {
   showLoading();
-  fetch("/api/depots")
+  fetch(`${API_BASE}/api/depots`)
     .then(res => res.json())
     .then(depots => {
+      depotSelect.innerHTML = "";
       depots.sort().forEach(depot => {
         const opt = document.createElement("option");
         opt.value = depot;
         opt.textContent = depot;
         depotSelect.appendChild(opt);
       });
-
       if (depots.length) {
         currentDepot = depots[0];
         depotSelect.value = currentDepot;
@@ -114,8 +133,7 @@ function loadDepots() {
 function loadRooms(depot) {
   showLoading();
   roomSelect.innerHTML = "";
-
-  fetch(`/api/rooms?depot=${encodeURIComponent(depot)}`)
+  fetch(`${API_BASE}/api/rooms?depot=${encodeURIComponent(depot)}`)
     .then(res => res.json())
     .then(rooms => {
       rooms.sort().forEach(room => {
@@ -124,7 +142,6 @@ function loadRooms(depot) {
         opt.textContent = room;
         roomSelect.appendChild(opt);
       });
-
       if (rooms.length) {
         currentRoom = rooms[0];
         roomSelect.value = currentRoom;
@@ -141,10 +158,9 @@ function loadRooms(depot) {
 
 function loadRoom(depot, room) {
   showLoading();
-
   Promise.all([
-    fetch(`/api/shelves?depot=${depot}&room=${room}`).then(r => r.json()),
-    fetch(`/api/items?depot=${depot}&room=${room}`).then(r => r.json())
+    fetch(`${API_BASE}/api/shelves?depot=${depot}&room=${room}`).then(r => r.json()),
+    fetch(`${API_BASE}/api/items?depot=${depot}&room=${room}`).then(r => r.json())
   ])
     .then(([shelves, items]) => {
       globalShelves = shelves.map(d => {
@@ -153,7 +169,7 @@ function loadRoom(depot, room) {
           ...d,
           aisle: +parts[2],
           bay: +parts[3],
-          shelf: +parts[4]
+          shelf: +parts[4],
         };
       });
 
@@ -214,8 +230,8 @@ function draw() {
         items.slice(0, maxFit).forEach((item, i) => {
           const x = baseX + pillPadding + i * (pillWidth + pillPadding);
           const y = shelfY + 2;
+          const matches = !filterPath || item.item_path?.startsWith(filterPath);
 
-          const matches = !filterPath || item.arkiv?.startsWith(filterPath);
           ctx.globalAlpha = matches ? 1 : 0.2;
           ctx.fillStyle = colorScale(item.arkiv);
           ctx.fillRect(x, y, pillWidth, pillHeight);
