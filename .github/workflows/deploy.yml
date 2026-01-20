@@ -25,12 +25,12 @@ jobs:
 
       - name: Copy backend files to root
         run: |
-          cp -r backend/* .
-
+          cp -r backend/* .          # ✅ Includes routers/
+          ls -R                      # ✅ Debug: list files to confirm
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ask-fastapi
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-          package: .
+          package: .                 # ✅ Deploys the current (root) folder
