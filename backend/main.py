@@ -1,13 +1,11 @@
-print(">>> FASTAPI MAIN.PY STARTED <<<")
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import locations  # You can import more routers here later
+from routers import locations
 
 app = FastAPI()
 
-# CORS settings — allow frontend to call APIs
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -18,13 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve static frontend files
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+print(">>> FASTAPI MAIN.PY STARTED <<<")
 
-# Include API routers (modular)
+# ✅ API routes FIRST
 app.include_router(locations.router, prefix="/api")
 
 @app.get("/debug/routes")
 def debug_routes():
     return [route.path for route in app.routes]
 
+# ✅ Static files LAST
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
