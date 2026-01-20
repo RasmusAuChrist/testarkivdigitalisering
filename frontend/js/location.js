@@ -1,5 +1,8 @@
 import { createTooltip } from "./tooltip.js";
 
+const canvas = document.getElementById("shelfCanvas");
+const ctx = canvas.getContext("2d");
+
 const aisleSpacing = 200;
 const pillHeight = 10;
 const pillPadding = 2;
