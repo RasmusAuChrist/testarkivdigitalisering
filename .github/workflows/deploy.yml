@@ -25,8 +25,8 @@ jobs:
 
       - name: Copy backend files to root
         run: |
-          cp backend/main.py .
-          cp backend/requirements.txt .
+          cp -r backend/* .
+
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
