@@ -5,7 +5,7 @@
   box-sizing: border-box;
 }
 
-/* Splash screen */
+/* ===== Splash Screen ===== */
 #splash-screen {
   position: fixed;
   top: 0;
@@ -24,75 +24,42 @@
   animation: fadeIn 0.5s ease-in-out;
 }
 
-/* Optional: fade in animation */
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.9); }
   to { opacity: 1; transform: scale(1); }
 }
 
-
 /* ===== Global Styles ===== */
 body {
-  background-color: #000; /* true black */
-  color: #fdd835; /* gold-ish yellow */
+  background-color: #000; /* Black background */
+  color: #fdd835;         /* Gold text */
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
   min-height: 100vh;
 }
 
-/* ===== Header Layout ===== */
-header {
+/* ===== Navigation Bar ===== */
+#navbar {
+  background-color: #000;
   display: flex;
   align-items: center;
-  padding: 1rem 2rem;
-  background-color: #111; /* near-black header bar */
+  padding: 10px 20px;
   border-bottom: 2px solid #fdd835;
 }
 
-header img.logo {
-  height: 50px;
-  margin-right: 1rem;
+#navbar .logo {
+  height: 40px;
 }
 
-/* ===== Navigation Menu ===== */
-nav {
-  display: flex;
-  gap: 1.5rem;
-}
-
-nav a {
-  color: #fdd835;
-  text-decoration: none;
-  font-weight: bold;
-  transition: color 0.2s;
-}
-
-nav a:hover {
-  color: #fff; /* white on hover */
-}
-
-/* ===== Page Content Container ===== */
-main {
-  padding: 2rem;
-}
-
-body {
-  margin: 0;
-  font-family: sans-serif;
-  overflow: hidden;
-  background-color: #000; /* Optional: black background to match ASK branding */
-}
-
+/* ===== Controls Panel ===== */
 #controls {
+  background-color: #111;
+  color: white;
   display: flex;
-  gap: 10px;
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 10;
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 5px 10px;
-  border-radius: 5px;
+  gap: 15px;
+  padding: 10px 20px;
   align-items: center;
+  font-size: 16px;
 }
 
 #controls label,
@@ -101,12 +68,22 @@ body {
   font-size: 16px;
 }
 
-canvas {
-  display: block;
-  background-color: #ffffff;
+#controls select,
+#controls input {
+  background-color: #222;
+  color: white;
+  border: 1px solid #444;
+  padding: 5px;
+  border-radius: 3px;
 }
 
-/* Loading overlay */
+/* ===== Canvas ===== */
+canvas {
+  display: block;
+  background-color: white;
+}
+
+/* ===== Loading Spinner Overlay ===== */
 #loadingOverlay {
   position: fixed;
   top: 0;
@@ -133,3 +110,19 @@ canvas {
   to { transform: rotate(-360deg); }
 }
 
+/* ===== Navigation Links ===== */
+nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+nav a {
+  color: #fdd835;
+  text-decoration: none;
+  font-weight: bold;
+  transition: color 0.2s;
+}
+
+nav a:hover {
+  color: #fff;
+}

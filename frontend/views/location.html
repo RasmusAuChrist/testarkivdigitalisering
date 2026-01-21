@@ -8,12 +8,17 @@
 </head>
 
 <body>
-  <!-- Loading Spinner Overlay -->
+  <!-- Loading Spinner -->
   <div id="loadingOverlay">
     <img src="../assets/spinner.png" alt="Loading..." class="spinner" />
   </div>
 
-  <!-- UI Controls -->
+  <!-- Navigation Bar -->
+  <nav id="navbar">
+    <img src="../assets/logo.png" alt="ASK Logo" class="logo" />
+  </nav>
+
+  <!-- Filter Controls -->
   <div id="controls">
     <label for="depotSelect">Depot:</label>
     <select id="depotSelect"></select>
@@ -25,11 +30,12 @@
     <input type="text" id="pathFilter" placeholder="f.eks. RA-S-2451/F" />
   </div>
 
-  <!-- Canvas Drawing Area -->
+  <!-- Canvas -->
   <canvas id="shelfCanvas" width="1600" height="1000"></canvas>
 
   <!-- Scripts -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script type="module" src="../js/location.js"></script>
 </body>
+
 </html>
