@@ -4,6 +4,12 @@ async function loadStatus() {
   try {
     const res = await fetch(`${API_BASE}/api/status`);
     const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      console.error("Expected array from /api/status, got:", data);
+      return;
+    }
+
     renderStatus(data);
   } catch (err) {
     console.error("Error loading status:", err);
@@ -11,33 +17,32 @@ async function loadStatus() {
 }
 
 function renderStatus(rows) {
-  const tableBody = document.querySelector("#statusTable tbody");
+  const tableBody = document.getElementById("status-body");
   tableBody.innerHTML = "";
+
+  const now = new Date();
 
   rows.forEach(row => {
     const tr = document.createElement("tr");
 
-    const tableNameTd = document.createElement("td");
-    tableNameTd.textContent = row.TableName;
-
-    const lastLoadedTd = document.createElement("td");
     const lastLoaded = new Date(row.LastLoaded);
-    lastLoadedTd.textContent = lastLoaded.toLocaleString();
+    const ageHours = (now - lastLoaded) / (1000 * 60 * 60);
 
-    const statusTd = document.createElement("td");
-    const ageHours = (Date.now() - lastLoaded.getTime()) / (1000 * 60 * 60);
-
+    let color;
     if (ageHours < 25) {
-      statusTd.className = "status-dot green";
+      color = "green";
     } else if (ageHours <= 72) {
-      statusTd.className = "status-dot yellow";
+      color = "yellow";
     } else {
-      statusTd.className = "status-dot red";
+      color = "red";
     }
 
-    tr.appendChild(tableNameTd);
-    tr.appendChild(lastLoadedTd);
-    tr.appendChild(statusTd);
+    tr.innerHTML = `
+      <td><span class="status-dot ${color}"></span></td>
+      <td>${row.TableName}</td>
+      <td>${lastLoaded.toLocaleString("no-NO")}</td>
+    `;
+
     tableBody.appendChild(tr);
   });
 }
