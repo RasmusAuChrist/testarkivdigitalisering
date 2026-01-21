@@ -1,27 +1,34 @@
-<meta charset="UTF-8" />
+<!DOCTYPE html>
 <html lang="no">
 <head>
-  <title>ASK - Hovedside</title> <!-- Change this -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASK - Hovedside</title>
+  <link rel="stylesheet" href="/css/styles.css" />
 </head>
-<link rel="stylesheet" href="/css/styles.css">
+
 <body>
-    <div id="splash-screen">
-    <img src="/assets/logo.png" alt="ASK Logo">
+  <!-- Splash Screen -->
+  <div id="splash-screen">
+    <img src="/assets/logo.png" class="splash-logo" alt="ASK Logo">
   </div>
-  <div id="main-content" style="display: none;"></div>
-  <header>
-    <img src="/assets/logo.png" alt="ASK Logo" class="logo" />
+
+  <!-- Navbar -->
+  <div id="navbar">
+    <img src="/assets/logo.png" alt="ASK Logo" class="nav-logo" />
     <nav>
       <a href="/views/location.html">Hylleplasseringer</a>
       <a href="/views/status.html">Driftsstatus</a>
       <!-- Add more nav links here -->
     </nav>
-  </header>
   </div>
-  <script src="/js/main.js" type="module"></script>
-</body>
+
+  <!-- Main content -->
   <main>
     <h1>Velkommen til ASK</h1>
     <p>Bruk menyen øverst til å navigere</p>
   </main>
+
+  <script src="/js/main.js" type="module"></script>
 </body>
+</html>
