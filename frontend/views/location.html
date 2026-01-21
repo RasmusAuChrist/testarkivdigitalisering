@@ -3,65 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Location Visualization</title>
+  <title>ASK - Hylleplasseringer</title>
   <link rel="stylesheet" href="../css/styles.css" />
-  <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      overflow: hidden;
-    }
-
-    #controls {
-      display: flex;
-      gap: 10px;
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 10;
-      background-color: rgba(255, 255, 255, 0.8);
-      padding: 5px 10px;
-      border-radius: 5px;
-      align-items: center;
-    }
-
-    #controls label,
-    #controls select,
-    #controls input[type="text"] {
-      font-size: 16px;
-    }
-
-    canvas {
-      display: block;
-      background-color: #ffffff;
-    }
-
-    #loadingOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: rgba(255, 255, 255, 0.8);
-      z-index: 10000;
-      display: none;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .spinner {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      object-fit: cover;
-      animation: spinCCW 1s linear infinite;
-    }
-
-    @keyframes spinCCW {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(-360deg); }
-    }
-  </style>
 </head>
 
 <body>
