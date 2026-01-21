@@ -16,7 +16,7 @@ def get_connection():
 @router.get("/status")
 def get_status():
     """
-    Returns list of {TableName, LastLoaded} from tbl_ref_Lookup_table
+    Returns list of {TableName, LastLoaded} from tbl_ref_LookupTable
     """
     try:
         conn = get_connection()
@@ -24,7 +24,7 @@ def get_status():
 
         query = """
         SELECT TableName, LastLoaded
-        FROM tbl_ref_Lookup_table
+        FROM tbl_ref_LookupTable
         ORDER BY TableName;
         """
         cursor.execute(query)
