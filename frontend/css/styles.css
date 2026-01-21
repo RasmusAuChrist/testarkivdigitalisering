@@ -144,3 +144,26 @@ canvas {
     transform: rotate(-360deg);
   }
 }
+
+/* =========================
+   Status colors
+========================= */
+
+.status-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.green {
+  background-color: #4caf50;
+}
+
+.status-dot.yellow {
+  background-color: #ffc107;
+}
+
+.status-dot.red {
+  background-color: #f44336;
+}

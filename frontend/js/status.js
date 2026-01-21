@@ -11,35 +11,34 @@ async function loadStatus() {
 }
 
 function renderStatus(rows) {
-  const tbody = document.getElementById("status-body");
-  tbody.innerHTML = "";
-
-  const now = new Date();
+  const tableBody = document.querySelector("#statusTable tbody");
+  tableBody.innerHTML = "";
 
   rows.forEach(row => {
-    const lastLoadedDate = new Date(row.LastLoaded);
-
-    const diffMs = now - lastLoadedDate;
-    const diffMinutes = diffMs / 1000 / 60;
-
-    let color;
-    if (diffMinutes < 30) {
-      color = "green";     // updated recently
-    } else if (diffMinutes < 120) {
-      color = "yellow";    // moderately old
-    } else {
-      color = "red";       // old
-    }
-
     const tr = document.createElement("tr");
 
-    tr.innerHTML = `
-      <td><span class="status-dot" style="background:${color};"></span></td>
-      <td>${row.TableName}</td>
-      <td>${lastLoadedDate.toLocaleString("no-NO")}</td>
-    `;
+    const tableNameTd = document.createElement("td");
+    tableNameTd.textContent = row.TableName;
 
-    tbody.appendChild(tr);
+    const lastLoadedTd = document.createElement("td");
+    const lastLoaded = new Date(row.LastLoaded);
+    lastLoadedTd.textContent = lastLoaded.toLocaleString();
+
+    const statusTd = document.createElement("td");
+    const ageHours = (Date.now() - lastLoaded.getTime()) / (1000 * 60 * 60);
+
+    if (ageHours < 25) {
+      statusTd.className = "status-dot green";
+    } else if (ageHours <= 72) {
+      statusTd.className = "status-dot yellow";
+    } else {
+      statusTd.className = "status-dot red";
+    }
+
+    tr.appendChild(tableNameTd);
+    tr.appendChild(lastLoadedTd);
+    tr.appendChild(statusTd);
+    tableBody.appendChild(tr);
   });
 }
 
