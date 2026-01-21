@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import locations
+from routers import locations, status
 
 app = FastAPI()
 
@@ -20,6 +20,7 @@ print(">>> FASTAPI MAIN.PY STARTED <<<")
 
 # ✅ API routes FIRST
 app.include_router(locations.router, prefix="/api")
+app.include_router(status.router, prefix="/api")
 
 @app.get("/debug/routes")
 def debug_routes():
