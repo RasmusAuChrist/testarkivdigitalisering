@@ -1,0 +1,50 @@
+/* ===== Base Reset ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ===== Global Styles ===== */
+body {
+  background-color: #000; /* true black */
+  color: #fdd835; /* gold-ish yellow */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 100vh;
+}
+
+/* ===== Header Layout ===== */
+header {
+  display: flex;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #111; /* near-black header bar */
+  border-bottom: 2px solid #fdd835;
+}
+
+header img.logo {
+  height: 50px;
+  margin-right: 1rem;
+}
+
+/* ===== Navigation Menu ===== */
+nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+nav a {
+  color: #fdd835;
+  text-decoration: none;
+  font-weight: bold;
+  transition: color 0.2s;
+}
+
+nav a:hover {
+  color: #fff; /* white on hover */
+}
+
+/* ===== Page Content Container ===== */
+main {
+  padding: 2rem;
+}
