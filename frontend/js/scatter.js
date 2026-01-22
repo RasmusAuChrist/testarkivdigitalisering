@@ -1,6 +1,7 @@
 const canvas = document.getElementById("scatterCanvas");
 const tooltip = document.getElementById("customTooltip");
 const filter = document.getElementById("lokasjonFilter");
+const legend = document.getElementById("legendContainer");
 
 const ctx = canvas.getContext("2d");
 const margin = { top: 50, right: 40, bottom: 50, left: 60 };
@@ -8,8 +9,11 @@ let width = canvas.width = canvas.clientWidth;
 let height = canvas.height = canvas.clientHeight;
 
 let fullData = [];
-let transform = d3.zoomIdentity;
 let filteredData = [];
+let transform = d3.zoomIdentity;
+
+let colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+let lokasjonDomain = [];
 
 const xScale = d3.scaleLinear().domain([0, 100]).range([margin.left, width - margin.right]);
 const yScale = d3.scaleLinear().domain([0, 20]).range([height - margin.bottom, margin.top]);
@@ -46,11 +50,16 @@ function populateFilter(data) {
 
 function applyFilter() {
   const selected = filter.value;
+
   filteredData = selected === "ALL"
     ? fullData
     : fullData.filter(d => d.lokasjon === selected);
 
+  lokasjonDomain = Array.from(new Set(filteredData.map(d => d.lokasjon)));
+  colorScale.domain(lokasjonDomain);
+
   draw();
+  updateLegend();
 }
 
 function draw() {
@@ -58,14 +67,13 @@ function draw() {
   const zx = transform.rescaleX(xScale);
   const zy = transform.rescaleY(yScale);
 
-  // Axes (simple ticks)
   drawAxes(zx, zy);
 
-  ctx.fillStyle = "steelblue";
   for (const d of filteredData) {
     const x = zx(d.percentage_digitized * 100);
     const y = zy(d.average_views_media);
     ctx.beginPath();
+    ctx.fillStyle = colorScale(d.lokasjon);
     ctx.arc(x, y, 3, 0, 2 * Math.PI);
     ctx.fill();
   }
@@ -77,7 +85,6 @@ function drawAxes(zx, zy) {
   ctx.strokeStyle = "#aaa";
   ctx.lineWidth = 1;
 
-  // X axis
   const xticks = zx.ticks(10);
   xticks.forEach(t => {
     const x = zx(t);
@@ -90,7 +97,6 @@ function drawAxes(zx, zy) {
 
   ctx.fillText("Digitaliseringsgrad (%)", width / 2 - 60, height - 10);
 
-  // Y axis
   const yticks = zy.ticks(10);
   yticks.forEach(t => {
     const y = zy(t);
@@ -109,7 +115,6 @@ function drawAxes(zx, zy) {
   ctx.restore();
 }
 
-// Tooltip on click
 canvas.addEventListener("click", evt => {
   const rect = canvas.getBoundingClientRect();
   const mx = evt.clientX - rect.left;
@@ -117,12 +122,11 @@ canvas.addEventListener("click", evt => {
 
   const zx = transform.rescaleX(xScale);
   const zy = transform.rescaleY(yScale);
-
   const r = 5;
+
   for (const d of filteredData) {
     const x = zx(d.percentage_digitized * 100);
     const y = zy(d.average_views_media);
-
     if (Math.abs(mx - x) < r && Math.abs(my - y) < r) {
       tooltip.style.left = `${evt.pageX + 10}px`;
       tooltip.style.top = `${evt.pageY + 10}px`;
@@ -139,3 +143,18 @@ canvas.addEventListener("click", evt => {
 
   tooltip.style.display = "none";
 });
+
+function updateLegend() {
+  legend.innerHTML = "";
+  lokasjonDomain.forEach(loc => {
+    const entry = document.createElement("div");
+    entry.style.display = "flex";
+    entry.style.alignItems = "center";
+    entry.style.marginBottom = "4px";
+    entry.innerHTML = `
+      <span style="display:inline-block; width:12px; height:12px; background:${colorScale(loc)}; margin-right:6px;"></span>
+      ${loc}
+    `;
+    legend.appendChild(entry);
+  });
+}
