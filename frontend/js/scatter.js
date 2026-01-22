@@ -1,7 +1,6 @@
 const canvas = document.getElementById("scatterCanvas");
 const tooltip = document.getElementById("customTooltip");
 const filter = document.getElementById("lokasjonFilter");
-const legend = document.getElementById("legendContainer");
 
 const ctx = canvas.getContext("2d");
 const margin = { top: 50, right: 40, bottom: 50, left: 60 };
@@ -12,11 +11,9 @@ let fullData = [];
 let filteredData = [];
 let transform = d3.zoomIdentity;
 
-let colorScale = d3.scaleOrdinal(d3.schemeCategory10);
-let lokasjonDomain = [];
+let yScaleRaw = d3.scaleLinear().domain([0, 20]).range([height - margin.bottom, margin.top]);
 
 const xScale = d3.scaleLinear().domain([0, 100]).range([margin.left, width - margin.right]);
-const yScale = d3.scaleLinear().domain([0, 20]).range([height - margin.bottom, margin.top]);
 
 const zoom = d3.zoom()
   .scaleExtent([0.5, 20])
@@ -55,25 +52,25 @@ function applyFilter() {
     ? fullData
     : fullData.filter(d => d.lokasjon === selected);
 
-  lokasjonDomain = Array.from(new Set(filteredData.map(d => d.lokasjon)));
-  colorScale.domain(lokasjonDomain);
+  // Dynamically set Y-axis domain based on data max
+  const maxY = d3.max(filteredData, d => d.average_views_media) || 20;
+  yScaleRaw = d3.scaleLinear().domain([0, maxY * 1.1]).range([height - margin.bottom, margin.top]);
 
   draw();
-  updateLegend();
 }
 
 function draw() {
   ctx.clearRect(0, 0, width, height);
   const zx = transform.rescaleX(xScale);
-  const zy = transform.rescaleY(yScale);
+  const zy = transform.rescaleY(yScaleRaw);
 
   drawAxes(zx, zy);
 
+  ctx.fillStyle = "steelblue";
   for (const d of filteredData) {
     const x = zx(d.percentage_digitized * 100);
     const y = zy(d.average_views_media);
     ctx.beginPath();
-    ctx.fillStyle = colorScale(d.lokasjon);
     ctx.arc(x, y, 3, 0, 2 * Math.PI);
     ctx.fill();
   }
@@ -121,7 +118,7 @@ canvas.addEventListener("click", evt => {
   const my = evt.clientY - rect.top;
 
   const zx = transform.rescaleX(xScale);
-  const zy = transform.rescaleY(yScale);
+  const zy = transform.rescaleY(yScaleRaw);
   const r = 5;
 
   for (const d of filteredData) {
@@ -143,18 +140,3 @@ canvas.addEventListener("click", evt => {
 
   tooltip.style.display = "none";
 });
-
-function updateLegend() {
-  legend.innerHTML = "";
-  lokasjonDomain.forEach(loc => {
-    const entry = document.createElement("div");
-    entry.style.display = "flex";
-    entry.style.alignItems = "center";
-    entry.style.marginBottom = "4px";
-    entry.innerHTML = `
-      <span style="display:inline-block; width:12px; height:12px; background:${colorScale(loc)}; margin-right:6px;"></span>
-      ${loc}
-    `;
-    legend.appendChild(entry);
-  });
-}
