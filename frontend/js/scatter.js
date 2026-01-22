@@ -108,7 +108,7 @@ function drawAxes(zx, zy) {
   ctx.translate(15, height / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center";
-  ctx.fillText("Gj.snitt Visninger (Media)", 0, 0);
+  ctx.fillText("Gj.snitt visninger per dag (Media)", 0, 0);
   ctx.restore();
 }
 
