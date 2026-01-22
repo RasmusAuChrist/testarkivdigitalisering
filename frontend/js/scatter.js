@@ -1,112 +1,141 @@
-const svg = d3.select("#scatterPlot");
-const tooltip = d3.select("#customTooltip");
+const canvas = document.getElementById("scatterCanvas");
+const tooltip = document.getElementById("customTooltip");
 const filter = document.getElementById("lokasjonFilter");
+
+const ctx = canvas.getContext("2d");
+const margin = { top: 50, right: 40, bottom: 50, left: 60 };
+let width = canvas.width = canvas.clientWidth;
+let height = canvas.height = canvas.clientHeight;
+
 let fullData = [];
+let transform = d3.zoomIdentity;
+let filteredData = [];
 
-const margin = { top: 40, right: 40, bottom: 50, left: 60 };
-const width = svg.node().clientWidth - margin.left - margin.right;
-const height = svg.node().clientHeight - margin.top - margin.bottom;
-
-const chartArea = svg.append("g")
-  .attr("transform", `translate(${margin.left},${margin.top})`);
-
-const xScale = d3.scaleLinear().range([0, width]).domain([0, 100]);
-const yScale = d3.scaleLinear().range([height, 0]).domain([0, 20]);
-
-const xAxis = d3.axisBottom(xScale).ticks(10).tickFormat(d => `${d}%`);
-const yAxis = d3.axisLeft(yScale);
-
-const xAxisGroup = chartArea.append("g")
-  .attr("transform", `translate(0,${height})`)
-  .call(xAxis);
-
-const yAxisGroup = chartArea.append("g")
-  .call(yAxis);
-
-chartArea.append("text")
-  .attr("x", width / 2)
-  .attr("y", height + 40)
-  .attr("text-anchor", "middle")
-  .text("Digitaliseringsgrad (%)");
-
-chartArea.append("text")
-  .attr("transform", "rotate(-90)")
-  .attr("y", -50)
-  .attr("x", -height / 2)
-  .attr("text-anchor", "middle")
-  .text("Gj.snitt Visninger (Media)");
+const xScale = d3.scaleLinear().domain([0, 100]).range([margin.left, width - margin.right]);
+const yScale = d3.scaleLinear().domain([0, 20]).range([height - margin.bottom, margin.top]);
 
 const zoom = d3.zoom()
   .scaleExtent([0.5, 20])
-  .on("zoom", zoomed);
+  .translateExtent([[0, 0], [width, height]])
+  .on("zoom", (event) => {
+    transform = event.transform;
+    draw();
+  });
 
-svg.call(zoom);
-
-function zoomed(event) {
-  const t = event.transform;
-  const zx = t.rescaleX(xScale);
-  const zy = t.rescaleY(yScale);
-
-  xAxisGroup.call(xAxis.scale(zx));
-  yAxisGroup.call(yAxis.scale(zy));
-
-  chartArea.selectAll("circle")
-    .attr("cx", d => zx(d.percentage_digitized * 100))
-    .attr("cy", d => zy(d.average_views_media));
-}
+d3.select(canvas).call(zoom);
 
 fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/scatter-data")
   .then(res => res.json())
   .then(data => {
     fullData = data.filter(d => d.percentage_digitized !== null && d.average_views_media !== null);
     populateFilter(fullData);
-    drawPoints(fullData);
+    applyFilter();
   });
 
 function populateFilter(data) {
-  const lokasjoner = Array.from(new Set(data.map(d => d.lokasjon).filter(Boolean))).sort();
-  for (const l of lokasjoner) {
-    const option = document.createElement("option");
-    option.value = l;
-    option.textContent = l;
-    filter.appendChild(option);
+  const uniqueLocations = Array.from(new Set(data.map(d => d.lokasjon).filter(Boolean))).sort();
+  for (const loc of uniqueLocations) {
+    const opt = document.createElement("option");
+    opt.value = loc;
+    opt.textContent = loc;
+    filter.appendChild(opt);
   }
 
-  filter.addEventListener("change", () => {
-    const value = filter.value;
-    const filtered = value === "ALL" ? fullData : fullData.filter(d => d.lokasjon === value);
-    drawPoints(filtered);
-  });
+  filter.addEventListener("change", applyFilter);
 }
 
-function drawPoints(data) {
-  chartArea.selectAll("circle").remove();
+function applyFilter() {
+  const selected = filter.value;
+  filteredData = selected === "ALL"
+    ? fullData
+    : fullData.filter(d => d.lokasjon === selected);
 
-  chartArea.selectAll("circle")
-    .data(data)
-    .enter()
-    .append("circle")
-    .attr("r", 5)
-    .attr("cx", d => xScale(d.percentage_digitized * 100))
-    .attr("cy", d => yScale(d.average_views_media))
-    .attr("fill", "steelblue")
-    .style("cursor", "pointer")
-    .on("click", (event, d) => {
-      tooltip
-        .style("left", event.pageX + 10 + "px")
-        .style("top", event.pageY + 10 + "px")
-        .style("display", "block")
-        .html(`
-          <strong>${d.navn}</strong><br/>
-          (${d.identifikator})<br/>
-          Digitalisert: ${(d.percentage_digitized * 100).toFixed(2)}%<br/>
-          Visninger: ${d.average_views_media.toFixed(2)}
-        `);
-    });
+  draw();
+}
 
-  svg.on("click", e => {
-    if (e.target.tagName !== "circle") {
-      tooltip.style("display", "none");
+function draw() {
+  ctx.clearRect(0, 0, width, height);
+  const zx = transform.rescaleX(xScale);
+  const zy = transform.rescaleY(yScale);
+
+  // Axes (simple ticks)
+  drawAxes(zx, zy);
+
+  ctx.fillStyle = "steelblue";
+  for (const d of filteredData) {
+    const x = zx(d.percentage_digitized * 100);
+    const y = zy(d.average_views_media);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+}
+
+function drawAxes(zx, zy) {
+  ctx.font = "12px sans-serif";
+  ctx.fillStyle = "#333";
+  ctx.strokeStyle = "#aaa";
+  ctx.lineWidth = 1;
+
+  // X axis
+  const xticks = zx.ticks(10);
+  xticks.forEach(t => {
+    const x = zx(t);
+    ctx.beginPath();
+    ctx.moveTo(x, height - margin.bottom);
+    ctx.lineTo(x, height - margin.bottom + 6);
+    ctx.stroke();
+    ctx.fillText(`${t}%`, x - 10, height - margin.bottom + 18);
+  });
+
+  ctx.fillText("Digitaliseringsgrad (%)", width / 2 - 60, height - 10);
+
+  // Y axis
+  const yticks = zy.ticks(10);
+  yticks.forEach(t => {
+    const y = zy(t);
+    ctx.beginPath();
+    ctx.moveTo(margin.left - 6, y);
+    ctx.lineTo(margin.left, y);
+    ctx.stroke();
+    ctx.fillText(t.toFixed(1), margin.left - 40, y + 4);
+  });
+
+  ctx.save();
+  ctx.translate(15, height / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.fillText("Gj.snitt Visninger (Media)", 0, 0);
+  ctx.restore();
+}
+
+// Tooltip on click
+canvas.addEventListener("click", evt => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = evt.clientX - rect.left;
+  const my = evt.clientY - rect.top;
+
+  const zx = transform.rescaleX(xScale);
+  const zy = transform.rescaleY(yScale);
+
+  const r = 5;
+  for (const d of filteredData) {
+    const x = zx(d.percentage_digitized * 100);
+    const y = zy(d.average_views_media);
+
+    if (Math.abs(mx - x) < r && Math.abs(my - y) < r) {
+      tooltip.style.left = `${evt.pageX + 10}px`;
+      tooltip.style.top = `${evt.pageY + 10}px`;
+      tooltip.style.display = "block";
+      tooltip.innerHTML = `
+        <strong>${d.navn}</strong><br/>
+        (${d.identifikator})<br/>
+        Digitalisert: ${(d.percentage_digitized * 100).toFixed(2)}%<br/>
+        Visninger: ${d.average_views_media.toFixed(2)}
+      `;
+      return;
     }
-  });
-}
+  }
+
+  tooltip.style.display = "none";
+});
