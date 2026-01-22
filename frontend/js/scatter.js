@@ -54,6 +54,7 @@ function renderChart(data) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       scales: {
         x: {
           title: { display: true, text: "Prosent Digitalisert" },
@@ -72,6 +73,22 @@ function renderChart(data) {
               const d = ctx.raw;
               return `${d.navn} (${d.identifikator})\nDigitalisert: ${d.x}\nVisninger: ${d.y}`;
             }
+          }
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'xy',
+            modifierKey: 'ctrl'
+          },
+          zoom: {
+            wheel: {
+              enabled: true
+            },
+            pinch: {
+              enabled: true
+            },
+            mode: 'xy'
           }
         }
       }

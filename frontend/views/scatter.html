@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Scatter Plot - Digitalisering</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -14,10 +15,10 @@
     <select id="lokasjonFilter">
       <option value="ALL">Alle</option>
     </select>
-
-    <canvas id="scatterChart" width="900" height="600"></canvas>
   </div>
-
+<div style="position: relative; height: 80vh; width: 100%;">
+  <canvas id="scatterChart"></canvas>
+</div>
   <script src="/js/scatter.js" type="module"></script>
 </body>
 </html>
