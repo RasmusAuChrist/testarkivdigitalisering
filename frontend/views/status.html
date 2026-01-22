@@ -33,8 +33,11 @@
 <body>
 <div id="navbar"></div>
 <main>
-  <main>
-    <h1>Driftsstatus</h1>
+  <h1>Driftsstatus</h1>
+
+  <div id="loading" style="padding: 10px;">Laster statusdata...</div>
+
+  <div style="max-height: 60vh; overflow-y: auto;">
     <table class="status-table">
       <thead>
         <tr>
@@ -47,7 +50,8 @@
         <!-- Filled by JS -->
       </tbody>
     </table>
-  </main>
+  </div>
+</main>
 
   <script type="module" src="/js/status.js"></script>
 </body>

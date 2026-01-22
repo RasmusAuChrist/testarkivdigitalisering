@@ -1,18 +1,29 @@
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
+document.addEventListener("DOMContentLoaded", () => {
+  loadStatus();
+});
+
 async function loadStatus() {
+  const loading = document.getElementById("loading");
+  const tableBody = document.getElementById("status-body");
+
   try {
     const res = await fetch(`${API_BASE}/api/status`);
     const data = await res.json();
 
     if (!Array.isArray(data)) {
       console.error("Expected array from /api/status, got:", data);
+      loading.textContent = "Feil ved lasting av data.";
       return;
     }
 
     renderStatus(data);
+    loading.style.display = "none";
+
   } catch (err) {
     console.error("Error loading status:", err);
+    loading.textContent = "Feil ved henting av status.";
   }
 }
 
@@ -46,5 +57,3 @@ function renderStatus(rows) {
     tableBody.appendChild(tr);
   });
 }
-
-loadStatus();
