@@ -32,13 +32,6 @@
 </head>
 <body>
   <div id="navbar">
-    <img src="/assets/logo.png" class="nav-logo" alt="ASK Logo">
-    <nav>
-      <a href="/views/location.html">Hylleplasseringer</a>
-      <a href="/views/status.html">Driftsstatus</a>
-    </nav>
-  </div>
-
   <main>
     <h1>Driftsstatus</h1>
     <table class="status-table">
@@ -57,4 +50,12 @@
 
   <script type="module" src="/js/status.js"></script>
 </body>
+<script>
+  fetch("../partials/navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar").outerHTML = html;
+    });
+</script>
+
 </html>

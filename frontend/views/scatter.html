@@ -1,14 +1,7 @@
 <!DOCTYPE html>
 <html lang="no">
 <!-- Navbar -->
-<div id="navbar">
-  <img src="/assets/logo.png" alt="ASK Logo" class="nav-logo" />
-  <nav>
-    <a href="/views/location.html">Hylleplasseringer</a>
-    <a href="/views/status.html">Driftsstatus</a>
-    <a href="/views/scatter.html" class="active">Analyse</a>
-  </nav>
-</div>
+<div id="navbar"></div>
 <head>
   <meta charset="UTF-8">
   <title>ASK - Digitaliseringsgrad</title>
@@ -47,4 +40,11 @@
 
   <script type="module" src="/js/scatter.js"></script>
 </body>
+<script>
+  fetch("../partials/navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar").outerHTML = html;
+    });
+</script>
 </html>

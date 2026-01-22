@@ -15,12 +15,6 @@
 
   <!-- Navigation Bar -->
 <div id="navbar">
-  <img src="/assets/logo.png" class="nav-logo" alt="ASK Logo">
-
-  <nav>
-    <a href="/views/location.html">Hylleplasseringer</a>
-    <a href="/views/status.html">Status</a>
-  </nav>
 </div>
 
   <!-- Filter Controls -->
@@ -42,5 +36,11 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script type="module" src="../js/location.js"></script>
 </body>
-
+<script>
+  fetch("../partials/navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar").outerHTML = html;
+    });
+</script>
 </html>
