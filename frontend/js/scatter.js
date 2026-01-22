@@ -32,7 +32,7 @@ filterSelect.addEventListener("change", () => {
 
 function renderChart(data) {
   const dataset = data.map(d => ({
-    x: d.percentage_digitized,
+    x: d.percentage_digitized * 100,  // Convert to percentage
     y: d.average_views_media,
     navn: d.navn,
     identifikator: d.identifikator
@@ -62,9 +62,9 @@ function renderChart(data) {
       },
       scales: {
         x: {
-          title: { display: true, text: "Prosent Digitalisert" },
+          title: { display: true, text: "Digitaliseringsgrad (%)" },
           min: 0,
-          max: 1
+          max: 100
         },
         y: {
           title: { display: true, text: "Gj.snitt Visninger (Media)" },
@@ -73,12 +73,7 @@ function renderChart(data) {
       },
       plugins: {
         tooltip: {
-          callbacks: {
-            label: ctx => {
-              const d = ctx.raw;
-              return `${d.navn} (${d.identifikator})\nDigitalisert: ${d.x}\nVisninger: ${d.y}`;
-            }
-          }
+          enabled: false  // Disable default hover tooltips
         },
         zoom: {
           pan: {
@@ -91,10 +86,20 @@ function renderChart(data) {
             mode: 'xy'
           }
         }
+      },
+      onClick: (evt) => {
+        const points = chartInstance.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+        if (points.length > 0) {
+          const point = points[0];
+          const data = chartInstance.data.datasets[point.datasetIndex].data[point.index];
+          showCustomTooltip(evt.native, data);
+        } else {
+          hideCustomTooltip();
+        }
       }
     },
     plugins: [{
-      // Custom plugin to set "grab" cursor when dragging
+      // Grab cursor plugin
       id: 'cursorGrab',
       beforeEvent(chart, args) {
         const e = args.event;
@@ -108,4 +113,42 @@ function renderChart(data) {
       }
     }]
   });
+}
+
+function showCustomTooltip(mouseEvent, dataPoint) {
+  const tooltipId = "custom-tooltip";
+  let tooltipEl = document.getElementById(tooltipId);
+
+  if (!tooltipEl) {
+    tooltipEl = document.createElement("div");
+    tooltipEl.id = tooltipId;
+    tooltipEl.style.position = "absolute";
+    tooltipEl.style.background = "#fff";
+    tooltipEl.style.border = "1px solid #ccc";
+    tooltipEl.style.padding = "8px";
+    tooltipEl.style.borderRadius = "4px";
+    tooltipEl.style.pointerEvents = "none";
+    tooltipEl.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+    tooltipEl.style.fontSize = "14px";
+    tooltipEl.style.whiteSpace = "pre-line";
+    document.body.appendChild(tooltipEl);
+  }
+
+  tooltipEl.innerHTML = `
+    <strong>${dataPoint.navn}</strong><br/>
+    (${dataPoint.identifikator})<br/>
+    Digitalisert: ${dataPoint.x.toFixed(2)}%<br/>
+    Visninger: ${dataPoint.y.toFixed(2)}
+  `;
+
+  tooltipEl.style.left = mouseEvent.clientX + 10 + "px";
+  tooltipEl.style.top = mouseEvent.clientY + 10 + "px";
+  tooltipEl.style.display = "block";
+}
+
+function hideCustomTooltip() {
+  const tooltipEl = document.getElementById("custom-tooltip");
+  if (tooltipEl) {
+    tooltipEl.style.display = "none";
+  }
 }
