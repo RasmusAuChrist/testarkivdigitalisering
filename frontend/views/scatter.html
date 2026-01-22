@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <title>Scatter Plot - Digitalisering</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div style="padding: 20px">
+    <h2>Digitaliseringsgrad vs Medievisninger</h2>
+
+    <label for="lokasjonFilter">Filter på lokasjon:</label>
+    <select id="lokasjonFilter">
+      <option value="ALL">Alle</option>
+    </select>
+
+    <canvas id="scatterChart" width="900" height="600"></canvas>
+  </div>
+
+  <script src="/js/scatter.js" type="module"></script>
+</body>
+</html>
