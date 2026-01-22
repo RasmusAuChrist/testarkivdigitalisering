@@ -55,6 +55,11 @@ function renderChart(data) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
+        axis: 'xy',
+        intersect: false
+      },
       scales: {
         x: {
           title: { display: true, text: "Prosent Digitalisert" },
@@ -78,20 +83,29 @@ function renderChart(data) {
         zoom: {
           pan: {
             enabled: true,
-            mode: 'xy',
-            modifierKey: 'ctrl'
+            mode: 'xy'
           },
           zoom: {
-            wheel: {
-              enabled: true
-            },
-            pinch: {
-              enabled: true
-            },
+            wheel: { enabled: true },
+            pinch: { enabled: true },
             mode: 'xy'
           }
         }
       }
-    }
+    },
+    plugins: [{
+      // Custom plugin to set "grab" cursor when dragging
+      id: 'cursorGrab',
+      beforeEvent(chart, args) {
+        const e = args.event;
+        if (e.type === 'mousedown') {
+          chart.canvas.style.cursor = 'grabbing';
+        } else if (e.type === 'mouseup' || e.type === 'mouseout') {
+          chart.canvas.style.cursor = 'default';
+        } else if (e.type === 'mousemove') {
+          chart.canvas.style.cursor = 'grab';
+        }
+      }
+    }]
   });
 }
