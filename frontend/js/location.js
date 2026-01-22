@@ -6,14 +6,12 @@ const depotSelect = document.getElementById("depotSelect");
 const roomSelect = document.getElementById("roomSelect");
 const pathFilterInput = document.getElementById("pathFilter");
 
-// Update this if your backend URL changes
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
 // Constants
 const baySpacing = 220;
 const shelfHeight = 25;
 const shelfWidth = 200;
-const aisleSpacing = 200;
 const pillHeight = 10;
 const pillPadding = 2;
 
@@ -39,6 +37,19 @@ setupZoom();
 setupEvents();
 createTooltip(canvas, () => ({ zoomX, zoomY, scale }), () => pillHitboxes);
 loadDepots();
+
+function throttle(fn, limit) {
+  let inThrottle;
+  return function(...args) {
+    if (!inThrottle) {
+      fn.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+const throttledDraw = throttle(draw, 16); // ~60fps
 
 function drawText(text, x, y, color = "black", size = 12, bold = false) {
   ctx.fillStyle = color;
@@ -69,13 +80,13 @@ function setupZoom() {
     zoomY += e.offsetY - lastY;
     lastX = e.offsetX;
     lastY = e.offsetY;
-    draw();
+    throttledDraw();
   });
 
   canvas.addEventListener("wheel", e => {
     e.preventDefault();
     scale *= e.deltaY > 0 ? 0.9 : 1.1;
-    draw();
+    throttledDraw();
   });
 }
 
@@ -198,10 +209,17 @@ function draw() {
   const aisleGroups = d3.group(globalShelves, d => d.aisle);
   const sortedAisles = Array.from(aisleGroups.keys()).sort((a, b) => a - b);
 
-  sortedAisles.forEach((aisle, aisleIndex) => {
+  let currentY = 50;
+
+  sortedAisles.forEach((aisle) => {
     const bays = d3.group(aisleGroups.get(aisle), d => d.bay);
     const sortedBays = Array.from(bays.keys()).sort((a, b) => a - b);
-    const baseY = aisleIndex * aisleSpacing + 50;
+    const maxShelvesInAisle = Math.max(
+      ...Array.from(bays.values()).map(shelfList => shelfList.length)
+    );
+
+    const aisleHeight = maxShelvesInAisle * shelfHeight + 30;
+    const baseY = currentY;
 
     drawText(`Aisle ${aisle}`, 20, baseY - 15, "black", 14, true);
 
@@ -251,6 +269,8 @@ function draw() {
         }
       });
     });
+
+    currentY += aisleHeight;
   });
 
   ctx.restore();
