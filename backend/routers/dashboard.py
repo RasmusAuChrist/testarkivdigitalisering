@@ -45,8 +45,8 @@ def get_status_by_ordre():
         query = """
         SELECT 
             ISNULL(ValgtStatusSerie, 'Udefinert') AS status,
-            CAST(Ordre AS VARCHAR) AS ordre,
-            SUM(CAST(stykker AS INT)) AS stykker
+            CAST(Ordre AS VARCHAR(50)) AS ordre,
+            SUM(ISNULL(CAST(stykker AS INT), 0)) AS stykker
         FROM sysTblOrdreSerierKommentar
         GROUP BY ValgtStatusSerie, Ordre
         ORDER BY ValgtStatusSerie, Ordre;
@@ -59,4 +59,5 @@ def get_status_by_ordre():
 
     except Exception as e:
         return {"error": str(e)}
+
 
