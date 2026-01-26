@@ -20,11 +20,12 @@ def get_status_distribution():
 
         query = """
         SELECT 
-            ISNULL(ValgtStatusSerie, 'Udefinert') AS status,
-            SUM(CAST(stykker AS INT)) AS total_stykker
+        ISNULL(ValgtStatusSerie, 'Udefinert') AS status,
+        SUM(CAST(stykker AS INT)) AS total_stykker,
+        COUNT(DISTINCT Ordre) AS ordre_count
         FROM sysTblOrdreSerierKommentar
         GROUP BY ValgtStatusSerie
-        ORDER BY total_stykker DESC;
+
         """
         cursor.execute(query)
         rows = cursor.fetchall()
