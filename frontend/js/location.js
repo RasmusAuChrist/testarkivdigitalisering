@@ -221,13 +221,13 @@ function draw() {
     const aisleHeight = maxShelvesInAisle * shelfHeight + 30;
     const baseY = currentY;
 
-    drawText(`Aisle ${aisle}`, 20, baseY - 15, "black", 14, true);
+    drawText(`Reol ${aisle}`, 20, baseY - 15, "black", 14, true);
 
     sortedBays.forEach((bay, bayIndex) => {
       const shelves = bays.get(bay).sort((a, b) => a.shelf - b.shelf);
       const baseX = bayIndex * baySpacing + 100;
 
-      drawText(`Bay ${bay}`, baseX + shelfWidth / 2 - 20, baseY - 5);
+      drawText(`Fag ${bay}`, baseX + shelfWidth / 2 - 20, baseY - 5);
 
       shelves.forEach((shelf, shelfIndex) => {
         const shelfY = baseY + shelfIndex * shelfHeight;
