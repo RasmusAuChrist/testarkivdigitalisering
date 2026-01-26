@@ -35,3 +35,28 @@ def get_status_distribution():
 
     except Exception as e:
         return {"error": str(e)}
+    
+@router.get("/status-by-ordre")
+def get_status_by_ordre():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(as_dict=True)
+
+        query = """
+        SELECT 
+            ISNULL(ValgtStatusSerie, 'Udefinert') AS status,
+            CAST(Ordre AS VARCHAR) AS ordre,
+            SUM(CAST(stykker AS INT)) AS stykker
+        FROM sysTblOrdreSerierKommentar
+        GROUP BY ValgtStatusSerie, Ordre
+        ORDER BY ValgtStatusSerie, Ordre;
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        conn.close()
+
+        return rows
+
+    except Exception as e:
+        return {"error": str(e)}
+
