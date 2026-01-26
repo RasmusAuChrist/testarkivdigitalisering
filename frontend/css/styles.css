@@ -194,9 +194,21 @@ table.status-table th {
 
 #dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr); /* exactly 3 columns */
   gap: 24px;
   margin-top: 40px;
+}
+
+@media (max-width: 900px) {
+  #dashboard-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 per row on tablets */
+  }
+}
+
+@media (max-width: 600px) {
+  #dashboard-grid {
+    grid-template-columns: 1fr; /* 1 per row on mobile */
+  }
 }
 
 .chart-box {
