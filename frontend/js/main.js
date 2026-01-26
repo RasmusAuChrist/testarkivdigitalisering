@@ -22,8 +22,30 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/status-distribution")
       .then(res => res.json())
       .then(data => {
-        const labels = data.map(d => d.status);
-        const values = data.map(d => d.total_stykker);
+      const sortOrder = [
+        "Analyse",
+        "Prioriteringsråd",
+        "Arkivkartlegging",
+        "Fysisk klargjøring",
+        "Transport og logistikk",
+        "Produksjonsflyt",
+        "Skannes",
+        "Ferdig skannet",
+        "Bevaringspakker",
+        "Bevarings-innlemming",
+        "Tilgjengeliggjøring"
+      ];
+
+      const sortedData = sortOrder.map(name => {
+        const match = data.find(d => d.status === name);
+        return {
+          status: name,
+          total_stykker: match ? match.total_stykker : 0
+        };
+      });
+
+      const labels = sortedData.map(d => d.status);
+      const values = sortedData.map(d => d.total_stykker);
 
         new Chart(ctx, {
           type: "bar",
