@@ -16,14 +16,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Status distribution chart
+  // Status chart: stacked per ordre
   const ctx = document.getElementById("statusChart")?.getContext("2d");
   if (!ctx) return;
 
-  fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/status-distribution")
+  fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/status-by-ordre")
     .then(res => res.json())
     .then(data => {
-
       const sortOrder = [
         "Analyse",
         "Prioriteringsråd",
@@ -38,56 +37,50 @@ document.addEventListener("DOMContentLoaded", () => {
         "Tilgjengeliggjøring"
       ];
 
-      // Normalize + enforce flow order
-      const sortedData = sortOrder.map(name => {
-        const match = data.find(d => d.status === name);
-        return {
-          status: name,
-          total_stykker: match ? match.total_stykker : 0,
-          ordre_count: match ? match.ordre_count : 0
-        };
+      // Get all unique ordre values
+      const ordres = Array.from(new Set(data.map(d => d.ordre))).sort();
+
+      // Group data by status -> ordre -> stykker
+      const statusMap = {};
+      data.forEach(d => {
+        if (!statusMap[d.status]) statusMap[d.status] = {};
+        statusMap[d.status][d.ordre] = d.stykker;
       });
 
-      const labels = sortedData.map(d => d.status);
-      const values = sortedData.map(d => d.total_stykker);
+      // Use D3 categorical palette
+      const colors = d3.schemeSet3.concat(d3.schemeTableau10);
 
-      // Color bars by ordre_count (darker = more ordre)
-      const maxOrdre = Math.max(...sortedData.map(d => d.ordre_count), 1);
-
-      const backgroundColors = sortedData.map(d => {
-        const ratio = d.ordre_count / maxOrdre; // 0–1
-        const blue = Math.round(180 + ratio * 75); // 180–255
-        return `rgba(54, 162, ${blue}, 0.8)`;
-      });
+      // Build datasets per ordre
+      const datasets = ordres.map((ordre, i) => ({
+        label: `Ordre ${ordre}`,
+        backgroundColor: colors[i % colors.length],
+        data: sortOrder.map(status => statusMap[status]?.[ordre] || 0)
+      }));
 
       new Chart(ctx, {
         type: "bar",
         data: {
-          labels,
-          datasets: [{
-            label: "Antall stykker",
-            data: values,
-            backgroundColor: backgroundColors
-          }]
+          labels: sortOrder,
+          datasets
         },
         options: {
           responsive: true,
           plugins: {
-            legend: { display: false },
+            title: {
+              display: true,
+              text: "Fordeling av stykker per status og ordre"
+            },
             tooltip: {
-              callbacks: {
-                label: ctx => {
-                  const d = sortedData[ctx.dataIndex];
-                  return [
-                    `${ctx.formattedValue} stykker`,
-                    `${d.ordre_count} ordre`
-                  ];
-                }
-              }
+              mode: "index",
+              intersect: false
+            },
+            legend: {
+              position: "bottom"
             }
           },
           scales: {
             x: {
+              stacked: true,
               ticks: {
                 autoSkip: false,
                 maxRotation: 45,
@@ -95,6 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             },
             y: {
+              stacked: true,
               beginAtZero: true,
               title: {
                 display: true,
@@ -106,6 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     })
     .catch(err => {
-      console.error("Kunne ikke laste statusfordeling:", err);
+      console.error("Kunne ikke laste statusdata:", err);
     });
 });
