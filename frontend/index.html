@@ -15,28 +15,56 @@
   </div>
 
   <!-- Navbar -->
-  <div id="navbar">
-  </div>
+  <div id="navbar"></div>
 
   <!-- Main content -->
-<main>
-  <h1>Velkommen til ASK</h1>
-  <p>Bruk menyen øverst til å navigere</p>
+  <div id="main-content" style="display: none;">
+    <main>
+      <h1>Velkommen til ASK</h1>
+      <p>Bruk menyen øverst til å navigere</p>
 
-  <section style="margin-top: 40px;">
-    <h2>Statusfordeling</h2>
-    <canvas id="statusChart" width="400" height="300"></canvas>
-  </section>
-</main>
+      <section id="dashboard-grid">
+        <div class="chart-box">
+          <h3>Statusfordeling</h3>
+          <canvas id="statusChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <h3>Chart 2</h3>
+          <canvas id="chart2"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <h3>Chart 3</h3>
+          <canvas id="chart3"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <h3>Chart 4</h3>
+          <canvas id="chart4"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <h3>Chart 5</h3>
+          <canvas id="chart5"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <h3>Chart 6</h3>
+          <canvas id="chart6"></canvas>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <script src="/js/main.js" type="module"></script>
-</body>
-<script>
-  fetch("/partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar").outerHTML = html;
-    });
-</script>
 
+  <script>
+    fetch("/partials/navbar.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("navbar").outerHTML = html;
+      });
+  </script>
+</body>
 </html>
