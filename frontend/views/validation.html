@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASK - Validering</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<!-- Navbar -->
+<div id="navbar"></div>
+
+<!-- Spinner overlay -->
+<div id="loadingOverlay" style="display: flex;">
+  <img src="/assets/spinner.gif" alt="Laster..." class="spinner" />
+</div>
+
+<main style="padding: 20px;">
+  <h1>Status for validering</h1>
+
+  <div id="validation-container" style="margin-top: 20px;">
+    <!-- Accordion content will go here -->
+  </div>
+</main>
+
+<script>
+  // Navbar load
+  fetch("/partials/navbar.html")
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById("navbar").outerHTML = html;
+    });
+</script>
+
+<script type="module" src="/js/validation.js"></script>
+
+</body>
+</html>
