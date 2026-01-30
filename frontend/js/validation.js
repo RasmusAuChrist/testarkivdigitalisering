@@ -1,9 +1,8 @@
-// frontend/js/validation.js
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("validation-container");
   const overlay = document.getElementById("loadingOverlay");
 
-fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/validation-status")
+  fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/validation-status")
     .then(res => res.json())
     .then(data => {
       overlay.style.display = "none";
@@ -18,8 +17,15 @@ fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/
         wrapper.style.marginBottom = "12px";
         wrapper.style.borderBottom = "1px solid #444";
 
+        // ➕ Toggle symbol
+        const toggleIcon = document.createElement("span");
+        toggleIcon.textContent = "➕";
+        toggleIcon.style.marginRight = "8px";
+
         const header = document.createElement("button");
-        header.textContent = `Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} mangler)`;
+        header.innerHTML = ""; // clear just in case
+        header.appendChild(toggleIcon);
+        header.appendChild(document.createTextNode(`Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} mangler)`));
         header.style.background = "#111";
         header.style.color = "#fdd835";
         header.style.padding = "10px";
@@ -34,6 +40,9 @@ fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/
         details.style.padding = "10px";
         details.style.background = "#222";
 
+        // ✅ SORT IDENTIFIKATOR
+        entry.missing_items.sort((a, b) => a.identifikator.localeCompare(b.identifikator));
+
         const ul = document.createElement("ul");
         entry.missing_items.forEach(item => {
           const li = document.createElement("li");
@@ -43,8 +52,11 @@ fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/
         });
 
         details.appendChild(ul);
+
         header.addEventListener("click", () => {
-          details.style.display = details.style.display === "none" ? "block" : "none";
+          const isOpen = details.style.display === "block";
+          details.style.display = isOpen ? "none" : "block";
+          toggleIcon.textContent = isOpen ? "➕" : "➖";
         });
 
         wrapper.appendChild(header);

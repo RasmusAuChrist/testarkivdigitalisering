@@ -15,7 +15,7 @@ body {
   color: #fdd835; /* gold */
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   min-height: 100vh;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* =========================
