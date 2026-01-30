@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("validation-container");
   const overlay = document.getElementById("loadingOverlay");
 
-  fetch("/api/validation-status")
+fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/validation-status")
     .then(res => res.json())
     .then(data => {
       overlay.style.display = "none";
