@@ -27,11 +27,11 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleIcon.textContent = "➕";
         toggleIcon.style.marginRight = "8px";
 
-        // ✅ Build warnings
+        // ✅ Build warnings (with strict value check)
         const warnings = [];
-        if (!entry.ordre_startdato_ok) warnings.push("⚠️ Startdato mangler");
-        if (!entry.ordre_sluttdato_ok) warnings.push("⚠️ Sluttdato mangler");
-        if (!entry.ordre_hyllemeter_ok) warnings.push("⚠️ Hyllemeter mangler");
+        if (entry.ordre_startdato_ok === 0) warnings.push("⚠️ Startdato mangler");
+        if (entry.ordre_sluttdato_ok === 0) warnings.push("⚠️ Sluttdato mangler");
+        if (entry.ordre_hyllemeter_ok === 0) warnings.push("⚠️ Hyllemeter mangler");
 
         const header = document.createElement("button");
         header.innerHTML = "";
