@@ -29,15 +29,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // ✅ Build warnings (with strict value check)
         const warnings = [];
-        if (entry.ordre_startdato_ok === false) warnings.push("⚠️ Startdato mangler");
-        if (entry.ordre_sluttdato_ok === false) warnings.push("⚠️ Sluttdato mangler");
-        if (entry.ordre_hyllemeter_ok === false) warnings.push("⚠️ Hyllemeter mangler");
+        if (entry.ordre_startdato_ok === false) warnings.push("⚠️ Startdato mangler på serienivå");
+        if (entry.ordre_sluttdato_ok === false) warnings.push("⚠️ Sluttdato mangler på serienivå");
+        if (entry.ordre_hyllemeter_ok === false) warnings.push("⚠️ Hyllemeter mangler på serienivå");
 
         const header = document.createElement("button");
         header.innerHTML = "";
         header.appendChild(toggleIcon);
         header.appendChild(document.createTextNode(
-          `Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} stykker mangler start/sluttdato)`
+          `Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} stykker mangler start-/sluttdato)`
         ));
 
         if (warnings.length) {
