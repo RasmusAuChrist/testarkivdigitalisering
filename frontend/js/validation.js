@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
         header.innerHTML = "";
         header.appendChild(toggleIcon);
         header.appendChild(document.createTextNode(
-          `Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} mangler)`
+          `Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} stykker mangler start/sluttdato)`
         ));
 
         if (warnings.length) {
