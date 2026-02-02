@@ -29,9 +29,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // ✅ Build warnings (with strict value check)
         const warnings = [];
-        if (entry.ordre_startdato_ok === 0) warnings.push("⚠️ Startdato mangler");
-        if (entry.ordre_sluttdato_ok === 0) warnings.push("⚠️ Sluttdato mangler");
-        if (entry.ordre_hyllemeter_ok === 0) warnings.push("⚠️ Hyllemeter mangler");
+        if (entry.ordre_startdato_ok === false) warnings.push("⚠️ Startdato mangler");
+        if (entry.ordre_sluttdato_ok === false) warnings.push("⚠️ Sluttdato mangler");
+        if (entry.ordre_hyllemeter_ok === false) warnings.push("⚠️ Hyllemeter mangler");
 
         const header = document.createElement("button");
         header.innerHTML = "";
