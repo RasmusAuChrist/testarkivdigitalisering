@@ -16,15 +16,22 @@ def get_connection():
 @router.get("/validation-status")
 def get_validation_status():
     """
-    Returns validation results from tbl_ref_validation_status
-    with parsed JSON for missing_items.
+    Returns validation results from tbl_ref_validation_status,
+    including parsed missing_items and ordre-level validation flags.
     """
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
 
         query = """
-        SELECT ordre, serie_path, missing_count, missing_items
+        SELECT 
+            ordre,
+            serie_path,
+            missing_count,
+            missing_items,
+            ordre_startdato_ok,
+            ordre_sluttdato_ok,
+            ordre_hyllemeter_ok
         FROM tbl_ref_validation_status
         ORDER BY ordre;
         """

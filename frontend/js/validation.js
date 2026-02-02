@@ -12,20 +12,43 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      // ✅ Sort by ordre, then serie_path
+      data.sort((a, b) => {
+        if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+        return a.serie_path.localeCompare(b.serie_path);
+      });
+
       data.forEach(entry => {
         const wrapper = document.createElement("div");
         wrapper.style.marginBottom = "12px";
         wrapper.style.borderBottom = "1px solid #444";
 
-        // ➕ Toggle symbol
         const toggleIcon = document.createElement("span");
         toggleIcon.textContent = "➕";
         toggleIcon.style.marginRight = "8px";
 
+        // ✅ Build warnings
+        const warnings = [];
+        if (!entry.ordre_startdato_ok) warnings.push("⚠️ Startdato mangler");
+        if (!entry.ordre_sluttdato_ok) warnings.push("⚠️ Sluttdato mangler");
+        if (!entry.ordre_hyllemeter_ok) warnings.push("⚠️ Hyllemeter mangler");
+
         const header = document.createElement("button");
-        header.innerHTML = ""; // clear just in case
+        header.innerHTML = "";
         header.appendChild(toggleIcon);
-        header.appendChild(document.createTextNode(`Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} mangler)`));
+        header.appendChild(document.createTextNode(
+          `Ordre ${entry.ordre}: ${entry.serie_path} (${entry.missing_count} mangler)`
+        ));
+
+        if (warnings.length) {
+          const warnText = document.createElement("span");
+          warnText.style.color = "red";
+          warnText.style.marginLeft = "12px";
+          warnText.style.fontWeight = "bold";
+          warnText.textContent = warnings.join(" | ");
+          header.appendChild(warnText);
+        }
+
         header.style.background = "#111";
         header.style.color = "#fdd835";
         header.style.padding = "10px";
@@ -40,8 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
         details.style.padding = "10px";
         details.style.background = "#222";
 
-        // ✅ SORT IDENTIFIKATOR
-        entry.missing_items.sort((a, b) => a.identifikator.localeCompare(b.identifikator));
+        entry.missing_items.sort((a, b) =>
+          a.identifikator.localeCompare(b.identifikator)
+        );
 
         const ul = document.createElement("ul");
         entry.missing_items.forEach(item => {
