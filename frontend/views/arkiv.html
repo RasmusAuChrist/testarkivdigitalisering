@@ -19,6 +19,7 @@
       Filtrer, sorter og bla i arkivdata.
     </p>
 
+    <!-- FILTERS wrapped so your CSS can make labels gold-on-black -->
     <div class="filters-dark">
       <div style="
         display:grid;
@@ -44,7 +45,12 @@
 
         <div style="grid-column: span 3;">
           <label>Søk</label>
-          <input id="searchFilter" type="text" placeholder="Navn eller identifikator" style="width:100%;" />
+          <input
+            id="searchFilter"
+            type="text"
+            placeholder="Navn eller identifikator"
+            style="width:100%;"
+          />
         </div>
 
         <div style="grid-column: span 2;">
@@ -58,7 +64,12 @@
 
         <div style="grid-column: span 3;">
           <label>Min gj.snitt media-visninger</label>
-          <input id="minViewsMedia" type="number" value="0" style="width:140px;" />
+          <input
+            id="minViewsMedia"
+            type="number"
+            value="0"
+            style="width:140px;"
+          />
         </div>
 
         <div style="grid-column: span 9; display:flex; gap:10px; align-items:end;">
@@ -68,13 +79,14 @@
       </div>
     </div>
 
+    <!-- ================= TABLE ================= -->
     <!-- Top "floating" horizontal scrollbar (synced with table) -->
     <div class="table-scroll-x table-scroll-x-top" id="tableScrollTop">
       <div class="table-scroll-x-spacer" id="tableScrollTopSpacer"></div>
     </div>
 
-    <!-- Vertical + horizontal scroll container for table -->
-    <div class="table-scroll-xy" id="tableScrollMain">
+    <!-- Actual table scroll container -->
+    <div class="table-scroll-x" id="tableScrollMain">
       <table class="arkiv-table">
         <thead>
           <tr id="tableHead"></tr>
@@ -83,16 +95,24 @@
       </table>
     </div>
 
-    <div id="pagination" style="margin-top:12px;display:flex;gap:10px;align-items:center;"></div>
+    <!-- ================= PAGINATION ================= -->
+    <div id="pagination"
+      style="margin-top:12px;display:flex;gap:10px;align-items:center;">
+    </div>
+
   </div>
 
+  <!-- Page JS -->
   <script type="module" src="/js/arkiv.js"></script>
 </body>
 
+<!-- Navbar loader -->
 <script>
   fetch("../partials/navbar.html")
     .then(r => r.text())
-    .then(html => { document.getElementById("navbar").outerHTML = html; });
+    .then(html => {
+      document.getElementById("navbar").outerHTML = html;
+    });
 </script>
 
 </html>
