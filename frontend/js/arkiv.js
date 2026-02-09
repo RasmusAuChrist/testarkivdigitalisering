@@ -41,32 +41,35 @@ const headEl = document.getElementById("tableHead");
 const bodyEl = document.getElementById("tableBody");
 const paginationEl = document.getElementById("pagination");
 
+/* Scroll sync elements (floating scrollbar) */
+const scrollTopEl = document.getElementById("tableScrollTop");
+const scrollTopSpacerEl = document.getElementById("tableScrollTopSpacer");
+const scrollMainEl = document.getElementById("tableScrollMain");
+
+/* =========================================================
+   COLUMNS (all except arkiv_sk + last_refreshed_utc)
+========================================================= */
+
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "lokasjon", label: "Lokasjon" },
   { key: "identifikator", label: "Identifikator" },
 
-  // percentages
   { key: "_digPct", label: "Digitalisert (%)", numeric: true, fmt: v => v.toFixed(2) },
 
-  // counts / totals
   { key: "stykke_count", label: "Stykke", numeric: true, fmt: int },
   { key: "views_internal", label: "Visninger (Intern)", numeric: true, fmt: int },
   { key: "views_media", label: "Visninger (Media)", numeric: true, fmt: int },
   { key: "views_digark", label: "Visninger (DigArk)", numeric: true, fmt: int },
 
-  // topdesk
   { key: "topdesk_references", label: "Topdesk refs", numeric: true, fmt: int },
 
-  // averages
   { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => num(v, 2) },
   { key: "average_views_digark", label: "Gj.snitt DigArk", numeric: true, fmt: v => num(v, 2) },
 
-  // requisitions
   { key: "requisitions_internal", label: "Rekvisisjoner (Intern)", numeric: true, fmt: int },
   { key: "requisitions_ap", label: "Rekvisisjoner (AP)", numeric: true, fmt: int },
 
-  // tags
   { key: "tags", label: "Tags" }
 ];
 
@@ -86,7 +89,10 @@ async function init() {
   buildTagsDropdown();
 
   wireEvents();
-  applyFilters();
+
+  applyFilters(); // renders table
+  setupHorizontalScrollSync(); // enable floating scrollbar sync
+  updateTopScrollbarSpacer();  // ensure correct width
 }
 
 /* =========================================================
@@ -113,14 +119,14 @@ function normalizeRows(rows) {
       // numbers
       views_media: toNum(r.views_media),
       views_digark: toNum(r.views_digark),
+      views_internal: toNum(r.views_internal),
+      stykke_count: toNum(r.stykke_count),
+      topdesk_references: toNum(r.topdesk_references),
       average_views_media: toNum(r.average_views_media),
+      average_views_digark: toNum(r.average_views_digark),
+      requisitions_internal: toNum(r.requisitions_internal),
       requisitions_ap: toNum(r.requisitions_ap),
       _digPct: toNum(r.percentage_digitized) * 100,
-      stykke_count: toNum(r.stykke_count),
-      views_internal: toNum(r.views_internal),
-      topdesk_references: toNum(r.topdesk_references),
-      requisitions_internal: toNum(r.requisitions_internal),
-
 
       // strings
       navn: (r.navn ?? "").toString(),
@@ -200,24 +206,23 @@ function createMultiSelect({ mountId, label, options, onChange }) {
   button.onclick = () => panel.classList.toggle("hidden");
 
   selectAllBtn.onclick = () => {
-    checkboxes.forEach(c => c.checked = true);
+    checkboxes.forEach(c => (c.checked = true));
     update();
   };
 
   clearBtn.onclick = () => {
-    checkboxes.forEach(c => c.checked = false);
+    checkboxes.forEach(c => (c.checked = false));
     update();
   };
 
   panel.addEventListener("change", update);
 
   document.addEventListener("click", e => {
-    if (!wrapper.contains(e.target)) {
-      panel.classList.add("hidden");
-    }
+    if (!wrapper.contains(e.target)) panel.classList.add("hidden");
   });
 
   wrapper.append(button, panel);
+  mount.innerHTML = "";
   mount.appendChild(wrapper);
 
   update();
@@ -282,14 +287,14 @@ function wireEvents() {
     state.sortDir = "desc";
     state.page = 1;
 
-    // reset dropdowns by reinitializing page
-    document.getElementById("lokasjonDropdown").innerHTML = "";
-    document.getElementById("tagsDropdown").innerHTML = "";
     buildLokasjonDropdown();
     buildTagsDropdown();
 
     applyFilters();
   });
+
+  // Keep spacer correct on resize
+  window.addEventListener("resize", debounce(updateTopScrollbarSpacer, 150));
 }
 
 /* =========================================================
@@ -306,7 +311,7 @@ function applyFilters() {
 
   state.filtered = state.raw.filter(d => {
     if (state.selectedLokasjoner.length &&
-        !state.selectedLokasjoner.includes(d.lokasjon)) return false;
+      !state.selectedLokasjoner.includes(d.lokasjon)) return false;
 
     if (state.selectedTags.length) {
       let ok = false;
@@ -370,6 +375,7 @@ function buildTableHeader() {
     th.onclick = () => toggleSort(c.key, !!c.numeric);
     headEl.appendChild(th);
   }
+  updateHeaderIndicators();
 }
 
 function updateHeaderIndicators() {
@@ -385,6 +391,9 @@ function render() {
   renderStats();
   renderTable();
   renderPagination();
+
+  // keep floating scrollbar accurate after DOM updates
+  updateTopScrollbarSpacer();
 }
 
 function renderStats() {
@@ -457,6 +466,39 @@ function renderPagination() {
       render();
     })
   );
+}
+
+/* =========================================================
+   FLOATING SCROLLBAR SYNC
+========================================================= */
+
+function setupHorizontalScrollSync() {
+  if (!scrollTopEl || !scrollTopSpacerEl || !scrollMainEl) return;
+
+  let syncing = false;
+
+  scrollTopEl.addEventListener("scroll", () => {
+    if (syncing) return;
+    syncing = true;
+    scrollMainEl.scrollLeft = scrollTopEl.scrollLeft;
+    syncing = false;
+  });
+
+  scrollMainEl.addEventListener("scroll", () => {
+    if (syncing) return;
+    syncing = true;
+    scrollTopEl.scrollLeft = scrollMainEl.scrollLeft;
+    syncing = false;
+  });
+}
+
+function updateTopScrollbarSpacer() {
+  if (!scrollTopSpacerEl || !scrollMainEl) return;
+  const table = scrollMainEl.querySelector("table");
+  if (!table) return;
+
+  // Make the top scrollbar have the same scrollable width as the table
+  scrollTopSpacerEl.style.width = table.scrollWidth + "px";
 }
 
 /* =========================================================

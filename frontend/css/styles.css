@@ -395,3 +395,96 @@ table.status-table th {
   white-space: normal;
   max-width: 520px;
 }
+
+/* Scroll containers */
+.surface-light .table-scroll-x{
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* Top scrollbar "floats" by sticking near top of viewport while scrolling */
+.surface-light .table-scroll-x-top{
+  position: sticky;
+  top: 0;              /* stick to top of viewport */
+  z-index: 50;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+/* Spacer makes the top bar have the same scroll width as the table */
+.surface-light .table-scroll-x-spacer{
+  height: 1px;         /* tiny, only exists to create scroll width */
+}
+
+/* Wide table forces horizontal overflow */
+.surface-light .arkiv-table{
+  border-collapse: collapse;
+  min-width: 2200px;
+  width: max-content;
+}
+
+.surface-light .arkiv-table th,
+.surface-light .arkiv-table td{
+  padding: 10px;
+  white-space: nowrap;
+}
+
+.surface-light .arkiv-table td:last-child{
+  white-space: normal;
+  max-width: 520px;
+}
+
+/* Dark filter panel inside a light page */
+.surface-light .filters-dark{
+  background: #000;
+  color: #fdd835; /* gold */
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+/* Labels gold */
+.surface-light .filters-dark label{
+  color: #fdd835;
+  font-weight: 600;
+}
+
+/* Inputs/button dark panel styling */
+.surface-light .filters-dark input{
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+/* Multi-select dropdown inside dark panel */
+.surface-light .filters-dark .multi-select button{
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.surface-light .filters-dark .multi-select .panel{
+  background: #111;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.surface-light .filters-dark .multi-select .option:hover{
+  background: #1b1b1b;
+}
+
+.surface-light .filters-dark .multi-select .controls button{
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.surface-light .filters-dark #stats{
+  color: #fff;
+  opacity: 0.9;
+}
