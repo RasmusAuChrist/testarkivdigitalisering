@@ -12,14 +12,6 @@
 </head>
 
 <body>
-
-  <!-- 
-    surface-light ensures:
-    - dark text on white
-    - readable table headers
-    - readable dropdowns
-    - does NOT affect navbar or rest of site
-  -->
   <div class="surface-light" style="padding:20px;">
 
     <h2>Arkivoversikt</h2>
@@ -76,36 +68,17 @@
       </div>
 
       <div style="grid-column: span 9; display:flex; gap:10px; align-items:end;">
-        <button id="resetBtn" type="button">
-          Nullstill filtre
-        </button>
+        <button id="resetBtn" type="button">Nullstill filtre</button>
         <div id="stats" style="color:#555;"></div>
       </div>
     </div>
 
-    <!-- ================= TABLE ================= -->
-    <div style="
-      overflow:auto;
-      border:1px solid #e5e5e5;
-      border-radius:6px;
-      background:#fff;
-    ">
-      <table
-        style="
-          width:100%;
-          border-collapse:collapse;
-          min-width:1200px;
-        "
-      >
+    <!-- ================= TABLE (PATCHED) ================= -->
+    <!-- Dedicated horizontal-scroll container -->
+    <div class="table-scroll-x">
+      <table class="arkiv-table">
         <thead>
-          <tr
-            id="tableHead"
-            style="
-              position:sticky;
-              top:0;
-              z-index:1;
-            "
-          ></tr>
+          <tr id="tableHead"></tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
@@ -121,7 +94,6 @@
 
   <!-- Page JS -->
   <script type="module" src="/js/arkiv.js"></script>
-
 </body>
 
 <!-- Navbar loader -->

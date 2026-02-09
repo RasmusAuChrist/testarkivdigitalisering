@@ -361,3 +361,37 @@ table.status-table th {
 .surface-light tr:hover td {
   background: #f9fafb;
 }
+
+
+/* =========================
+   Horizontal scrolling for wide tables
+========================= */
+
+.surface-light .table-scroll-x {
+  width: 100%;
+  overflow-x: auto;   /* <-- force horizontal scrollbar */
+  overflow-y: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+/* Always make the table wider than most screens */
+.surface-light .arkiv-table {
+  border-collapse: collapse;
+  min-width: 2200px;  /* <-- key: forces horizontal scroll */
+  width: max-content;
+}
+
+/* Prevent column text from wrapping */
+.surface-light .arkiv-table th,
+.surface-light .arkiv-table td {
+  white-space: nowrap;
+  padding: 10px;
+}
+
+/* Allow wrapping ONLY in tags column (last column) */
+.surface-light .arkiv-table td:last-child {
+  white-space: normal;
+  max-width: 520px;
+}
