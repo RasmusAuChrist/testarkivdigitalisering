@@ -32,9 +32,13 @@
         </select>
       </div>
 
-      <div style="grid-column: span 3;">
-        <label>Tag (inneholder)</label><br/>
-        <input id="tagFilter" type="text" style="width:100%;" />
+      <div style="grid-column: span 4;">
+        <label>Tags (velg én eller flere)</label><br/>
+        <select id="tagsFilter" multiple size="6" style="width:100%; min-height: 150px;"></select>
+        <div style="display:flex; gap:10px; margin-top:6px; flex-wrap: wrap;">
+          <button id="tagsClearBtn" type="button">Tøm tags</button>
+          <span id="tagsCount" style="color:#666;"></span>
+        </div>
       </div>
 
       <div style="grid-column: span 3;">
@@ -42,7 +46,7 @@
         <input id="searchFilter" type="text" placeholder="Navn / identifikator" style="width:100%;" />
       </div>
 
-      <div style="grid-column: span 3;">
+      <div style="grid-column: span 2;">
         <label>Digitaliseringsgrad (%)</label><br/>
         <div style="display:flex;gap:6px;">
           <input id="digMin" type="number" value="0" style="width:80px;" />
@@ -56,8 +60,8 @@
         <input id="minViewsMedia" type="number" value="0" style="width:140px;" />
       </div>
 
-      <div style="grid-column: span 9; display:flex; gap:10px;">
-        <button id="resetBtn">Nullstill filtre</button>
+      <div style="grid-column: span 9; display:flex; gap:10px; align-items: end;">
+        <button id="resetBtn" type="button">Nullstill filtre</button>
         <div id="stats" style="color:#555;"></div>
       </div>
     </div>
