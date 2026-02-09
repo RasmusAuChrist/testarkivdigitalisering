@@ -8,12 +8,36 @@
 }
 
 /* =========================
-   Global Styles
+   Theme Tokens
+========================= */
+:root {
+  /* Dark theme (default site shell) */
+  --dark-bg: #000;
+  --dark-surface: #111;
+  --dark-surface-2: #222;
+  --dark-border: #333;
+  --dark-border-2: #444;
+  --gold: #fdd835;
+  --white: #ffffff;
+
+  /* Light surface (for data-heavy pages like Arkiv) */
+  --light-bg: #ffffff;
+  --light-surface: #ffffff;
+  --light-surface-muted: #f8fafc;
+  --light-surface-hover: #eef2f7;
+  --light-border: #cbd5e1;
+  --light-border-2: #e5e7eb;
+  --light-text: #111827;
+  --light-text-muted: #374151;
+}
+
+/* =========================
+   Global Styles (Dark Shell)
 ========================= */
 body {
-  background-color: #000;
-  color: #fdd835; /* gold */
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--dark-bg);
+  color: var(--gold); /* gold default text */
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   min-height: 100vh;
   overflow: auto;
 }
@@ -24,7 +48,7 @@ body {
 #splash-screen {
   position: fixed;
   inset: 0;
-  background-color: #000;
+  background-color: var(--dark-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,14 +61,8 @@ body {
 }
 
 @keyframes splashFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 /* =========================
@@ -52,18 +70,17 @@ body {
 ========================= */
 #navbar {
   height: 60px;
-  background-color: #000;
+  background-color: var(--dark-bg);
   display: flex;
   align-items: center;
   padding: 0 20px;
-  border-bottom: 2px solid #fdd835;
+  border-bottom: 2px solid var(--gold);
 }
 
 #navbar img.nav-logo {
   height: 38px;
 }
 
-/* Optional nav links */
 #navbar nav {
   margin-left: auto;
   display: flex;
@@ -71,37 +88,35 @@ body {
 }
 
 #navbar nav a {
-  color: #fdd835;
+  color: var(--gold);
   text-decoration: none;
   font-weight: bold;
 }
 
 #navbar nav a:hover {
-  color: #ffffff;
+  color: var(--white);
 }
 
 /* =========================
-   Controls / Filter Bar
+   Controls / Filter Bar (dark pages)
 ========================= */
 #controls {
-  background-color: #111;
-  color: #ffffff;
+  background-color: var(--dark-surface);
+  color: var(--white);
   display: flex;
   gap: 15px;
   padding: 10px 20px;
   align-items: center;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--dark-border);
 }
 
-#controls label {
-  font-size: 15px;
-}
+#controls label { font-size: 15px; }
 
 #controls select,
 #controls input {
-  background-color: #222;
-  color: #ffffff;
-  border: 1px solid #444;
+  background-color: var(--dark-surface-2);
+  color: var(--white);
+  border: 1px solid var(--dark-border-2);
   padding: 6px 8px;
   border-radius: 4px;
   font-size: 15px;
@@ -112,7 +127,7 @@ body {
 ========================= */
 canvas {
   display: block;
-  background-color: #ffffff;
+  background-color: #ffffff; /* keep charts readable */
 }
 
 /* =========================
@@ -137,18 +152,13 @@ canvas {
 }
 
 @keyframes spinCCW {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(-360deg);
-  }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
 }
 
 /* =========================
    Status colors
 ========================= */
-
 .status-dot {
   width: 15px;
   height: 15px;
@@ -156,63 +166,53 @@ canvas {
   display: inline-block;
 }
 
-.status-dot.green {
-  background-color: #4caf50;
-}
-
-.status-dot.yellow {
-  background-color: #ffc107;
-}
-
-.status-dot.red {
-  background-color: #f44336;
-}
+.status-dot.green  { background-color: #4caf50; }
+.status-dot.yellow { background-color: #ffc107; }
+.status-dot.red    { background-color: #f44336; }
 
 /* =========================
-   Status table
+   Status table (dark)
 ========================= */
-
 table.status-table {
   width: 100%;
   border-collapse: collapse;
-  color: white;
+  color: var(--white);
 }
 
 table.status-table th,
 table.status-table td {
   padding: 10px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--dark-border);
   text-align: left;
 }
 
 table.status-table th {
-  background-color: #111;
+  background-color: var(--dark-surface);
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
+/* =========================
+   Dashboard grid / chart cards
+========================= */
 #dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* exactly 3 columns */
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   margin-top: 40px;
 }
 
 @media (max-width: 900px) {
-  #dashboard-grid {
-    grid-template-columns: repeat(2, 1fr); /* 2 per row on tablets */
-  }
+  #dashboard-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 600px) {
-  #dashboard-grid {
-    grid-template-columns: 1fr; /* 1 per row on mobile */
-  }
+  #dashboard-grid { grid-template-columns: 1fr; }
 }
 
 .chart-box {
-  background: #fff;
+  background: var(--light-bg);
   padding: 16px;
   border-radius: 8px;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
@@ -227,6 +227,10 @@ table.status-table th {
   height: 300px !important;
 }
 
+/* =========================
+   Multi-select dropdown (base)
+   Note: This is neutral; light/dark pages can override.
+========================= */
 .multi-select {
   position: relative;
   width: 100%;
@@ -237,23 +241,27 @@ table.status-table th {
   padding: 6px 8px;
   text-align: left;
   cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: var(--light-surface); /* default to light */
+  color: var(--light-text);
 }
 
 .multi-select .panel {
   position: absolute;
   z-index: 1000;
-  background: #fff;
-  border: 1px solid #ccc;
   width: 100%;
   max-height: 260px;
   overflow: auto;
   padding: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: var(--light-surface);
+  color: var(--light-text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.multi-select .panel.hidden {
-  display: none;
-}
+.multi-select .panel.hidden { display: none; }
 
 .multi-select .option {
   display: flex;
@@ -269,70 +277,74 @@ table.status-table th {
 }
 
 /* =========================
-   Arkiv page: light surface overrides
+   Light Surface (Arkiv + other data pages)
+   IMPORTANT: breaks gold inheritance cleanly.
 ========================= */
-
 .surface-light {
-  color: #1f2937; /* dark readable text on white */
+  background: transparent; /* lets your page decide container backgrounds */
+  color: var(--light-text);
 }
 
-/* Table surface */
-.surface-light table {
-  color: #1f2937;
+/* Break gold inheritance inside light surfaces (scoped + safe) */
+.surface-light,
+.surface-light * {
+  color: var(--light-text);
 }
 
-.surface-light th {
-  background: #f8fafc;
-  color: #111827;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.surface-light th:hover {
-  background: #eef2f7;
-}
-
-.surface-light td {
-  border-bottom: 1px solid #f0f0f0;
-  color: #111827;
-}
-
-/* Buttons (avoid gold-on-white) */
-.surface-light button {
-  background: #f1f5f9;
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
-}
-
-.surface-light button:hover {
-  background: #e2e8f0;
-}
-
-.surface-light button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-/* Inputs */
+/* Inputs & buttons on light surfaces */
 .surface-light input {
-  background: #ffffff;
-  color: #111827;
-  border: 1px solid #cbd5e1;
+  background: var(--light-surface);
+  color: var(--light-text);
+  border: 1px solid var(--light-border);
   border-radius: 4px;
   padding: 6px 8px;
 }
 
-/* Multi-select (your custom dropdown) */
+.surface-light button {
+  background: #f1f5f9;
+  color: var(--light-text);
+  border: 1px solid var(--light-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.surface-light button:hover { background: #e2e8f0; }
+.surface-light button:disabled { opacity: 0.6; cursor: default; }
+
+/* Table styling on light surfaces */
+.surface-light table {
+  color: var(--light-text);
+}
+
+.surface-light th {
+  background: var(--light-surface-muted);
+  color: var(--light-text);
+  border-bottom: 1px solid var(--light-border-2);
+}
+
+.surface-light th:hover { background: var(--light-surface-hover); }
+
+.surface-light td {
+  border-bottom: 1px solid #f0f0f0;
+  color: var(--light-text);
+}
+
+/* Make wide tables scroll and avoid wrapping */
+.surface-light table { white-space: nowrap; }
+.surface-light td:last-child { white-space: normal; }
+
+/* Multi-select styling on light surfaces */
 .surface-light .multi-select button {
-  background: #ffffff;
-  color: #111827;
-  border: 1px solid #cbd5e1;
+  background: var(--light-surface);
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
 }
 
 .surface-light .multi-select .panel {
-  background: #ffffff;
-  color: #111827;
-  border: 1px solid #cbd5e1;
+  background: var(--light-surface);
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
 }
 
 .surface-light .multi-select .option:hover {
@@ -341,6 +353,11 @@ table.status-table th {
 
 .surface-light .multi-select .controls button {
   background: #e2e8f0;
-  color: #111827;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
+}
+
+/* Optional: hover highlight for readability */
+.surface-light tr:hover td {
+  background: #f9fafb;
 }
