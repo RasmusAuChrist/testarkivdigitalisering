@@ -4,83 +4,76 @@
 <div id="navbar"></div>
 
 <head>
-  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
   <meta charset="UTF-8" />
-  <title>ASK - Arkiv oversikt</title>
+  <title>ASK – Arkivoversikt</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 
 <body>
-  <div style="padding: 20px;">
-    <h2>Arkiv oversikt</h2>
-    <p style="margin-top:-8px;color:#555;">
-      Filtrer på lokasjon, tags, digitaliseringsgrad og visninger. Klikk kolonneheader for sortering.
+  <div style="padding:20px;">
+    <h2>Arkivoversikt</h2>
+    <p style="color:#555;margin-top:-6px;">
+      Filtrer, sorter og bla i arkivdata.
     </p>
 
     <!-- Filters -->
     <div style="
       display:grid;
       grid-template-columns: repeat(12, 1fr);
-      gap: 12px;
-      align-items: end;
-      margin: 16px 0 18px 0;
+      gap:12px;
+      margin:16px 0;
+      align-items:end;
     ">
-
       <div style="grid-column: span 3;">
-        <label for="lokasjonFilter">Lokasjon</label><br />
-        <select id="lokasjonFilter" style="width:100%; max-width: 320px;">
+        <label>Lokasjon</label><br/>
+        <select id="lokasjonFilter" style="width:100%;">
           <option value="ALL">Alle</option>
         </select>
       </div>
 
       <div style="grid-column: span 3;">
-        <label for="tagFilter">Tag (inneholder)</label><br />
-        <input id="tagFilter" type="text" placeholder="f.eks. Landssvik, Politi, 2. verdenskrig"
-               style="width:100%; max-width: 420px;" />
+        <label>Tag (inneholder)</label><br/>
+        <input id="tagFilter" type="text" style="width:100%;" />
       </div>
 
       <div style="grid-column: span 3;">
-        <label for="searchFilter">Søk (navn/identifikator)</label><br />
-        <input id="searchFilter" type="text" placeholder="f.eks. RA-S-3138"
-               style="width:100%; max-width: 420px;" />
+        <label>Søk</label><br/>
+        <input id="searchFilter" type="text" placeholder="Navn / identifikator" style="width:100%;" />
       </div>
 
       <div style="grid-column: span 3;">
-        <label>Digitaliseringsgrad (%)</label><br />
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input id="digMin" type="number" min="0" max="100" value="0" style="width:80px;" />
+        <label>Digitaliseringsgrad (%)</label><br/>
+        <div style="display:flex;gap:6px;">
+          <input id="digMin" type="number" value="0" style="width:80px;" />
           <span>–</span>
-          <input id="digMax" type="number" min="0" max="100" value="100" style="width:80px;" />
+          <input id="digMax" type="number" value="100" style="width:80px;" />
         </div>
       </div>
 
       <div style="grid-column: span 3;">
-        <label for="minViewsMedia">Min gj.snitt visninger (Media)</label><br />
-        <input id="minViewsMedia" type="number" min="0" step="0.1" value="0" style="width:160px;" />
+        <label>Min gj.snitt media-visninger</label><br/>
+        <input id="minViewsMedia" type="number" value="0" style="width:140px;" />
       </div>
 
-      <div style="grid-column: span 9; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+      <div style="grid-column: span 9; display:flex; gap:10px;">
         <button id="resetBtn">Nullstill filtre</button>
         <div id="stats" style="color:#555;"></div>
       </div>
     </div>
 
     <!-- Table -->
-    <div style="overflow:auto; border:1px solid #e5e5e5; border-radius: 6px;">
-      <table id="arkivTable" style="width:100%; border-collapse: collapse; min-width: 1200px;">
+    <div style="overflow:auto;border:1px solid #e5e5e5;border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;min-width:1200px;">
         <thead>
-          <tr id="tableHeadRow" style="position: sticky; top: 0; background: #fafafa; z-index: 1;">
-            <!-- Filled by JS -->
-          </tr>
+          <tr id="tableHead" style="background:#fafafa;position:sticky;top:0;"></tr>
         </thead>
-        <tbody id="arkivTableBody">
-          <!-- Filled by JS -->
-        </tbody>
+        <tbody id="tableBody"></tbody>
       </table>
     </div>
+
+    <div id="pagination"
+         style="margin-top:12px;display:flex;gap:10px;align-items:center;"></div>
   </div>
 
   <script type="module" src="/js/arkiv.js"></script>
@@ -88,10 +81,7 @@
 
 <script>
   fetch("../partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar").outerHTML = html;
-    });
+    .then(r => r.text())
+    .then(html => document.getElementById("navbar").outerHTML = html);
 </script>
-
 </html>

@@ -1,4 +1,18 @@
-// Phase 1: Filters + Sortable Table (slice & dice)
+/* ========= CONFIG ========= */
+const API_BASE =
+  "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+
+/* ========= STATE ========= */
+const state = {
+  raw: [],
+  filtered: [],
+  page: 1,
+  pageSize: 100,
+  sortKey: "views_media",
+  sortDir: "desc"
+};
+
+/* ========= ELEMENTS ========= */
 const lokasjonFilter = document.getElementById("lokasjonFilter");
 const tagFilter = document.getElementById("tagFilter");
 const searchFilter = document.getElementById("searchFilter");
@@ -6,295 +20,197 @@ const digMin = document.getElementById("digMin");
 const digMax = document.getElementById("digMax");
 const minViewsMedia = document.getElementById("minViewsMedia");
 const resetBtn = document.getElementById("resetBtn");
-
 const statsEl = document.getElementById("stats");
-const tableHeadRow = document.getElementById("tableHeadRow");
-const tableBody = document.getElementById("arkivTableBody");
+const headEl = document.getElementById("tableHead");
+const bodyEl = document.getElementById("tableBody");
+const paginationEl = document.getElementById("pagination");
 
-// ✅ Change this to your deployed FastAPI base URL if needed
-// Option A (same origin proxy): const API_BASE = "";
-// Option B (your current pattern - absolute):
-const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
-
-const state = {
-  raw: [],
-  filtered: [],
-  sortKey: "views_media",
-  sortDir: "desc", // "asc" | "desc"
-};
-
-// Columns to show in table (Phase 1)
+/* ========= COLUMNS ========= */
 const columns = [
-  { key: "navn", label: "Navn", numeric: false },
-  { key: "lokasjon", label: "Lokasjon", numeric: false },
-  { key: "identifikator", label: "Identifikator", numeric: false },
-  { key: "percentage_digitized", label: "Digitalisert (%)", numeric: true, fmt: v => pct(v) },
-  { key: "stykke_count", label: "Stykker", numeric: true, fmt: v => int(v) },
-  { key: "views_media", label: "Visninger (Media)", numeric: true, fmt: v => int(v) },
-  { key: "views_digark", label: "Visninger (DigArk)", numeric: true, fmt: v => int(v) },
-  { key: "views_internal", label: "Visninger (Intern)", numeric: true, fmt: v => int(v) },
-  { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => num(v, 2) },
-  { key: "average_views_digark", label: "Gj.snitt DigArk", numeric: true, fmt: v => num(v, 2) },
-  { key: "requisitions_internal", label: "Rekvisisjoner (Intern)", numeric: true, fmt: v => int(v) },
-  { key: "requisitions_ap", label: "Rekvisisjoner (AP)", numeric: true, fmt: v => int(v) },
-  { key: "tags", label: "Tags", numeric: false },
+  { key: "navn", label: "Navn" },
+  { key: "lokasjon", label: "Lokasjon" },
+  { key: "identifikator", label: "Identifikator" },
+  { key: "_digPct", label: "Digitalisert (%)", numeric: true, fmt: v => v.toFixed(2) },
+  { key: "views_media", label: "Media-visninger", numeric: true },
+  { key: "views_digark", label: "DigArk-visninger", numeric: true },
+  { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => v.toFixed(2) },
+  { key: "requisitions_ap", label: "Rekvisisjoner AP", numeric: true },
+  { key: "tags", label: "Tags" }
 ];
 
+/* ========= INIT ========= */
 init();
 
 async function init() {
+  buildHeader();
   wireEvents();
-  buildTableHeader();
-
   const data = await fetchData();
-  state.raw = normalizeRows(data);
-
-  populateLokasjon(state.raw);
-  applyFiltersAndRender();
+  state.raw = normalize(data);
+  populateLokasjon();
+  applyFilters();
 }
 
-function wireEvents() {
-  lokasjonFilter.addEventListener("change", applyFiltersAndRender);
-  tagFilter.addEventListener("input", debounce(applyFiltersAndRender, 150));
-  searchFilter.addEventListener("input", debounce(applyFiltersAndRender, 150));
-
-  digMin.addEventListener("input", applyFiltersAndRender);
-  digMax.addEventListener("input", applyFiltersAndRender);
-  minViewsMedia.addEventListener("input", applyFiltersAndRender);
-
-  resetBtn.addEventListener("click", () => {
-    lokasjonFilter.value = "ALL";
-    tagFilter.value = "";
-    searchFilter.value = "";
-    digMin.value = 0;
-    digMax.value = 100;
-    minViewsMedia.value = 0;
-    state.sortKey = "views_media";
-    state.sortDir = "desc";
-    applyFiltersAndRender();
-  });
-}
-
+/* ========= DATA ========= */
 async function fetchData() {
-  const url = `${API_BASE}/api/arkiv-overview`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const res = await fetch(`${API_BASE}/api/arkiv-overview`);
   return await res.json();
 }
 
-function normalizeRows(rows) {
-  // Ensure types are sane (SQL might come as Decimal/str depending on driver)
+function normalize(rows) {
   return rows.map(r => ({
     ...r,
-    percentage_digitized: toNum(r.percentage_digitized),
-    stykke_count: toNum(r.stykke_count),
-    views_internal: toNum(r.views_internal),
-    views_media: toNum(r.views_media),
-    views_digark: toNum(r.views_digark),
-    topdesk_references: toNum(r.topdesk_references),
-    average_views_media: toNum(r.average_views_media),
-    average_views_digark: toNum(r.average_views_digark),
-    requisitions_internal: toNum(r.requisitions_internal),
-    requisitions_ap: toNum(r.requisitions_ap),
-    tags: (r.tags ?? "").toString(),
-    navn: (r.navn ?? "").toString(),
-    lokasjon: (r.lokasjon ?? "").toString(),
-    identifikator: (r.identifikator ?? "").toString(),
+    views_media: +r.views_media || 0,
+    views_digark: +r.views_digark || 0,
+    average_views_media: +r.average_views_media || 0,
+    requisitions_ap: +r.requisitions_ap || 0,
+    _digPct: (+r.percentage_digitized || 0) * 100,
+    _tagsLc: (r.tags || "").toLowerCase(),
+    _searchLc: `${r.navn || ""} ${r.identifikator || ""}`.toLowerCase()
   }));
 }
 
-function populateLokasjon(data) {
-  const unique = Array.from(new Set(data.map(d => d.lokasjon).filter(Boolean))).sort();
-  for (const loc of unique) {
-    const opt = document.createElement("option");
-    opt.value = loc;
-    opt.textContent = loc;
-    lokasjonFilter.appendChild(opt);
-  }
-}
-
-function buildTableHeader() {
-  tableHeadRow.innerHTML = "";
-
-  for (const col of columns) {
+/* ========= UI ========= */
+function buildHeader() {
+  headEl.innerHTML = "";
+  for (const c of columns) {
     const th = document.createElement("th");
-    th.textContent = col.label;
+    th.textContent = c.label;
     th.style.cursor = "pointer";
     th.style.padding = "10px";
-    th.style.borderBottom = "1px solid #e5e5e5";
-    th.style.textAlign = col.numeric ? "right" : "left";
-    th.dataset.key = col.key;
-
-    th.addEventListener("click", () => {
-      if (state.sortKey === col.key) {
-        state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
-      } else {
-        state.sortKey = col.key;
-        state.sortDir = col.numeric ? "desc" : "asc";
-      }
-      applyFiltersAndRender();
-    });
-
-    tableHeadRow.appendChild(th);
+    th.onclick = () => toggleSort(c.key, c.numeric);
+    headEl.appendChild(th);
   }
 }
 
-function applyFiltersAndRender() {
-  const selectedLok = lokasjonFilter.value;
-  const tagQ = (tagFilter.value || "").trim().toLowerCase();
-  const searchQ = (searchFilter.value || "").trim().toLowerCase();
+function populateLokasjon() {
+  [...new Set(state.raw.map(d => d.lokasjon).filter(Boolean))]
+    .sort()
+    .forEach(l => {
+      const o = document.createElement("option");
+      o.value = l;
+      o.textContent = l;
+      lokasjonFilter.appendChild(o);
+    });
+}
 
-  const minDig = clamp(toNum(digMin.value), 0, 100);
-  const maxDig = clamp(toNum(digMax.value), 0, 100);
-  const minAvgMedia = Math.max(0, toNum(minViewsMedia.value));
+/* ========= FILTERING ========= */
+function applyFilters() {
+  state.page = 1;
 
-  const digLo = Math.min(minDig, maxDig);
-  const digHi = Math.max(minDig, maxDig);
+  const loc = lokasjonFilter.value;
+  const tagQ = tagFilter.value.toLowerCase();
+  const searchQ = searchFilter.value.toLowerCase();
+  const lo = Math.min(+digMin.value, +digMax.value);
+  const hi = Math.max(+digMin.value, +digMax.value);
+  const minMedia = +minViewsMedia.value || 0;
 
-  state.filtered = state.raw.filter(d => {
-    if (selectedLok !== "ALL" && d.lokasjon !== selectedLok) return false;
+  state.filtered = state.raw.filter(d =>
+    (loc === "ALL" || d.lokasjon === loc) &&
+    d._digPct >= lo && d._digPct <= hi &&
+    d.average_views_media >= minMedia &&
+    (!tagQ || d._tagsLc.includes(tagQ)) &&
+    (!searchQ || d._searchLc.includes(searchQ))
+  );
 
-    // percentage_digitized is stored 0..1 in DB; compare in %
-    const digPct = (d.percentage_digitized ?? 0) * 100;
-    if (digPct < digLo || digPct > digHi) return false;
+  sort();
+  render();
+}
 
-    if ((d.average_views_media ?? 0) < minAvgMedia) return false;
+/* ========= SORT ========= */
+function toggleSort(key, numeric) {
+  if (state.sortKey === key) {
+    state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+  } else {
+    state.sortKey = key;
+    state.sortDir = numeric ? "desc" : "asc";
+  }
+  sort();
+  render();
+}
 
-    if (tagQ) {
-      const tags = (d.tags ?? "").toLowerCase();
-      if (!tags.includes(tagQ)) return false;
-    }
+function sort() {
+  const dir = state.sortDir === "asc" ? 1 : -1;
+  const key = state.sortKey;
 
-    if (searchQ) {
-      const hay = `${d.navn} ${d.identifikator}`.toLowerCase();
-      if (!hay.includes(searchQ)) return false;
-    }
+  state.filtered.sort((a, b) =>
+    (a[key] > b[key] ? 1 : -1) * dir
+  );
+}
 
-    return true;
-  });
-
-  sortFiltered();
+/* ========= RENDER ========= */
+function render() {
   renderStats();
   renderTable();
-  renderHeaderIndicators();
-}
-
-function sortFiltered() {
-  const { sortKey, sortDir } = state;
-  const col = columns.find(c => c.key === sortKey);
-  const dir = sortDir === "asc" ? 1 : -1;
-
-  state.filtered.sort((a, b) => {
-    const av = a?.[sortKey];
-    const bv = b?.[sortKey];
-
-    if (col?.numeric) {
-      return (toNum(av) - toNum(bv)) * dir;
-    }
-
-    const as = (av ?? "").toString().toLowerCase();
-    const bs = (bv ?? "").toString().toLowerCase();
-    return as.localeCompare(bs) * dir;
-  });
-}
-
-function renderHeaderIndicators() {
-  const ths = tableHeadRow.querySelectorAll("th");
-  ths.forEach(th => {
-    const key = th.dataset.key;
-    const arrow = key === state.sortKey ? (state.sortDir === "asc" ? " ▲" : " ▼") : "";
-    const col = columns.find(c => c.key === key);
-    th.textContent = (col?.label ?? key) + arrow;
-  });
+  renderPagination();
 }
 
 function renderStats() {
-  const total = state.raw.length;
-  const shown = state.filtered.length;
-
-  // Quick aggregates for visible data
-  const sumViewsMedia = state.filtered.reduce((acc, d) => acc + toNum(d.views_media), 0);
-  const avgDigPct = state.filtered.length
-    ? (state.filtered.reduce((acc, d) => acc + (toNum(d.percentage_digitized) * 100), 0) / state.filtered.length)
-    : 0;
-
   statsEl.textContent =
-    `Viser ${shown} av ${total} arkiver • Sum Media-visninger: ${sumViewsMedia.toLocaleString("no-NO")} • ` +
-    `Snitt digitaliseringsgrad: ${avgDigPct.toFixed(2)}%`;
+    `Viser ${state.filtered.length} arkiver`;
 }
 
 function renderTable() {
-  tableBody.innerHTML = "";
+  bodyEl.innerHTML = "";
+  const start = (state.page - 1) * state.pageSize;
+  const page = state.filtered.slice(start, start + state.pageSize);
 
-  for (const row of state.filtered) {
+  for (const r of page) {
     const tr = document.createElement("tr");
-    tr.style.borderBottom = "1px solid #f0f0f0";
-
-    for (const col of columns) {
+    for (const c of columns) {
       const td = document.createElement("td");
       td.style.padding = "10px";
-      td.style.verticalAlign = "top";
-      td.style.textAlign = col.numeric ? "right" : "left";
-
-      let value = row[col.key];
-
-      if (col.fmt) value = col.fmt(value);
-
-      // Slightly nicer tags cell
-      if (col.key === "tags") {
-        td.style.maxWidth = "520px";
-        td.style.whiteSpace = "normal";
-        td.style.lineHeight = "1.2";
-      }
-
-      td.textContent = value ?? "";
+      let v = r[c.key];
+      if (c.fmt) v = c.fmt(v);
+      td.textContent = v ?? "";
       tr.appendChild(td);
     }
-
-    tableBody.appendChild(tr);
-  }
-
-  if (state.filtered.length === 0) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.colSpan = columns.length;
-    td.style.padding = "14px";
-    td.style.color = "#777";
-    td.textContent = "Ingen treff. Prøv å justere filtrene.";
-    tr.appendChild(td);
-    tableBody.appendChild(tr);
+    bodyEl.appendChild(tr);
   }
 }
 
-/* ---------------- utils ---------------- */
+function renderPagination() {
+  paginationEl.innerHTML = "";
+  const pages = Math.ceil(state.filtered.length / state.pageSize);
+  if (pages <= 1) return;
 
-function toNum(v) {
-  if (v === null || v === undefined || v === "") return 0;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+  const prev = btn("◀ Forrige", state.page === 1, () => {
+    state.page--; render();
+  });
+  const next = btn("Neste ▶", state.page === pages, () => {
+    state.page++; render();
+  });
+
+  paginationEl.append(prev, `Side ${state.page} / ${pages}`, next);
 }
 
-function pct(v01) {
-  const p = toNum(v01) * 100;
-  return `${p.toFixed(2)}%`;
+function btn(txt, disabled, fn) {
+  const b = document.createElement("button");
+  b.textContent = txt;
+  b.disabled = disabled;
+  b.onclick = fn;
+  return b;
 }
 
-function int(v) {
-  return Math.round(toNum(v)).toLocaleString("no-NO");
-}
+/* ========= EVENTS ========= */
+const debounced = debounce(applyFilters, 120);
+[lokasjonFilter, tagFilter, searchFilter, digMin, digMax, minViewsMedia]
+  .forEach(el => el.addEventListener("input", debounced));
 
-function num(v, decimals = 2) {
-  return toNum(v).toFixed(decimals);
-}
+resetBtn.onclick = () => {
+  lokasjonFilter.value = "ALL";
+  tagFilter.value = "";
+  searchFilter.value = "";
+  digMin.value = 0;
+  digMax.value = 100;
+  minViewsMedia.value = 0;
+  applyFilters();
+};
 
-function clamp(n, lo, hi) {
-  return Math.min(hi, Math.max(lo, n));
-}
-
+/* ========= UTILS ========= */
 function debounce(fn, ms) {
-  let t = null;
-  return (...args) => {
+  let t;
+  return (...a) => {
     clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
+    t = setTimeout(() => fn(...a), ms);
   };
 }
