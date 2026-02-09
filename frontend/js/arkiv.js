@@ -1,22 +1,34 @@
-/* ========= CONFIG ========= */
+/* =========================================================
+   CONFIG
+========================================================= */
+
 const API_BASE =
   "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
-/* ========= STATE ========= */
+/* =========================================================
+   STATE
+========================================================= */
+
 const state = {
   raw: [],
   filtered: [],
+
+  // pagination
   page: 1,
   pageSize: 100,
+
+  // sorting
   sortKey: "views_media",
-  sortDir: "desc"
+  sortDir: "desc",
+
+  // slicers
+  selectedLokasjoner: [],
+  selectedTags: []
 };
 
-/* ========= ELEMENTS ========= */
-const lokasjonFilter = document.getElementById("lokasjonFilter");
-const tagsFilter = document.getElementById("tagsFilter");
-const tagsClearBtn = document.getElementById("tagsClearBtn");
-const tagsCountEl = document.getElementById("tagsCount");
+/* =========================================================
+   ELEMENTS
+========================================================= */
 
 const searchFilter = document.getElementById("searchFilter");
 const digMin = document.getElementById("digMin");
@@ -29,53 +41,63 @@ const headEl = document.getElementById("tableHead");
 const bodyEl = document.getElementById("tableBody");
 const paginationEl = document.getElementById("pagination");
 
-/* ========= COLUMNS ========= */
+/* =========================================================
+   TABLE COLUMNS
+========================================================= */
+
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "lokasjon", label: "Lokasjon" },
   { key: "identifikator", label: "Identifikator" },
   { key: "_digPct", label: "Digitalisert (%)", numeric: true, fmt: v => v.toFixed(2) },
-  { key: "views_media", label: "Media-visninger", numeric: true, fmt: v => int(v) },
-  { key: "views_digark", label: "DigArk-visninger", numeric: true, fmt: v => int(v) },
+  { key: "views_media", label: "Media-visninger", numeric: true, fmt: int },
+  { key: "views_digark", label: "DigArk-visninger", numeric: true, fmt: int },
   { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => num(v, 2) },
-  { key: "requisitions_ap", label: "Rekvisisjoner AP", numeric: true, fmt: v => int(v) },
+  { key: "requisitions_ap", label: "Rekvisisjoner AP", numeric: true, fmt: int },
   { key: "tags", label: "Tags" }
 ];
 
-/* ========= INIT ========= */
+/* =========================================================
+   INIT
+========================================================= */
+
 init();
 
 async function init() {
-  buildHeader();
-  wireEvents();
+  buildTableHeader();
 
   const data = await fetchData();
-  state.raw = normalize(data);
+  state.raw = normalizeRows(data);
 
-  populateLokasjon();
-  populateTags();     // ✅ build multi-select options once
-  applyFilters();     // initial render
+  buildLokasjonDropdown();
+  buildTagsDropdown();
+
+  wireEvents();
+  applyFilters();
 }
 
-/* ========= DATA ========= */
+/* =========================================================
+   DATA
+========================================================= */
+
 async function fetchData() {
   const res = await fetch(`${API_BASE}/api/arkiv-overview`);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return await res.json();
 }
 
-function normalize(rows) {
+function normalizeRows(rows) {
   return rows.map(r => {
     const tags = (r.tags ?? "").toString();
     const tagArr = tags
       .split(",")
-      .map(s => s.trim())
+      .map(t => t.trim())
       .filter(Boolean);
 
     return {
       ...r,
 
-      // numeric normalization
+      // numbers
       views_media: toNum(r.views_media),
       views_digark: toNum(r.views_digark),
       average_views_media: toNum(r.average_views_media),
@@ -88,139 +110,222 @@ function normalize(rows) {
       identifikator: (r.identifikator ?? "").toString(),
       tags,
 
-      // 🚀 derived fields
-      _tagArr: tagArr, // array of clean tags (fast membership checks)
+      // derived
+      _tagArr: tagArr,
       _searchLc: `${r.navn ?? ""} ${r.identifikator ?? ""}`.toLowerCase()
     };
   });
 }
 
-/* ========= UI BUILDERS ========= */
-function buildHeader() {
-  headEl.innerHTML = "";
-  for (const c of columns) {
-    const th = document.createElement("th");
-    th.style.cursor = "pointer";
-    th.style.padding = "10px";
-    th.style.userSelect = "none";
-    th.style.textAlign = c.numeric ? "right" : "left";
-    th.dataset.key = c.key;
-    th.onclick = () => toggleSort(c.key, !!c.numeric);
-    headEl.appendChild(th);
+/* =========================================================
+   MULTI-SELECT DROPDOWNS
+========================================================= */
+
+function createMultiSelect({ mountId, label, options, onChange }) {
+  const mount = document.getElementById(mountId);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "multi-select";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = `${label} (Alle)`;
+
+  const panel = document.createElement("div");
+  panel.className = "panel hidden";
+
+  const controls = document.createElement("div");
+  controls.className = "controls";
+
+  const selectAllBtn = document.createElement("button");
+  selectAllBtn.type = "button";
+  selectAllBtn.textContent = "Velg alle";
+
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.textContent = "Tøm";
+
+  controls.append(selectAllBtn, clearBtn);
+  panel.appendChild(controls);
+
+  const checkboxes = [];
+
+  for (const opt of options) {
+    const labelEl = document.createElement("label");
+    labelEl.className = "option";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = opt;
+    cb.checked = true;
+
+    const span = document.createElement("span");
+    span.textContent = opt;
+
+    labelEl.append(cb, span);
+    panel.appendChild(labelEl);
+    checkboxes.push(cb);
   }
-  updateHeaderIndicators();
+
+  function update() {
+    const selected = checkboxes.filter(c => c.checked).map(c => c.value);
+    const txt = selected.length === 0
+      ? "Ingen"
+      : selected.length === options.length
+        ? "Alle"
+        : `${selected.length} valgt`;
+
+    button.textContent = `${label} (${txt})`;
+    onChange(selected);
+  }
+
+  button.onclick = () => panel.classList.toggle("hidden");
+
+  selectAllBtn.onclick = () => {
+    checkboxes.forEach(c => c.checked = true);
+    update();
+  };
+
+  clearBtn.onclick = () => {
+    checkboxes.forEach(c => c.checked = false);
+    update();
+  };
+
+  panel.addEventListener("change", update);
+
+  document.addEventListener("click", e => {
+    if (!wrapper.contains(e.target)) {
+      panel.classList.add("hidden");
+    }
+  });
+
+  wrapper.append(button, panel);
+  mount.appendChild(wrapper);
+
+  update();
 }
 
-function populateLokasjon() {
-  [...new Set(state.raw.map(d => d.lokasjon).filter(Boolean))]
-    .sort()
-    .forEach(l => {
-      const o = document.createElement("option");
-      o.value = l;
-      o.textContent = l;
-      lokasjonFilter.appendChild(o);
-    });
+/* =========================================================
+   DROPDOWN BUILDERS
+========================================================= */
+
+function buildLokasjonDropdown() {
+  const opts = [...new Set(state.raw.map(d => d.lokasjon).filter(Boolean))].sort();
+
+  createMultiSelect({
+    mountId: "lokasjonDropdown",
+    label: "Lokasjon",
+    options: opts,
+    onChange: vals => {
+      state.selectedLokasjoner = vals;
+      applyFilters();
+    }
+  });
 }
 
-function populateTags() {
-  // Gather all unique tags across the dataset
+function buildTagsDropdown() {
   const tagSet = new Set();
   for (const d of state.raw) {
     for (const t of d._tagArr) tagSet.add(t);
   }
 
-  const tags = Array.from(tagSet).sort((a, b) => a.localeCompare(b, "no"));
+  const opts = Array.from(tagSet).sort((a, b) => a.localeCompare(b, "no"));
 
-  tagsFilter.innerHTML = "";
-  for (const t of tags) {
-    const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t;
-    tagsFilter.appendChild(opt);
-  }
-
-  updateTagsCount();
+  createMultiSelect({
+    mountId: "tagsDropdown",
+    label: "Tags",
+    options: opts,
+    onChange: vals => {
+      state.selectedTags = vals;
+      applyFilters();
+    }
+  });
 }
 
-/* ========= EVENTS ========= */
-function wireEvents() {
-  const debounced = debounce(applyFilters, 140);
+/* =========================================================
+   EVENTS
+========================================================= */
 
-  // input/change (multi-select uses "change")
-  lokasjonFilter.addEventListener("change", debounced);
-  tagsFilter.addEventListener("change", applyFilters); // immediate is fine
+function wireEvents() {
+  const debounced = debounce(applyFilters, 120);
+
   searchFilter.addEventListener("input", debounced);
   digMin.addEventListener("input", debounced);
   digMax.addEventListener("input", debounced);
   minViewsMedia.addEventListener("input", debounced);
 
-  tagsClearBtn.addEventListener("click", () => {
-    for (const opt of tagsFilter.options) opt.selected = false;
-    applyFilters();
-  });
-
   resetBtn.addEventListener("click", () => {
-    lokasjonFilter.value = "ALL";
-    for (const opt of tagsFilter.options) opt.selected = false;
     searchFilter.value = "";
     digMin.value = 0;
     digMax.value = 100;
     minViewsMedia.value = 0;
+
     state.sortKey = "views_media";
     state.sortDir = "desc";
+    state.page = 1;
+
+    // reset dropdowns by reinitializing page
+    document.getElementById("lokasjonDropdown").innerHTML = "";
+    document.getElementById("tagsDropdown").innerHTML = "";
+    buildLokasjonDropdown();
+    buildTagsDropdown();
+
     applyFilters();
   });
 }
 
-/* ========= FILTERING ========= */
+/* =========================================================
+   FILTER / SORT
+========================================================= */
+
 function applyFilters() {
   state.page = 1;
 
-  const loc = lokasjonFilter.value;
   const searchQ = searchFilter.value.trim().toLowerCase();
-
   const lo = Math.min(toNum(digMin.value), toNum(digMax.value));
   const hi = Math.max(toNum(digMin.value), toNum(digMax.value));
   const minMedia = Math.max(0, toNum(minViewsMedia.value));
 
-  // Selected tags
-  const selectedTags = getSelectedValues(tagsFilter); // array
-  const tagMode = "ANY"; // switch to "ALL" if you want stricter matching
-
   state.filtered = state.raw.filter(d => {
-    if (loc !== "ALL" && d.lokasjon !== loc) return false;
+    if (state.selectedLokasjoner.length &&
+        !state.selectedLokasjoner.includes(d.lokasjon)) return false;
+
+    if (state.selectedTags.length) {
+      let ok = false;
+      for (const t of state.selectedTags) {
+        if (d._tagArr.includes(t)) { ok = true; break; }
+      }
+      if (!ok) return false;
+    }
 
     if (d._digPct < lo || d._digPct > hi) return false;
-
     if (d.average_views_media < minMedia) return false;
-
     if (searchQ && !d._searchLc.includes(searchQ)) return false;
-
-    if (selectedTags.length) {
-      if (tagMode === "ANY") {
-        // any selected tag must exist in row tags
-        let ok = false;
-        for (const t of selectedTags) {
-          if (d._tagArr.includes(t)) { ok = true; break; }
-        }
-        if (!ok) return false;
-      } else {
-        // ALL selected tags must exist
-        for (const t of selectedTags) {
-          if (!d._tagArr.includes(t)) return false;
-        }
-      }
-    }
 
     return true;
   });
 
-  sort();
-  updateTagsCount();
+  sortFiltered();
   render();
 }
 
-/* ========= SORT ========= */
+function sortFiltered() {
+  const dir = state.sortDir === "asc" ? 1 : -1;
+  const key = state.sortKey;
+  const col = columns.find(c => c.key === key);
+  const numeric = !!col?.numeric;
+
+  if (numeric) {
+    state.filtered.sort((a, b) => (toNum(a[key]) - toNum(b[key])) * dir);
+  } else {
+    state.filtered.sort((a, b) =>
+      String(a[key] ?? "").localeCompare(String(b[key] ?? ""), "no") * dir
+    );
+  }
+
+  updateHeaderIndicators();
+}
+
 function toggleSort(key, numeric) {
   if (state.sortKey === key) {
     state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
@@ -228,29 +333,29 @@ function toggleSort(key, numeric) {
     state.sortKey = key;
     state.sortDir = numeric ? "desc" : "asc";
   }
-  sort();
+  sortFiltered();
   render();
 }
 
-function sort() {
-  const dir = state.sortDir === "asc" ? 1 : -1;
-  const key = state.sortKey;
+/* =========================================================
+   RENDER
+========================================================= */
 
-  // Faster: precompute whether numeric
-  const col = columns.find(c => c.key === key);
-  const numeric = !!col?.numeric;
-
-  if (numeric) {
-    state.filtered.sort((a, b) => (toNum(a[key]) - toNum(b[key])) * dir);
-  } else {
-    state.filtered.sort((a, b) => String(a[key] ?? "").localeCompare(String(b[key] ?? ""), "no") * dir);
+function buildTableHeader() {
+  headEl.innerHTML = "";
+  for (const c of columns) {
+    const th = document.createElement("th");
+    th.style.padding = "10px";
+    th.style.cursor = "pointer";
+    th.style.textAlign = c.numeric ? "right" : "left";
+    th.dataset.key = c.key;
+    th.onclick = () => toggleSort(c.key, !!c.numeric);
+    headEl.appendChild(th);
   }
-
-  updateHeaderIndicators();
 }
 
 function updateHeaderIndicators() {
-  for (const th of headEl.querySelectorAll("th")) {
+  for (const th of headEl.children) {
     const key = th.dataset.key;
     const col = columns.find(c => c.key === key);
     const arrow = key === state.sortKey ? (state.sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -258,7 +363,6 @@ function updateHeaderIndicators() {
   }
 }
 
-/* ========= RENDER ========= */
 function render() {
   renderStats();
   renderTable();
@@ -266,9 +370,8 @@ function render() {
 }
 
 function renderStats() {
-  const total = state.raw.length;
-  const shown = state.filtered.length;
-  statsEl.textContent = `Viser ${shown.toLocaleString("no-NO")} av ${total.toLocaleString("no-NO")} arkiver`;
+  statsEl.textContent =
+    `Viser ${state.filtered.length.toLocaleString("no-NO")} av ${state.raw.length.toLocaleString("no-NO")} arkiver`;
 }
 
 function renderTable() {
@@ -289,12 +392,11 @@ function renderTable() {
     return;
   }
 
-  // Use a DocumentFragment to reduce reflow
   const frag = document.createDocumentFragment();
 
   for (const r of pageRows) {
     const tr = document.createElement("tr");
-    tr.style.borderBottom = "1px solid #f0f0f0";
+    tr.style.borderBottom = "1px solid #eee";
 
     for (const c of columns) {
       const td = document.createElement("td");
@@ -326,42 +428,24 @@ function renderPagination() {
   const totalPages = Math.ceil(state.filtered.length / state.pageSize);
   if (totalPages <= 1) return;
 
-  const prev = btn("◀ Forrige", state.page === 1, () => {
-    state.page--;
-    render();
-  });
-
-  const next = btn("Neste ▶", state.page >= totalPages, () => {
-    state.page++;
-    render();
-  });
-
-  const info = document.createElement("span");
-  info.textContent = `Side ${state.page} / ${totalPages}`;
-
-  const size = document.createElement("select");
-  [50, 100, 200, 500].forEach(n => {
-    const o = document.createElement("option");
-    o.value = String(n);
-    o.textContent = `${n} / side`;
-    if (n === state.pageSize) o.selected = true;
-    size.appendChild(o);
-  });
-  size.onchange = () => {
-    state.pageSize = parseInt(size.value, 10);
-    state.page = 1;
-    render();
-  };
-
-  paginationEl.append(prev, info, next, size);
+  paginationEl.append(
+    pageBtn("◀ Forrige", state.page === 1, () => {
+      state.page--;
+      render();
+    }),
+    document.createTextNode(` Side ${state.page} / ${totalPages} `),
+    pageBtn("Neste ▶", state.page >= totalPages, () => {
+      state.page++;
+      render();
+    })
+  );
 }
 
-function updateTagsCount() {
-  const selected = getSelectedValues(tagsFilter);
-  tagsCountEl.textContent = selected.length ? `${selected.length} valgt` : "Ingen valgt";
-}
+/* =========================================================
+   UTILS
+========================================================= */
 
-function btn(txt, disabled, fn) {
+function pageBtn(txt, disabled, fn) {
   const b = document.createElement("button");
   b.type = "button";
   b.textContent = txt;
@@ -370,7 +454,6 @@ function btn(txt, disabled, fn) {
   return b;
 }
 
-/* ========= UTILS ========= */
 function debounce(fn, ms) {
   let t;
   return (...a) => {
@@ -384,18 +467,10 @@ function toNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function getSelectedValues(selectEl) {
-  const out = [];
-  for (const opt of selectEl.options) {
-    if (opt.selected) out.push(opt.value);
-  }
-  return out;
-}
-
 function int(v) {
   return Math.round(toNum(v)).toLocaleString("no-NO");
 }
 
-function num(v, decimals = 2) {
-  return toNum(v).toFixed(decimals);
+function num(v, d = 2) {
+  return toNum(v).toFixed(d);
 }
