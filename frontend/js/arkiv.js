@@ -43,7 +43,6 @@ init();
 
 async function init() {
   buildHeader();
-  wireEvents();
   const data = await fetchData();
   state.raw = normalize(data);
   populateLokasjon();
