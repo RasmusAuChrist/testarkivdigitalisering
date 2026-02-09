@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="no">
-<!-- Navbar -->
+
+<!-- Navbar placeholder -->
 <div id="navbar"></div>
 
 <head>
@@ -11,77 +12,125 @@
 </head>
 
 <body>
-  <div style="padding:20px;">
+
+  <!-- 
+    surface-light ensures:
+    - dark text on white
+    - readable table headers
+    - readable dropdowns
+    - does NOT affect navbar or rest of site
+  -->
+  <div class="surface-light" style="padding:20px;">
+
     <h2>Arkivoversikt</h2>
     <p style="color:#555;margin-top:-6px;">
       Filtrer, sorter og bla i arkivdata.
     </p>
 
-   <!-- Filters -->
-<div style="
-  display:grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap:12px;
-  margin:16px 0;
-  align-items:end;
-">
+    <!-- ================= FILTERS ================= -->
+    <div style="
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:12px;
+      margin:16px 0;
+      align-items:end;
+    ">
 
-  <div style="grid-column: span 3;">
-    <label>Lokasjon</label>
-    <div id="lokasjonDropdown"></div>
-  </div>
+      <div style="grid-column: span 3;">
+        <label>Lokasjon</label>
+        <div id="lokasjonDropdown"></div>
+      </div>
 
-  <div style="grid-column: span 4;">
-    <label>Tags</label>
-    <div id="tagsDropdown"></div>
-  </div>
+      <div style="grid-column: span 4;">
+        <label>Tags</label>
+        <div id="tagsDropdown"></div>
+      </div>
 
-  <div style="grid-column: span 3;">
-    <label>Søk</label><br/>
-    <input id="searchFilter" type="text" style="width:100%;" />
-  </div>
+      <div style="grid-column: span 3;">
+        <label>Søk</label>
+        <input
+          id="searchFilter"
+          type="text"
+          placeholder="Navn eller identifikator"
+          style="width:100%;"
+        />
+      </div>
 
-  <div style="grid-column: span 2;">
-    <label>Digitaliseringsgrad (%)</label>
-    <div style="display:flex;gap:6px;">
-      <input id="digMin" type="number" value="0" style="width:80px;" />
-      <span>–</span>
-      <input id="digMax" type="number" value="100" style="width:80px;" />
+      <div style="grid-column: span 2;">
+        <label>Digitaliseringsgrad (%)</label>
+        <div style="display:flex;gap:6px;">
+          <input id="digMin" type="number" value="0" style="width:80px;" />
+          <span>–</span>
+          <input id="digMax" type="number" value="100" style="width:80px;" />
+        </div>
+      </div>
+
+      <div style="grid-column: span 3;">
+        <label>Min gj.snitt media-visninger</label>
+        <input
+          id="minViewsMedia"
+          type="number"
+          value="0"
+          style="width:140px;"
+        />
+      </div>
+
+      <div style="grid-column: span 9; display:flex; gap:10px; align-items:end;">
+        <button id="resetBtn" type="button">
+          Nullstill filtre
+        </button>
+        <div id="stats" style="color:#555;"></div>
+      </div>
     </div>
-  </div>
 
-  <div style="grid-column: span 3;">
-    <label>Min gj.snitt media-visninger</label>
-    <input id="minViewsMedia" type="number" value="0" style="width:140px;" />
-  </div>
-
-  <div style="grid-column: span 9; display:flex; gap:10px; align-items:end;">
-    <button id="resetBtn" type="button">Nullstill filtre</button>
-    <div id="stats" style="color:#555;"></div>
-  </div>
-</div>
-
-
-    <!-- Table -->
-    <div style="overflow:auto;border:1px solid #e5e5e5;border-radius:6px;">
-      <table style="width:100%;border-collapse:collapse;min-width:1200px;">
+    <!-- ================= TABLE ================= -->
+    <div style="
+      overflow:auto;
+      border:1px solid #e5e5e5;
+      border-radius:6px;
+      background:#fff;
+    ">
+      <table
+        style="
+          width:100%;
+          border-collapse:collapse;
+          min-width:1200px;
+        "
+      >
         <thead>
-          <tr id="tableHead" style="background:#fafafa;position:sticky;top:0;"></tr>
+          <tr
+            id="tableHead"
+            style="
+              position:sticky;
+              top:0;
+              z-index:1;
+            "
+          ></tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
     </div>
 
-    <div id="pagination"
-         style="margin-top:12px;display:flex;gap:10px;align-items:center;"></div>
+    <!-- ================= PAGINATION ================= -->
+    <div
+      id="pagination"
+      style="margin-top:12px;display:flex;gap:10px;align-items:center;"
+    ></div>
+
   </div>
 
+  <!-- Page JS -->
   <script type="module" src="/js/arkiv.js"></script>
+
 </body>
 
+<!-- Navbar loader -->
 <script>
   fetch("../partials/navbar.html")
     .then(r => r.text())
-    .then(html => document.getElementById("navbar").outerHTML = html);
+    .then(html => {
+      document.getElementById("navbar").outerHTML = html;
+    });
 </script>
+
 </html>

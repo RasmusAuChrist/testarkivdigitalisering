@@ -267,3 +267,80 @@ table.status-table th {
   gap: 8px;
   margin-bottom: 6px;
 }
+
+/* =========================
+   Arkiv page: light surface overrides
+========================= */
+
+.surface-light {
+  color: #1f2937; /* dark readable text on white */
+}
+
+/* Table surface */
+.surface-light table {
+  color: #1f2937;
+}
+
+.surface-light th {
+  background: #f8fafc;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.surface-light th:hover {
+  background: #eef2f7;
+}
+
+.surface-light td {
+  border-bottom: 1px solid #f0f0f0;
+  color: #111827;
+}
+
+/* Buttons (avoid gold-on-white) */
+.surface-light button {
+  background: #f1f5f9;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.surface-light button:hover {
+  background: #e2e8f0;
+}
+
+.surface-light button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Inputs */
+.surface-light input {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+/* Multi-select (your custom dropdown) */
+.surface-light .multi-select button {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+.surface-light .multi-select .panel {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+.surface-light .multi-select .option:hover {
+  background: #f1f5f9;
+}
+
+.surface-light .multi-select .controls button {
+  background: #e2e8f0;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
