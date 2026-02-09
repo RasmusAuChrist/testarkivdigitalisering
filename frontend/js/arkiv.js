@@ -41,19 +41,32 @@ const headEl = document.getElementById("tableHead");
 const bodyEl = document.getElementById("tableBody");
 const paginationEl = document.getElementById("pagination");
 
-/* =========================================================
-   TABLE COLUMNS
-========================================================= */
-
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "lokasjon", label: "Lokasjon" },
   { key: "identifikator", label: "Identifikator" },
+
+  // percentages
   { key: "_digPct", label: "Digitalisert (%)", numeric: true, fmt: v => v.toFixed(2) },
-  { key: "views_media", label: "Media-visninger", numeric: true, fmt: int },
-  { key: "views_digark", label: "DigArk-visninger", numeric: true, fmt: int },
+
+  // counts / totals
+  { key: "stykke_count", label: "Stykke", numeric: true, fmt: int },
+  { key: "views_internal", label: "Visninger (Intern)", numeric: true, fmt: int },
+  { key: "views_media", label: "Visninger (Media)", numeric: true, fmt: int },
+  { key: "views_digark", label: "Visninger (DigArk)", numeric: true, fmt: int },
+
+  // topdesk
+  { key: "topdesk_references", label: "Topdesk refs", numeric: true, fmt: int },
+
+  // averages
   { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => num(v, 2) },
-  { key: "requisitions_ap", label: "Rekvisisjoner AP", numeric: true, fmt: int },
+  { key: "average_views_digark", label: "Gj.snitt DigArk", numeric: true, fmt: v => num(v, 2) },
+
+  // requisitions
+  { key: "requisitions_internal", label: "Rekvisisjoner (Intern)", numeric: true, fmt: int },
+  { key: "requisitions_ap", label: "Rekvisisjoner (AP)", numeric: true, fmt: int },
+
+  // tags
   { key: "tags", label: "Tags" }
 ];
 
@@ -103,6 +116,11 @@ function normalizeRows(rows) {
       average_views_media: toNum(r.average_views_media),
       requisitions_ap: toNum(r.requisitions_ap),
       _digPct: toNum(r.percentage_digitized) * 100,
+      stykke_count: toNum(r.stykke_count),
+      views_internal: toNum(r.views_internal),
+      topdesk_references: toNum(r.topdesk_references),
+      requisitions_internal: toNum(r.requisitions_internal),
+
 
       // strings
       navn: (r.navn ?? "").toString(),
