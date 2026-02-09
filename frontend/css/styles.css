@@ -488,3 +488,60 @@ table.status-table th {
   color: #fff;
   opacity: 0.9;
 }
+/* =========================================================
+   FIX: Dropdowns should be black-on-white inside filters-dark
+   (labels remain gold on black)
+========================================================= */
+
+.surface-light .filters-dark .dropdown-light .multi-select button{
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+.surface-light .filters-dark .dropdown-light .multi-select .panel{
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+.surface-light .filters-dark .dropdown-light .multi-select .option{
+  color: #111827;
+}
+
+.surface-light .filters-dark .dropdown-light .multi-select .option:hover{
+  background: #f1f5f9;
+}
+
+.surface-light .filters-dark .dropdown-light .multi-select .controls button{
+  background: #e2e8f0;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+/* =========================================================
+   FLOATING top scrollbar: give it a stable height
+========================================================= */
+
+.surface-light .table-scroll-x-top{
+  height: 18px;         /* stable so we can offset sticky headers */
+  padding: 0;
+}
+
+/* keep the spacer minimal but allow scrolling */
+.surface-light .table-scroll-x-top .table-scroll-x-spacer{
+  height: 1px;
+}
+
+/* =========================================================
+   Sticky table headers: float BELOW the top scrollbar
+   top = height of .table-scroll-x-top (18px) + its border (1px)
+========================================================= */
+
+.surface-light .arkiv-table thead th{
+  position: sticky;
+  top: 19px;            /* 18 + 1 border; adjust if you change height */
+  z-index: 10;
+  background: #f8fafc;  /* solid background so it doesn’t blend */
+  box-shadow: 0 1px 0 #e5e7eb;
+}
