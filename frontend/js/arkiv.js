@@ -553,3 +553,5 @@ function int(v) {
 function num(v, d = 2) {
   return toNum(v).toFixed(d);
 }
+
+window.addEventListener("DOMContentLoaded", init);
