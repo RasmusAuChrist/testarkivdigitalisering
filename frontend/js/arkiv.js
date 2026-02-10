@@ -43,6 +43,17 @@ const scrollTopEl = document.getElementById("tableScrollTop");
 const scrollTopSpacerEl = document.getElementById("tableScrollTopSpacer");
 const scrollMainEl = document.getElementById("tableScrollMain");
 
+const loadingOverlay = document.getElementById("loadingOverlay");
+
+function showLoading() {
+  if (loadingOverlay) loadingOverlay.style.display = "flex";
+}
+
+function hideLoading() {
+  if (loadingOverlay) loadingOverlay.style.display = "none";
+}
+
+
 /* =========================================================
    COLUMNS
 ========================================================= */
@@ -75,23 +86,31 @@ const columns = [
    INIT
 ========================================================= */
 
-init();
-
 async function init() {
-  buildTableHeader();
+  showLoading();
 
-  const data = await fetchData();
-  state.raw = normalizeRows(data);
+  try {
+    buildTableHeader();
 
-  buildLokasjonDropdown();
-  buildTagsDropdown();
-  buildSerierDropdown();
+    const data = await fetchData();
+    state.raw = normalizeRows(data);
 
-  wireEvents();
+    buildLokasjonDropdown();
+    buildTagsDropdown();
+    buildSerierDropdown();
 
-  applyFilters();
-  setupHorizontalScrollSync();
-  updateTopScrollbarSpacer();
+    wireEvents();
+
+    applyFilters();
+    setupHorizontalScrollSync();
+    updateTopScrollbarSpacer();
+  } catch (err) {
+    console.error(err);
+    // Optional: show a friendly message somewhere
+    if (statsEl) statsEl.textContent = "Kunne ikke laste data.";
+  } finally {
+    hideLoading();
+  }
 }
 
 /* =========================================================

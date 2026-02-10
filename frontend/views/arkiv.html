@@ -112,12 +112,13 @@
 
   <!-- Page JS -->
   <script type="module" src="/js/arkiv.js"></script>
-</body>
 
-<!-- Spinner overlay -->
-<div id="loadingOverlay" style="display: flex;">
-  <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
-</div>
+  <!-- Spinner overlay (INSIDE body, hidden by default via CSS) -->
+  <div id="loadingOverlay">
+    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
+  </div>
+
+</body>
 
 <!-- Navbar loader -->
 <script>
