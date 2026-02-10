@@ -21,7 +21,7 @@ const state = {
 
   selectedLokasjoner: [],
   selectedTags: [],
-  selectedSerier: []   // NEW
+  selectedSerier: []
 };
 
 /* =========================================================
@@ -45,7 +45,6 @@ const scrollMainEl = document.getElementById("tableScrollMain");
 
 /* =========================================================
    COLUMNS
-   (serier is second-to-last, before tags)
 ========================================================= */
 
 const columns = [
@@ -68,7 +67,7 @@ const columns = [
   { key: "requisitions_internal", label: "Rekvisisjoner (Intern)", numeric: true, fmt: int },
   { key: "requisitions_ap", label: "Rekvisisjoner (AP)", numeric: true, fmt: int },
 
-  { key: "serier", label: "Hovedserier" },   // NEW
+  { key: "serier", label: "Hovedserier" }, // second-to-last
   { key: "tags", label: "Tags" }
 ];
 
@@ -85,8 +84,8 @@ async function init() {
   state.raw = normalizeRows(data);
 
   buildLokasjonDropdown();
-  buildSerierDropdown();   // NEW
   buildTagsDropdown();
+  buildSerierDropdown();
 
   wireEvents();
 
@@ -108,11 +107,12 @@ async function fetchData() {
 function normalizeRows(rows) {
   return rows.map(r => {
     const tagArr = splitList(r.tags);
-    const serieArr = splitList(r.serier); // NEW
+    const serieArr = splitList(r.serier);
 
     return {
       ...r,
 
+      // numbers
       views_media: toNum(r.views_media),
       views_digark: toNum(r.views_digark),
       views_internal: toNum(r.views_internal),
@@ -124,14 +124,16 @@ function normalizeRows(rows) {
       requisitions_ap: toNum(r.requisitions_ap),
       _digPct: toNum(r.percentage_digitized) * 100,
 
+      // strings
       navn: (r.navn ?? "").toString(),
       lokasjon: (r.lokasjon ?? "").toString(),
       identifikator: (r.identifikator ?? "").toString(),
       tags: (r.tags ?? "").toString(),
       serier: (r.serier ?? "").toString(),
 
+      // derived
       _tagArr: tagArr,
-      _serieArr: serieArr,      // NEW
+      _serieArr: serieArr,
       _searchLc: `${r.navn ?? ""} ${r.identifikator ?? ""}`.toLowerCase()
     };
   });
@@ -231,18 +233,6 @@ function buildLokasjonDropdown() {
   });
 }
 
-function buildSerierDropdown() {
-  const set = new Set();
-  state.raw.forEach(d => d._serieArr.forEach(s => set.add(s)));
-
-  createMultiSelect({
-    mountId: "serierDropdown",
-    label: "Hovedserier",
-    options: [...set].sort((a, b) => a.localeCompare(b, "no")),
-    onChange: v => { state.selectedSerier = v; applyFilters(); }
-  });
-}
-
 function buildTagsDropdown() {
   const set = new Set();
   state.raw.forEach(d => d._tagArr.forEach(t => set.add(t)));
@@ -255,8 +245,53 @@ function buildTagsDropdown() {
   });
 }
 
+function buildSerierDropdown() {
+  const set = new Set();
+  state.raw.forEach(d => d._serieArr.forEach(s => set.add(s)));
+
+  createMultiSelect({
+    mountId: "serierDropdown",
+    label: "Hovedserier",
+    options: [...set].sort((a, b) => a.localeCompare(b, "no")),
+    onChange: v => { state.selectedSerier = v; applyFilters(); }
+  });
+}
+
 /* =========================================================
-   FILTERING
+   EVENTS
+========================================================= */
+
+function wireEvents() {
+  const debounced = debounce(applyFilters, 120);
+
+  searchFilter.addEventListener("input", debounced);
+  digMin.addEventListener("input", debounced);
+  digMax.addEventListener("input", debounced);
+  minViewsMedia.addEventListener("input", debounced);
+
+  resetBtn.addEventListener("click", () => {
+    searchFilter.value = "";
+    digMin.value = 0;
+    digMax.value = 100;
+    minViewsMedia.value = 0;
+
+    state.sortKey = "views_media";
+    state.sortDir = "desc";
+    state.page = 1;
+
+    // rebuild dropdowns (select all)
+    buildLokasjonDropdown();
+    buildTagsDropdown();
+    buildSerierDropdown();
+
+    applyFilters();
+  });
+
+  window.addEventListener("resize", debounce(updateTopScrollbarSpacer, 150));
+}
+
+/* =========================================================
+   FILTERING + SORTING
 ========================================================= */
 
 function applyFilters() {
@@ -289,6 +324,35 @@ function applyFilters() {
   sortFiltered();
   render();
 }
+
+function sortFiltered() {
+  const dir = state.sortDir === "asc" ? 1 : -1;
+  const key = state.sortKey;
+  const col = columns.find(c => c.key === key);
+  const numeric = !!col?.numeric;
+
+  if (numeric) {
+    state.filtered.sort((a, b) => (toNum(a[key]) - toNum(b[key])) * dir);
+  } else {
+    state.filtered.sort((a, b) =>
+      String(a[key] ?? "").localeCompare(String(b[key] ?? ""), "no") * dir
+    );
+  }
+
+  updateHeaderIndicators();
+}
+
+function toggleSort(key, numeric) {
+  if (state.sortKey === key) {
+    state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+  } else {
+    state.sortKey = key;
+    state.sortDir = numeric ? "desc" : "asc";
+  }
+  sortFiltered();
+  render();
+}
+
 /* =========================================================
    RENDER
 ========================================================= */
@@ -320,8 +384,6 @@ function render() {
   renderStats();
   renderTable();
   renderPagination();
-
-  // keep floating scrollbar accurate after DOM updates
   updateTopScrollbarSpacer();
 }
 
@@ -362,7 +424,7 @@ function renderTable() {
       let v = r[c.key];
       if (c.fmt) v = c.fmt(v);
 
-      if (c.key === "tags") {
+      if (c.key === "tags" || c.key === "serier") {
         td.style.maxWidth = "520px";
         td.style.whiteSpace = "normal";
         td.style.lineHeight = "1.2";
@@ -371,7 +433,6 @@ function renderTable() {
       td.textContent = v ?? "";
       tr.appendChild(td);
     }
-
     frag.appendChild(tr);
   }
 
@@ -425,8 +486,6 @@ function updateTopScrollbarSpacer() {
   if (!scrollTopSpacerEl || !scrollMainEl) return;
   const table = scrollMainEl.querySelector("table");
   if (!table) return;
-
-  // Make the top scrollbar have the same scrollable width as the table
   scrollTopSpacerEl.style.width = table.scrollWidth + "px";
 }
 
