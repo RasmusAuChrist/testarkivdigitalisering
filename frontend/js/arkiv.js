@@ -334,13 +334,17 @@ function sortFiltered() {
   if (numeric) {
     state.filtered.sort((a, b) => (toNum(a[key]) - toNum(b[key])) * dir);
   } else {
-    state.filtered.sort((a, b) =>
-      String(a[key] ?? "").localeCompare(String(b[key] ?? ""), "no") * dir
-    );
+    state.filtered.sort((a, b) => {
+      const av = normalizeForSort(String(a[key] ?? ""));
+      const bv = normalizeForSort(String(b[key] ?? ""));
+
+      return av.localeCompare(bv, "en") * dir;
+    });
   }
 
   updateHeaderIndicators();
 }
+
 
 function toggleSort(key, numeric) {
   if (state.sortKey === key) {
@@ -501,6 +505,19 @@ function pageBtn(txt, disabled, fn) {
   b.onclick = fn;
   return b;
 }
+
+function normalizeForSort(str) {
+  if (!str) return "";
+
+  return str
+    .toLowerCase()
+    // Treat Aa as A (modern UX expectation)
+    .replace(/^aa/, "a")
+    // Normalize diacritics (safe)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 
 function debounce(fn, ms) {
   let t;
