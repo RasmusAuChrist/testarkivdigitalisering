@@ -37,7 +37,8 @@ def get_arkiv_overview():
             average_views_digark,
             requisitions_internal,
             requisitions_ap,
-            tags
+            tags,
+            serier
         FROM gold_digitization_views_per_arkiv;
         """
 
