@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html lang="no">
 <!-- Navbar -->
-  <div id="navbar"></div>
+  <div id="navbar-container"></div>
   <link rel="stylesheet" href="/assets/navbar.css" />
-  <script defer src="/assets/navbar.js"></script>
 <head>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
@@ -46,10 +45,10 @@
   <script type="module" src="/js/scatter.js"></script>
 </body>
 <script>
-  fetch("../partials/navbar.html")
+  fetch("/partials/navbar.html")
     .then(res => res.text())
     .then(html => {
-      document.getElementById("navbar").outerHTML = html;
+      document.getElementById("navbar-container").innerHTML = html;
     });
 </script>
 </html>

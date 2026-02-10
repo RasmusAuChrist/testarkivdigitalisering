@@ -34,9 +34,8 @@
   </style>
 </head>
 <body>
-  <div id="navbar"></div>
+  <div id="navbar-container"></div>
   <link rel="stylesheet" href="/assets/navbar.css" />
-  <script defer src="/assets/navbar.js"></script>
 <main>
   <h1>Driftsstatus</h1>
 
@@ -61,10 +60,10 @@
   <script type="module" src="/js/status.js"></script>
 </body>
 <script>
-  fetch("../partials/navbar.html")
+  fetch("/partials/navbar.html")
     .then(res => res.text())
     .then(html => {
-      document.getElementById("navbar").outerHTML = html;
+      document.getElementById("navbar-container").innerHTML = html;
     });
 </script>
 

@@ -13,9 +13,8 @@
 <body>
 
 <!-- Navbar -->
-  <div id="navbar"></div>
+  <div id="navbar-container"></div>
   <link rel="stylesheet" href="/assets/navbar.css" />
-  <script defer src="/assets/navbar.js"></script>
 
 <!-- Spinner overlay -->
 <div id="loadingOverlay" style="display: flex;">
@@ -31,11 +30,10 @@
 </main>
 
 <script>
-  // Navbar load
   fetch("/partials/navbar.html")
     .then(res => res.text())
     .then(html => {
-      document.getElementById("navbar").outerHTML = html;
+      document.getElementById("navbar-container").innerHTML = html;
     });
 </script>
 
