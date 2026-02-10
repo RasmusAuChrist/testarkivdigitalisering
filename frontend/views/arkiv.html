@@ -2,9 +2,8 @@
 <html lang="no">
 
 <!-- Navbar placeholder -->
-  <div id="navbar"></div>
-  <link rel="stylesheet" href="/css/navbar.css" />
-  <script defer src="/partials/navbar.js"></script>
+  <div id="navbar-container"></div>
+  <link rel="stylesheet" href="/assets/navbar.css" />
 
 <head>
   <meta charset="UTF-8" />
@@ -122,11 +121,12 @@
 
 <!-- Navbar loader -->
 <script>
-  fetch("../partials/navbar.html")
-    .then(r => r.text())
+  fetch("/partials/navbar.html")
+    .then(res => res.text())
     .then(html => {
-      document.getElementById("navbar").outerHTML = html;
+      document.getElementById("navbar-container").innerHTML = html;
     });
 </script>
+
 
 </html>
