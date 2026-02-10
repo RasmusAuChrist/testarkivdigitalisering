@@ -13,17 +13,15 @@ const state = {
   raw: [],
   filtered: [],
 
-  // pagination
   page: 1,
   pageSize: 100,
 
-  // sorting
   sortKey: "views_media",
   sortDir: "desc",
 
-  // slicers
   selectedLokasjoner: [],
-  selectedTags: []
+  selectedTags: [],
+  selectedSerier: []   // NEW
 };
 
 /* =========================================================
@@ -41,13 +39,13 @@ const headEl = document.getElementById("tableHead");
 const bodyEl = document.getElementById("tableBody");
 const paginationEl = document.getElementById("pagination");
 
-/* Scroll sync elements (floating scrollbar) */
 const scrollTopEl = document.getElementById("tableScrollTop");
 const scrollTopSpacerEl = document.getElementById("tableScrollTopSpacer");
 const scrollMainEl = document.getElementById("tableScrollMain");
 
 /* =========================================================
-   COLUMNS (all except arkiv_sk + last_refreshed_utc)
+   COLUMNS
+   (serier is second-to-last, before tags)
 ========================================================= */
 
 const columns = [
@@ -70,6 +68,7 @@ const columns = [
   { key: "requisitions_internal", label: "Rekvisisjoner (Intern)", numeric: true, fmt: int },
   { key: "requisitions_ap", label: "Rekvisisjoner (AP)", numeric: true, fmt: int },
 
+  { key: "serier", label: "Hovedserier" },   // NEW
   { key: "tags", label: "Tags" }
 ];
 
@@ -86,13 +85,14 @@ async function init() {
   state.raw = normalizeRows(data);
 
   buildLokasjonDropdown();
+  buildSerierDropdown();   // NEW
   buildTagsDropdown();
 
   wireEvents();
 
-  applyFilters(); // renders table
-  setupHorizontalScrollSync(); // enable floating scrollbar sync
-  updateTopScrollbarSpacer();  // ensure correct width
+  applyFilters();
+  setupHorizontalScrollSync();
+  updateTopScrollbarSpacer();
 }
 
 /* =========================================================
@@ -107,16 +107,12 @@ async function fetchData() {
 
 function normalizeRows(rows) {
   return rows.map(r => {
-    const tags = (r.tags ?? "").toString();
-    const tagArr = tags
-      .split(",")
-      .map(t => t.trim())
-      .filter(Boolean);
+    const tagArr = splitList(r.tags);
+    const serieArr = splitList(r.serier); // NEW
 
     return {
       ...r,
 
-      // numbers
       views_media: toNum(r.views_media),
       views_digark: toNum(r.views_digark),
       views_internal: toNum(r.views_internal),
@@ -128,17 +124,25 @@ function normalizeRows(rows) {
       requisitions_ap: toNum(r.requisitions_ap),
       _digPct: toNum(r.percentage_digitized) * 100,
 
-      // strings
       navn: (r.navn ?? "").toString(),
       lokasjon: (r.lokasjon ?? "").toString(),
       identifikator: (r.identifikator ?? "").toString(),
-      tags,
+      tags: (r.tags ?? "").toString(),
+      serier: (r.serier ?? "").toString(),
 
-      // derived
       _tagArr: tagArr,
+      _serieArr: serieArr,      // NEW
       _searchLc: `${r.navn ?? ""} ${r.identifikator ?? ""}`.toLowerCase()
     };
   });
+}
+
+function splitList(v) {
+  return (v ?? "")
+    .toString()
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
 }
 
 /* =========================================================
@@ -147,13 +151,11 @@ function normalizeRows(rows) {
 
 function createMultiSelect({ mountId, label, options, onChange }) {
   const mount = document.getElementById(mountId);
-
   const wrapper = document.createElement("div");
   wrapper.className = "multi-select";
 
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = `${label} (Alle)`;
 
   const panel = document.createElement("div");
   panel.className = "panel hidden";
@@ -175,46 +177,33 @@ function createMultiSelect({ mountId, label, options, onChange }) {
   const checkboxes = [];
 
   for (const opt of options) {
-    const labelEl = document.createElement("label");
-    labelEl.className = "option";
+    const row = document.createElement("label");
+    row.className = "option";
 
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.value = opt;
     cb.checked = true;
 
-    const span = document.createElement("span");
-    span.textContent = opt;
-
-    labelEl.append(cb, span);
-    panel.appendChild(labelEl);
+    row.append(cb, document.createTextNode(opt));
+    panel.appendChild(row);
     checkboxes.push(cb);
   }
 
   function update() {
     const selected = checkboxes.filter(c => c.checked).map(c => c.value);
-    const txt = selected.length === 0
-      ? "Ingen"
-      : selected.length === options.length
-        ? "Alle"
-        : `${selected.length} valgt`;
+    const txt =
+      selected.length === options.length ? "Alle" :
+      selected.length === 0 ? "Ingen" :
+      `${selected.length} valgt`;
 
     button.textContent = `${label} (${txt})`;
     onChange(selected);
   }
 
   button.onclick = () => panel.classList.toggle("hidden");
-
-  selectAllBtn.onclick = () => {
-    checkboxes.forEach(c => (c.checked = true));
-    update();
-  };
-
-  clearBtn.onclick = () => {
-    checkboxes.forEach(c => (c.checked = false));
-    update();
-  };
-
+  selectAllBtn.onclick = () => { checkboxes.forEach(c => c.checked = true); update(); };
+  clearBtn.onclick = () => { checkboxes.forEach(c => c.checked = false); update(); };
   panel.addEventListener("change", update);
 
   document.addEventListener("click", e => {
@@ -234,96 +223,65 @@ function createMultiSelect({ mountId, label, options, onChange }) {
 
 function buildLokasjonDropdown() {
   const opts = [...new Set(state.raw.map(d => d.lokasjon).filter(Boolean))].sort();
-
   createMultiSelect({
     mountId: "lokasjonDropdown",
     label: "Lokasjon",
     options: opts,
-    onChange: vals => {
-      state.selectedLokasjoner = vals;
-      applyFilters();
-    }
+    onChange: v => { state.selectedLokasjoner = v; applyFilters(); }
+  });
+}
+
+function buildSerierDropdown() {
+  const set = new Set();
+  state.raw.forEach(d => d._serieArr.forEach(s => set.add(s)));
+
+  createMultiSelect({
+    mountId: "serierDropdown",
+    label: "Hovedserier",
+    options: [...set].sort((a, b) => a.localeCompare(b, "no")),
+    onChange: v => { state.selectedSerier = v; applyFilters(); }
   });
 }
 
 function buildTagsDropdown() {
-  const tagSet = new Set();
-  for (const d of state.raw) {
-    for (const t of d._tagArr) tagSet.add(t);
-  }
-
-  const opts = Array.from(tagSet).sort((a, b) => a.localeCompare(b, "no"));
+  const set = new Set();
+  state.raw.forEach(d => d._tagArr.forEach(t => set.add(t)));
 
   createMultiSelect({
     mountId: "tagsDropdown",
     label: "Tags",
-    options: opts,
-    onChange: vals => {
-      state.selectedTags = vals;
-      applyFilters();
-    }
+    options: [...set].sort((a, b) => a.localeCompare(b, "no")),
+    onChange: v => { state.selectedTags = v; applyFilters(); }
   });
 }
 
 /* =========================================================
-   EVENTS
-========================================================= */
-
-function wireEvents() {
-  const debounced = debounce(applyFilters, 120);
-
-  searchFilter.addEventListener("input", debounced);
-  digMin.addEventListener("input", debounced);
-  digMax.addEventListener("input", debounced);
-  minViewsMedia.addEventListener("input", debounced);
-
-  resetBtn.addEventListener("click", () => {
-    searchFilter.value = "";
-    digMin.value = 0;
-    digMax.value = 100;
-    minViewsMedia.value = 0;
-
-    state.sortKey = "views_media";
-    state.sortDir = "desc";
-    state.page = 1;
-
-    buildLokasjonDropdown();
-    buildTagsDropdown();
-
-    applyFilters();
-  });
-
-  // Keep spacer correct on resize
-  window.addEventListener("resize", debounce(updateTopScrollbarSpacer, 150));
-}
-
-/* =========================================================
-   FILTER / SORT
+   FILTERING
 ========================================================= */
 
 function applyFilters() {
   state.page = 1;
 
-  const searchQ = searchFilter.value.trim().toLowerCase();
+  const q = searchFilter.value.trim().toLowerCase();
   const lo = Math.min(toNum(digMin.value), toNum(digMax.value));
   const hi = Math.max(toNum(digMin.value), toNum(digMax.value));
   const minMedia = Math.max(0, toNum(minViewsMedia.value));
 
   state.filtered = state.raw.filter(d => {
     if (state.selectedLokasjoner.length &&
-      !state.selectedLokasjoner.includes(d.lokasjon)) return false;
+        !state.selectedLokasjoner.includes(d.lokasjon)) return false;
+
+    if (state.selectedSerier.length) {
+      if (!state.selectedSerier.some(s => d._serieArr.includes(s))) return false;
+    }
 
     if (state.selectedTags.length) {
-      let ok = false;
-      for (const t of state.selectedTags) {
-        if (d._tagArr.includes(t)) { ok = true; break; }
-      }
-      if (!ok) return false;
+      if (!state.selectedTags.some(t => d._tagArr.includes(t))) return false;
     }
 
     if (d._digPct < lo || d._digPct > hi) return false;
     if (d.average_views_media < minMedia) return false;
-    if (searchQ && !d._searchLc.includes(searchQ)) return false;
+    if (q && !d._searchLc.includes(q)) return false;
 
     return true;
   });
@@ -331,35 +289,6 @@ function applyFilters() {
   sortFiltered();
   render();
 }
-
-function sortFiltered() {
-  const dir = state.sortDir === "asc" ? 1 : -1;
-  const key = state.sortKey;
-  const col = columns.find(c => c.key === key);
-  const numeric = !!col?.numeric;
-
-  if (numeric) {
-    state.filtered.sort((a, b) => (toNum(a[key]) - toNum(b[key])) * dir);
-  } else {
-    state.filtered.sort((a, b) =>
-      String(a[key] ?? "").localeCompare(String(b[key] ?? ""), "no") * dir
-    );
-  }
-
-  updateHeaderIndicators();
-}
-
-function toggleSort(key, numeric) {
-  if (state.sortKey === key) {
-    state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
-  } else {
-    state.sortKey = key;
-    state.sortDir = numeric ? "desc" : "asc";
-  }
-  sortFiltered();
-  render();
-}
-
 /* =========================================================
    RENDER
 ========================================================= */
