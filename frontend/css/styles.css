@@ -546,3 +546,15 @@ table.status-table th {
   box-shadow: 0 1px 0 #e5e7eb;
 }
 
+/* =========================================================
+   Wrap long text in Hovedserier (serier) column
+========================================================= */
+
+/* Target the second-to-last column (Hovedserier) */
+.surface-light .arkiv-table td:nth-last-child(2) {
+  white-space: normal;          /* allow wrapping */
+  max-width: 520px;             /* adjust as needed */
+  line-height: 1.3;
+  word-break: break-word;       /* break very long tokens */
+  overflow-wrap: anywhere;      /* modern browsers */
+}

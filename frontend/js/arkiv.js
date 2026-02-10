@@ -428,11 +428,6 @@ function renderTable() {
       let v = r[c.key];
       if (c.fmt) v = c.fmt(v);
 
-      if (c.key === "tags" || c.key === "serier") {
-        td.style.maxWidth = "520px";
-        td.style.whiteSpace = "normal";
-        td.style.lineHeight = "1.2";
-      }
 
       td.textContent = v ?? "";
       tr.appendChild(td);
