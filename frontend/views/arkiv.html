@@ -110,15 +110,13 @@
 
   </div>
 
-  <!-- Page JS -->
-  <script type="module" src="/js/arkiv.js"></script>
+<!-- Spinner overlay (must be BEFORE JS) -->
+<div id="loadingOverlay">
+  <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
+</div>
 
-  <!-- Spinner overlay (INSIDE body, hidden by default via CSS) -->
-  <div id="loadingOverlay">
-    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
-  </div>
-
-</body>
+<!-- Page JS -->
+<script type="module" src="/js/arkiv.js"></script>
 
 <!-- Navbar loader -->
 <script>
