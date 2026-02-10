@@ -1,12 +1,45 @@
 <!-- /partials/navbar.html -->
 <div id="navbar">
-  <a href="/">
+  <a href="/" class="brand">
     <img src="/assets/logo.png" alt="ASK Logo" class="nav-logo" />
   </a>
-  <nav>
-    <a href="/views/validation.html">Validering</a>
-    <a href="/views/scatter.html">Analyse</a>
-    <a href="/views/location.html">Hylleplasseringer</a>
-    <a href="/views/status.html">Driftsstatus</a>
+
+  <!-- Mobile toggle button -->
+  <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
+    Meny
+  </button>
+
+  <nav id="nav-menu" class="nav-menu" aria-label="Hovedmeny">
+    <a href="/views/validation.html" class="nav-link">Validering</a>
+
+    <!-- Dropdown -->
+    <div class="dropdown">
+      <button class="dropdown-toggle nav-link" type="button" aria-expanded="false">
+        Analyse
+        <span class="caret" aria-hidden="true">▾</span>
+      </button>
+
+      <div class="dropdown-menu" role="menu">
+        <a role="menuitem" href="/views/scatter.html">Scatter</a>
+        <a role="menuitem" href="/views/analyse/overview.html">Oversikt</a>
+        <a role="menuitem" href="/views/analyse/reports.html">Rapporter</a>
+      </div>
+    </div>
+
+    <!-- Another dropdown example -->
+    <div class="dropdown">
+      <button class="dropdown-toggle nav-link" type="button" aria-expanded="false">
+        Hylleplasseringer
+        <span class="caret" aria-hidden="true">▾</span>
+      </button>
+
+      <div class="dropdown-menu" role="menu">
+        <a role="menuitem" href="/views/location.html">Kart</a>
+        <a role="menuitem" href="/views/location/import.html">Importer</a>
+        <a role="menuitem" href="/views/location/settings.html">Innstillinger</a>
+      </div>
+    </div>
+
+    <a href="/views/status.html" class="nav-link">Driftsstatus</a>
   </nav>
 </div>
