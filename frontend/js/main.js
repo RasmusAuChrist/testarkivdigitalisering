@@ -28,13 +28,16 @@ document.addEventListener("DOMContentLoaded", () => {
         "Prioriteringsråd",
         "Arkivkartlegging",
         "Fysisk klargjøring",
-        "Transport og logistikk",
-        "Produksjonsflyt",
-        "Skannes",
-        "Ferdig skannet",
-        "Bevaringspakker",
-        "Bevarings-innlemming",
-        "Tilgjengeliggjøring"
+        "Klar til sending",
+        "Lager NHA",
+        "Skanning pågår",
+        "Etterarbeid skanning",
+        "Skape uttrekk",
+        "Kvalitetskontroll",
+        "Opplasting og innlemming",
+        "Metadata etterarbeid",
+        "Opprydning for destruksjon - gjelder både fysisk og digitalt",
+        "Opprydning for videresending"
       ];
 
       // Get all unique ordre values
