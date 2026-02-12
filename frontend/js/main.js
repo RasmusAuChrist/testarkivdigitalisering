@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   console.log("Dashboard loaded");
 
-  // Fullscreen chart tiles
+  // Fullscreen chart tiles (improved)
   setupChartFullscreen();
 
   // Optional button action
@@ -111,20 +111,35 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /**
- * Enables click-to-fullscreen on each .chart-box tile.
- * - Click tile => fullscreen
- * - Click X or press ESC => exit fullscreen
- * - Resizes Chart.js charts when toggling
+ * Smooth fullscreen for .chart-box tiles using FLIP animation.
+ * - Click tile => fullscreen (only that tile visible)
+ * - Click X / press ESC / click backdrop => exit
+ * - Chart.js resize on toggle
  */
 function setupChartFullscreen() {
   const tiles = Array.from(document.querySelectorAll(".chart-box"));
-  let activeTile = null;
+  if (!tiles.length) return;
 
-  // Create close button + click handlers
+  // Ensure backdrop exists (created in JS so you don't have to touch HTML)
+  let backdrop = document.getElementById("chart-fullscreen-backdrop");
+  if (!backdrop) {
+    backdrop = document.createElement("div");
+    backdrop.id = "chart-fullscreen-backdrop";
+    document.body.appendChild(backdrop);
+  }
+
+  let activeTile = null;
+  let isAnimating = false;
+
+  // Close when clicking backdrop
+  backdrop.addEventListener("click", () => {
+    if (activeTile) exitFullscreen();
+  });
+
   tiles.forEach(tile => {
-    // Add close button once
+    // Make sure X button exists
     if (!tile.querySelector(".chart-close-btn")) {
-      // Ensure positioning context for absolute X button
+      // Positioning context for X
       const computed = window.getComputedStyle(tile);
       if (computed.position === "static") tile.style.position = "relative";
 
@@ -141,41 +156,112 @@ function setupChartFullscreen() {
       });
     }
 
-    // Click tile to open fullscreen
     tile.addEventListener("click", () => {
+      if (isAnimating) return;
       if (tile.classList.contains("is-fullscreen")) return;
       enterFullscreen(tile);
     });
   });
 
-  // ESC closes fullscreen
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") exitFullscreen();
+    if (e.key === "Escape" && activeTile) exitFullscreen();
   });
 
   function enterFullscreen(tile) {
-    if (activeTile) exitFullscreen();
+    isAnimating = true;
 
+    // FLIP: First
+    const first = tile.getBoundingClientRect();
+
+    // Activate fullscreen UI state
     activeTile = tile;
-    document.body.classList.add("no-scroll");
+    document.body.classList.add("no-scroll", "dashboard-fullscreen");
     tile.classList.add("is-fullscreen");
 
-    requestChartResize(tile);
+    // Force layout so the browser applies the fullscreen styles
+    tile.getBoundingClientRect();
+
+    // FLIP: Last (fullscreen)
+    const last = tile.getBoundingClientRect();
+
+    // Invert
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    const sx = first.width / last.width;
+    const sy = first.height / last.height;
+
+    tile.style.transformOrigin = "top left";
+    tile.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+
+    // Play
+    requestAnimationFrame(() => {
+      tile.style.transition = "transform 260ms cubic-bezier(.2,.8,.2,1)";
+      tile.style.transform = "translate(0px, 0px) scale(1, 1)";
+    });
+
+    // Resize charts near end of animation
+    setTimeout(() => requestChartResize(tile), 180);
+
+    tile.addEventListener("transitionend", onEnterEnd, { once: true });
+    function onEnterEnd() {
+      // Cleanup inline transition so future layouts aren’t affected
+      tile.style.transition = "";
+      tile.style.transform = "";
+      isAnimating = false;
+      requestChartResize(tile);
+    }
   }
 
   function exitFullscreen() {
-    if (!activeTile) return;
+    if (!activeTile || isAnimating) return;
+    isAnimating = true;
 
     const tile = activeTile;
-    tile.classList.remove("is-fullscreen");
-    document.body.classList.remove("no-scroll");
-    activeTile = null;
 
-    requestChartResize(tile);
+    // FLIP: First (fullscreen)
+    const first = tile.getBoundingClientRect();
+
+    // Remove fullscreen styles (this returns tile to grid)
+    tile.classList.remove("is-fullscreen");
+
+    // Force layout
+    tile.getBoundingClientRect();
+
+    // FLIP: Last (grid position)
+    const last = tile.getBoundingClientRect();
+
+    // Invert
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+    const sx = first.width / last.width;
+    const sy = first.height / last.height;
+
+    // Apply inverted transform instantly, then animate to identity
+    tile.style.transformOrigin = "top left";
+    tile.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+
+    requestAnimationFrame(() => {
+      tile.style.transition = "transform 260ms cubic-bezier(.2,.8,.2,1)";
+      tile.style.transform = "translate(0px, 0px) scale(1, 1)";
+    });
+
+    // Restore body state near end
+    setTimeout(() => {
+      document.body.classList.remove("no-scroll", "dashboard-fullscreen");
+      requestChartResize(tile);
+    }, 200);
+
+    tile.addEventListener("transitionend", onExitEnd, { once: true });
+    function onExitEnd() {
+      tile.style.transition = "";
+      tile.style.transform = "";
+      activeTile = null;
+      isAnimating = false;
+      requestChartResize(tile);
+    }
   }
 
   function requestChartResize(tile) {
-    // If Chart.js is present, resize charts in this tile
     const canvases = tile.querySelectorAll("canvas");
     canvases.forEach((c) => {
       if (window.Chart && typeof window.Chart.getChart === "function") {
