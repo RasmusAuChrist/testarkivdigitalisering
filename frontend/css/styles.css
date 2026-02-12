@@ -227,122 +227,6 @@ table.status-table th {
   height: 300px !important;
 }
 
-/* =========================================================
-   NEW (FIXED): Smooth fullscreen + hide other tiles + backdrop
-========================================================= */
-
-/* Hint */
-.chart-box { cursor: zoom-in; }
-
-/* Disable scroll when fullscreen */
-body.no-scroll { overflow: hidden; }
-
-/* Backdrop overlay */
-#chart-fullscreen-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 220ms ease;
-  z-index: 19990;
-}
-
-body.dashboard-fullscreen #chart-fullscreen-backdrop {
-  opacity: 1;
-  visibility: visible;
-}
-
-/* Hide all other tiles (without reflow) */
-body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
-  visibility: hidden; /* keeps their grid space so nothing "pushes" */
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Fullscreen tile */
-.chart-box.is-fullscreen {
-  position: fixed !important;
-  /* Use dynamic viewport units to avoid mobile/OS chrome issues */
-  width: 100dvw;
-  height: 100dvh;
-  left: 0;
-  top: 0;
-
-  margin: 0 !important;
-  z-index: 20000;
-
-  background: var(--light-bg);
-  border-radius: 0;
-  cursor: default;
-
-  /* Make the content fit cleanly */
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 12px;
-
-  /* padding stays inside because of border-box */
-  padding: 16px 16px 20px;
-  box-sizing: border-box;
-
-  overflow: hidden;
-
-  /* Transition targets (actual movement uses FLIP in JS) */
-  transition:
-    border-radius 260ms ease,
-    box-shadow 260ms ease;
-  box-shadow: 0 18px 55px rgba(0,0,0,0.35);
-}
-
-/* Make sure chart area can shrink correctly */
-.chart-box.is-fullscreen > * { min-height: 0; }
-
-.chart-box.is-fullscreen h3 {
-  margin: 0;
-  padding-right: 56px;
-}
-
-/* Chart fills remaining space */
-.chart-box.is-fullscreen canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-/* Close button */
-.chart-close-btn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.10);
-  color: #111;
-  font-size: 22px;
-  line-height: 40px;
-  cursor: pointer;
-  display: none;
-  user-select: none;
-}
-
-.chart-box.is-fullscreen .chart-close-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chart-close-btn:hover {
-  background: rgba(0,0,0,0.18);
-}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  #chart-fullscreen-backdrop { transition: none; }
-  .chart-box.is-fullscreen { transition: none; }
-}
-
 /* =========================
    Multi-select dropdown (base)
    Note: This is neutral; light/dark pages can override.
@@ -359,7 +243,7 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   cursor: pointer;
   border-radius: 4px;
   border: 1px solid #ccc;
-  background: var(--light-surface);
+  background: var(--light-surface); /* default to light */
   color: var(--light-text);
 }
 
@@ -394,17 +278,18 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 
 /* =========================
    Light Surface (Arkiv + other data pages)
+   IMPORTANT: breaks gold inheritance cleanly.
 ========================= */
 .surface-light {
-  background: transparent;
+  background: transparent; /* lets your page decide container backgrounds */
   color: var(--light-text);
 }
 
-/* IMPORTANT FIX:
-   Do NOT force color on all descendants, it breaks dark panels inside light pages.
-   (This is what made your Arkiv filter bar look weird in the earlier version.)
-*/
-/* .surface-light, .surface-light * { color: var(--light-text); } */
+/* Break gold inheritance inside light surfaces (scoped + safe) */
+.surface-light,
+.surface-light * {
+  color: var(--light-text);
+}
 
 /* Inputs & buttons on light surfaces */
 .surface-light input {
@@ -428,57 +313,152 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .surface-light button:disabled { opacity: 0.6; cursor: default; }
 
 /* Table styling on light surfaces */
-.surface-light table { color: var(--light-text); }
+.surface-light table {
+  color: var(--light-text);
+}
+
 .surface-light th {
   background: var(--light-surface-muted);
   color: var(--light-text);
   border-bottom: 1px solid var(--light-border-2);
 }
+
+.surface-light th:hover { background: var(--light-surface-hover); }
+
 .surface-light td {
   border-bottom: 1px solid #f0f0f0;
   color: var(--light-text);
 }
 
-/* Optional: hover highlight */
-.surface-light tr:hover td { background: #f9fafb; }
+/* Make wide tables scroll and avoid wrapping */
+.surface-light table { white-space: nowrap; }
+.surface-light td:last-child { white-space: normal; }
+
+/* Multi-select styling on light surfaces */
+.surface-light .multi-select button {
+  background: var(--light-surface);
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
+}
+
+.surface-light .multi-select .panel {
+  background: var(--light-surface);
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
+}
+
+.surface-light .multi-select .option:hover {
+  background: #f1f5f9;
+}
+
+.surface-light .multi-select .controls button {
+  background: #e2e8f0;
+  border: 1px solid var(--light-border);
+  color: var(--light-text);
+}
+
+/* Optional: hover highlight for readability */
+.surface-light tr:hover td {
+  background: #f9fafb;
+}
+
 
 /* =========================
-   Dark filter panel inside a light page (Arkiv)
+   Horizontal scrolling for wide tables
 ========================= */
+
+.surface-light .table-scroll-x {
+  width: 100%;
+  overflow-x: auto;   /* <-- force horizontal scrollbar */
+  overflow-y: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+/* Always make the table wider than most screens */
+.surface-light .arkiv-table {
+  border-collapse: collapse;
+  min-width: 2200px;  /* <-- key: forces horizontal scroll */
+  width: max-content;
+}
+
+/* Prevent column text from wrapping */
+.surface-light .arkiv-table th,
+.surface-light .arkiv-table td {
+  white-space: nowrap;
+  padding: 10px;
+}
+
+/* Allow wrapping ONLY in tags column (last column) */
+.surface-light .arkiv-table td:last-child {
+  white-space: normal;
+  max-width: 520px;
+}
+
+/* Scroll containers */
+.surface-light .table-scroll-x{
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+
+/* Top scrollbar "floats" by sticking near top of viewport while scrolling */
+.surface-light .table-scroll-x-top{
+  position: sticky;
+  top: 0;              /* stick to top of viewport */
+  z-index: 50;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+/* Spacer makes the top bar have the same scroll width as the table */
+.surface-light .table-scroll-x-spacer{
+  height: 1px;         /* tiny, only exists to create scroll width */
+}
+
+/* Wide table forces horizontal overflow */
+.surface-light .arkiv-table{
+  border-collapse: collapse;
+  min-width: 2200px;
+  width: max-content;
+}
+
+.surface-light .arkiv-table th,
+.surface-light .arkiv-table td{
+  padding: 10px;
+  white-space: nowrap;
+}
+
+.surface-light .arkiv-table td:last-child{
+  white-space: normal;
+  max-width: 520px;
+}
+
+/* Dark filter panel inside a light page */
 .surface-light .filters-dark{
   background: #000;
-  color: #fdd835;
+  color: #fdd835; /* gold */
   border: 1px solid #333;
   border-radius: 8px;
   padding: 14px;
   margin-bottom: 12px;
 }
 
-/* Let the panel’s own color flow to children */
-.surface-light .filters-dark,
-.surface-light .filters-dark * {
-  color: inherit;
-}
-
+/* Labels gold */
 .surface-light .filters-dark label{
   color: #fdd835;
   font-weight: 600;
 }
 
+/* Inputs/button dark panel styling */
 .surface-light .filters-dark input{
   background: #222;
   color: #fff;
   border: 1px solid #444;
-}
-
-/* Reset / normal buttons inside dark panel */
-.surface-light .filters-dark button:not(.chart-close-btn){
-  background: #222;
-  color: #fff;
-  border: 1px solid #444;
-}
-.surface-light .filters-dark button:not(.chart-close-btn):hover{
-  background: #2a2a2a;
 }
 
 /* Multi-select dropdown inside dark panel */
@@ -508,87 +488,73 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   color: #fff;
   opacity: 0.9;
 }
+/* =========================================================
+   FIX: Dropdowns should be black-on-white inside filters-dark
+   (labels remain gold on black)
+========================================================= */
 
-/* Dropdowns should be black-on-white inside filters-dark (your “dropdown-light” wrapper) */
 .surface-light .filters-dark .dropdown-light .multi-select button{
   background: #ffffff;
   color: #111827;
   border: 1px solid #cbd5e1;
 }
+
 .surface-light .filters-dark .dropdown-light .multi-select .panel{
   background: #ffffff;
   color: #111827;
   border: 1px solid #cbd5e1;
 }
+
 .surface-light .filters-dark .dropdown-light .multi-select .option{
   color: #111827;
 }
+
 .surface-light .filters-dark .dropdown-light .multi-select .option:hover{
   background: #f1f5f9;
 }
+
 .surface-light .filters-dark .dropdown-light .multi-select .controls button{
   background: #e2e8f0;
   color: #111827;
   border: 1px solid #cbd5e1;
 }
 
-/* =========================
-   Horizontal scrolling for wide Arkiv tables
-========================= */
-.surface-light .table-scroll-x{
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #fff;
-}
+/* =========================================================
+   FLOATING top scrollbar: give it a stable height
+========================================================= */
 
 .surface-light .table-scroll-x-top{
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  margin-bottom: 8px;
-  background: #fff;
-  height: 18px;
+  height: 18px;         /* stable so we can offset sticky headers */
   padding: 0;
 }
 
-.surface-light .table-scroll-x-spacer{
+/* keep the spacer minimal but allow scrolling */
+.surface-light .table-scroll-x-top .table-scroll-x-spacer{
   height: 1px;
 }
 
-.surface-light .arkiv-table{
-  border-collapse: collapse;
-  min-width: 2200px;
-  width: max-content;
-}
+/* =========================================================
+   Sticky table headers: float BELOW the top scrollbar
+   top = height of .table-scroll-x-top (18px) + its border (1px)
+========================================================= */
 
-.surface-light .arkiv-table th,
-.surface-light .arkiv-table td{
-  padding: 10px;
-  white-space: nowrap;
-}
-
-.surface-light .arkiv-table td:last-child{
-  white-space: normal;
-  max-width: 520px;
-}
-
-/* Sticky table headers below the floating top scrollbar */
 .surface-light .arkiv-table thead th{
   position: sticky;
-  top: 19px;
+  top: 19px;            /* 18 + 1 border; adjust if you change height */
   z-index: 10;
-  background: #f8fafc;
+  background: #f8fafc;  /* solid background so it doesn’t blend */
   box-shadow: 0 1px 0 #e5e7eb;
 }
 
-/* Wrap long text in Hovedserier column (second-to-last) */
-.surface-light .arkiv-table td:nth-last-child(2){
-  white-space: normal;
-  max-width: 520px;
+/* =========================================================
+   Wrap long text in Hovedserier (serier) column
+========================================================= */
+
+/* Target the second-to-last column (Hovedserier) */
+.surface-light .arkiv-table td:nth-last-child(2) {
+  white-space: normal;          /* allow wrapping */
+  max-width: 520px;             /* adjust as needed */
   line-height: 1.3;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  word-break: break-word;       /* break very long tokens */
+  overflow-wrap: anywhere;      /* modern browsers */
 }
