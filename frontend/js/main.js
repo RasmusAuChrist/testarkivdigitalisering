@@ -8,6 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   console.log("Dashboard loaded");
 
+  // Fullscreen chart tiles
+  setupChartFullscreen();
+
   // Optional button action
   const goBtn = document.getElementById("go-to-location");
   if (goBtn) {
@@ -106,3 +109,79 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Kunne ikke laste statusdata:", err);
     });
 });
+
+/**
+ * Enables click-to-fullscreen on each .chart-box tile.
+ * - Click tile => fullscreen
+ * - Click X or press ESC => exit fullscreen
+ * - Resizes Chart.js charts when toggling
+ */
+function setupChartFullscreen() {
+  const tiles = Array.from(document.querySelectorAll(".chart-box"));
+  let activeTile = null;
+
+  // Create close button + click handlers
+  tiles.forEach(tile => {
+    // Add close button once
+    if (!tile.querySelector(".chart-close-btn")) {
+      // Ensure positioning context for absolute X button
+      const computed = window.getComputedStyle(tile);
+      if (computed.position === "static") tile.style.position = "relative";
+
+      const btn = document.createElement("button");
+      btn.className = "chart-close-btn";
+      btn.type = "button";
+      btn.setAttribute("aria-label", "Lukk fullskjerm");
+      btn.textContent = "✕";
+      tile.appendChild(btn);
+
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        exitFullscreen();
+      });
+    }
+
+    // Click tile to open fullscreen
+    tile.addEventListener("click", () => {
+      if (tile.classList.contains("is-fullscreen")) return;
+      enterFullscreen(tile);
+    });
+  });
+
+  // ESC closes fullscreen
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") exitFullscreen();
+  });
+
+  function enterFullscreen(tile) {
+    if (activeTile) exitFullscreen();
+
+    activeTile = tile;
+    document.body.classList.add("no-scroll");
+    tile.classList.add("is-fullscreen");
+
+    requestChartResize(tile);
+  }
+
+  function exitFullscreen() {
+    if (!activeTile) return;
+
+    const tile = activeTile;
+    tile.classList.remove("is-fullscreen");
+    document.body.classList.remove("no-scroll");
+    activeTile = null;
+
+    requestChartResize(tile);
+  }
+
+  function requestChartResize(tile) {
+    // If Chart.js is present, resize charts in this tile
+    const canvases = tile.querySelectorAll("canvas");
+    canvases.forEach((c) => {
+      if (window.Chart && typeof window.Chart.getChart === "function") {
+        const chart = window.Chart.getChart(c);
+        if (chart) chart.resize();
+      }
+    });
+  }
+}

@@ -227,6 +227,81 @@ table.status-table th {
   height: 300px !important;
 }
 
+/* =========================================================
+   NEW: Click-to-fullscreen chart tiles + close (X)
+========================================================= */
+
+/* Visual hint */
+.chart-box {
+  cursor: zoom-in;
+}
+
+/* Disable background scroll while fullscreen is open */
+body.no-scroll {
+  overflow: hidden;
+}
+
+/* Fullscreen state */
+.chart-box.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0 !important;
+  z-index: 20000;
+
+  background: var(--light-bg);
+  border-radius: 0;
+  cursor: default;
+
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  padding: 16px 16px 20px;
+  box-sizing: border-box;
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.chart-box.is-fullscreen h3 {
+  margin: 0;
+  padding-right: 56px; /* space for X button */
+}
+
+/* Let Chart.js fill the space */
+.chart-box.is-fullscreen canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Close button */
+.chart-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.08);
+  color: #111;
+  font-size: 22px;
+  line-height: 40px;
+  cursor: pointer;
+  display: none;
+  user-select: none;
+}
+
+.chart-box.is-fullscreen .chart-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-close-btn:hover {
+  background: rgba(0,0,0,0.14);
+}
+
 /* =========================
    Multi-select dropdown (base)
    Note: This is neutral; light/dark pages can override.
