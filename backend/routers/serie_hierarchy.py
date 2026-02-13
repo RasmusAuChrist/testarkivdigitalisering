@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 import pymssql
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 
 router = APIRouter()
 
@@ -72,13 +72,16 @@ def _build_in_clause(
         params[k] = v
     return f"{column} IN (" + ", ".join(ph) + ")"
 
+# -----------------------------
+# MAIN DATA ENDPOINT
+# -----------------------------
 @router.get("/serie-hierarchy")
 def get_serie_hierarchy(
     q: Optional[str] = Query(default=None, description="Search in navn, identifikator, path"),
     # Keep single exact match for convenience:
     identifikator: Optional[str] = Query(default=None, description="Exact match filter (single)"),
 
-    # ✅ NEW multi-select filters (comma-separated)
+    # multi-select filters (comma-separated)
     order_nos: Optional[str] = Query(default=None, description="Comma-separated order_no values. Example: 1,2,10"),
     navn_values: Optional[str] = Query(default=None, description="Comma-separated navn values (exact match)"),
     identifikator_values: Optional[str] = Query(default=None, description="Comma-separated identifikator values (exact match)"),
@@ -203,6 +206,9 @@ def get_serie_hierarchy(
             conn.close()
 
 
+# -----------------------------
+# FACETS (kept)
+# -----------------------------
 @router.get("/serie-hierarchy/facets")
 def get_serie_hierarchy_facets() -> Dict[str, Any]:
     conn = None
@@ -214,6 +220,159 @@ def get_serie_hierarchy_facets() -> Dict[str, Any]:
         return {"total": total}
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
+
+
+# -----------------------------
+# SUGGEST ENDPOINTS (NEW)
+# These are required by your JS dropdowns.
+# They return: { "items": [...] }
+# -----------------------------
+@router.get("/serie-hierarchy/suggest/order_no")
+def suggest_order_no(
+    q: str = Query(..., min_length=1, description="Prefix match for order_no (digits)"),
+    limit: int = Query(20, ge=1, le=100),
+) -> Dict[str, Any]:
+    # keep only digits so weird input doesn't cause surprises
+    q_digits = "".join(ch for ch in q if ch.isdigit())
+    if not q_digits:
+        return {"items": []}
+
+    sql = f"""
+        SELECT DISTINCT TOP ({limit})
+            CAST(order_no AS VARCHAR(50)) AS v
+        FROM tbl_gold_serie_hierarchy
+        WHERE order_no IS NOT NULL
+          AND CAST(order_no AS VARCHAR(50)) LIKE %(q)s
+        ORDER BY v;
+    """
+
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(as_dict=True)
+        cur.execute(sql, {"q": f"{q_digits}%"})
+        rows = cur.fetchall()
+        return {"items": [r["v"] for r in rows if r.get("v") is not None]}
+    except Exception as e:
+        return {"error": str(e), "items": []}
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.get("/serie-hierarchy/suggest/identifikator")
+def suggest_identifikator(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=100),
+) -> Dict[str, Any]:
+    sql = f"""
+        SELECT DISTINCT TOP ({limit})
+            identifikator AS v
+        FROM tbl_gold_serie_hierarchy
+        WHERE identifikator IS NOT NULL
+          AND identifikator LIKE %(q)s
+        ORDER BY v;
+    """
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(as_dict=True)
+        cur.execute(sql, {"q": f"%{q}%"})
+        rows = cur.fetchall()
+        return {"items": [r["v"] for r in rows if r.get("v") is not None]}
+    except Exception as e:
+        return {"error": str(e), "items": []}
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.get("/serie-hierarchy/suggest/navn")
+def suggest_navn(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=100),
+) -> Dict[str, Any]:
+    sql = f"""
+        SELECT DISTINCT TOP ({limit})
+            navn AS v
+        FROM tbl_gold_serie_hierarchy
+        WHERE navn IS NOT NULL
+          AND navn LIKE %(q)s
+        ORDER BY v;
+    """
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(as_dict=True)
+        cur.execute(sql, {"q": f"%{q}%"})
+        rows = cur.fetchall()
+        return {"items": [r["v"] for r in rows if r.get("v") is not None]}
+    except Exception as e:
+        return {"error": str(e), "items": []}
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.get("/serie-hierarchy/suggest/tags")
+def suggest_tags(
+    q: str = Query(..., min_length=1, description="Matches individual tags inside predicted_tags"),
+    limit: int = Query(20, ge=1, le=100),
+    scan_rows: int = Query(500, ge=50, le=5000, description="How many rows to scan for splitting tags"),
+) -> Dict[str, Any]:
+    """
+    predicted_tags is a comma-separated string.
+    We:
+      1) fetch TOP(scan_rows) rows where predicted_tags contains q
+      2) split by comma
+      3) dedupe + return up to limit tags containing q (case-insensitive)
+    """
+    q_norm = q.strip().lower()
+    if not q_norm:
+        return {"items": []}
+
+    sql = f"""
+        SELECT TOP ({scan_rows})
+            predicted_tags
+        FROM tbl_gold_serie_hierarchy
+        WHERE predicted_tags IS NOT NULL
+          AND predicted_tags LIKE %(q)s;
+    """
+
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(as_dict=True)
+        cur.execute(sql, {"q": f"%{q}%"})
+        rows = cur.fetchall()
+
+        seen: Set[str] = set()
+        out: List[str] = []
+
+        for r in rows:
+            s = r.get("predicted_tags")
+            if not s:
+                continue
+            # split comma-separated tags
+            for raw in str(s).split(","):
+                tag = raw.strip()
+                if not tag:
+                    continue
+                if q_norm not in tag.lower():
+                    continue
+                if tag in seen:
+                    continue
+                seen.add(tag)
+                out.append(tag)
+                if len(out) >= limit:
+                    return {"items": out}
+
+        return {"items": out}
+    except Exception as e:
+        return {"error": str(e), "items": []}
     finally:
         if conn:
             conn.close()
