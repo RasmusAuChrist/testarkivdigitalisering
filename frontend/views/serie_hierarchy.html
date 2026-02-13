@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="no">
+  <div id="navbar-container"></div>
+  <link rel="stylesheet" href="/assets/navbar.css" />
+
+<head>
+  <meta charset="UTF-8" />
+  <title>ASK – Seriehierarki</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+
+<body>
+  <div class="surface-light" style="padding:20px;">
+
+    <h2>Seriehierarki</h2>
+    <p style="color:#555;margin-top:-6px;">
+      Server-side filtrering, sortering og paginering.
+    </p>
+
+    <div class="filters-dark">
+      <div style="
+        display:grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap:12px;
+        margin:16px 0;
+        align-items:end;
+      ">
+
+        <div style="grid-column: span 4;">
+          <label>Søk</label>
+          <input id="q" type="text" placeholder="navn / identifikator / path" style="width:100%;" />
+        </div>
+
+        <div style="grid-column: span 2;">
+          <label>Identifikator (eksakt)</label>
+          <input id="identifikator" type="text" placeholder="Gqb" style="width:100%;" />
+        </div>
+
+        <div style="grid-column: span 3;">
+          <label>Startår (fra–til)</label>
+          <div style="display:flex;gap:6px;">
+            <input id="startaarFrom" type="number" placeholder="1975" style="width:110px;" />
+            <span>–</span>
+            <input id="startaarTo" type="number" placeholder="2000" style="width:110px;" />
+          </div>
+        </div>
+
+        <div style="grid-column: span 3;">
+          <label>Sluttår (fra–til)</label>
+          <div style="display:flex;gap:6px;">
+            <input id="sluttaarFrom" type="number" placeholder="1975" style="width:110px;" />
+            <span>–</span>
+            <input id="sluttaarTo" type="number" placeholder="2000" style="width:110px;" />
+          </div>
+        </div>
+
+        <div style="grid-column: span 6;">
+          <label>Tags (kommaseparert)</label>
+          <input id="tags" type="text" placeholder="Politi og lensmenn, Skolevesen" style="width:100%;" />
+        </div>
+
+        <div style="grid-column: span 6; display:flex; gap:10px; align-items:end;">
+          <button id="resetBtn" type="button">Nullstill filtre</button>
+          <div id="stats"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top "floating" horizontal scrollbar -->
+    <div class="table-scroll-x table-scroll-x-top" id="tableScrollTop">
+      <div class="table-scroll-x-spacer" id="tableScrollTopSpacer"></div>
+    </div>
+
+    <div class="table-scroll-x" id="tableScrollMain">
+      <table class="arkiv-table">
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="pagination" style="margin-top:12px;display:flex;gap:10px;align-items:center;"></div>
+  </div>
+
+  <div id="loadingOverlay">
+    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
+  </div>
+
+  <script type="module" src="/js/serie_hierarchy.js"></script>
+
+  <script>
+    fetch("/partials/navbar.html")
+      .then(res => res.text())
+      .then(html => { document.getElementById("navbar-container").innerHTML = html; });
+  </script>
+</body>
+</html>
