@@ -8,6 +8,77 @@
   <title>ASK – Seriehierarki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/css/styles.css" />
+
+  <style>
+    /* Minimal multi-select styling (plays well with your existing styles.css) */
+    .ms {
+      position: relative;
+      background: #fff;
+      border: 1px solid #cfd7df;
+      border-radius: 8px;
+      padding: 8px;
+      min-height: 42px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .ms input {
+      border: none;
+      outline: none;
+      min-width: 160px;
+      flex: 1;
+      font-size: 14px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef3f8;
+      border: 1px solid #d7e2ee;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .chip button {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      color: #456;
+    }
+    .ms-menu {
+      position: absolute;
+      z-index: 50;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #fff;
+      border: 1px solid #cfd7df;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+      max-height: 260px;
+      overflow: auto;
+      display: none;
+    }
+    .ms-menu.open { display: block; }
+    .ms-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #eef1f4;
+      font-size: 14px;
+    }
+    .ms-item:hover { background: #f5f8fb; }
+    .ms-item:last-child { border-bottom: none; }
+    .ms-muted {
+      padding: 10px 12px;
+      color: #667;
+      font-size: 13px;
+    }
+    label { display:block; margin-bottom:6px; color:#223; font-weight:600; }
+  </style>
 </head>
 
 <body>
@@ -28,13 +99,40 @@
       ">
 
         <div style="grid-column: span 4;">
-          <label>Søk</label>
+          <label>Søk (fri tekst)</label>
           <input id="q" type="text" placeholder="navn / identifikator / path" style="width:100%;" />
         </div>
 
-        <div style="grid-column: span 2;">
-          <label>Identifikator (eksakt)</label>
-          <input id="identifikator" type="text" placeholder="Gqb" style="width:100%;" />
+        <div style="grid-column: span 4;">
+          <label>Order no (multi)</label>
+          <div class="ms" id="msOrder">
+            <input type="text" placeholder="Søk og velg order_no…" />
+            <div class="ms-menu"></div>
+          </div>
+        </div>
+
+        <div style="grid-column: span 4;">
+          <label>Identifikator (multi)</label>
+          <div class="ms" id="msIdent">
+            <input type="text" placeholder="Søk og velg identifikator…" />
+            <div class="ms-menu"></div>
+          </div>
+        </div>
+
+        <div style="grid-column: span 6;">
+          <label>Navn (multi)</label>
+          <div class="ms" id="msNavn">
+            <input type="text" placeholder="Søk og velg navn…" />
+            <div class="ms-menu"></div>
+          </div>
+        </div>
+
+        <div style="grid-column: span 6;">
+          <label>Tags (multi)</label>
+          <div class="ms" id="msTags">
+            <input type="text" placeholder="Søk og velg tags…" />
+            <div class="ms-menu"></div>
+          </div>
         </div>
 
         <div style="grid-column: span 3;">
@@ -55,11 +153,6 @@
           </div>
         </div>
 
-        <div style="grid-column: span 6;">
-          <label>Tags (kommaseparert)</label>
-          <input id="tags" type="text" placeholder="Politi og lensmenn, Skolevesen" style="width:100%;" />
-        </div>
-
         <div style="grid-column: span 6; display:flex; gap:10px; align-items:end;">
           <button id="resetBtn" type="button">Nullstill filtre</button>
           <div id="stats"></div>
@@ -67,7 +160,6 @@
       </div>
     </div>
 
-    <!-- Top "floating" horizontal scrollbar -->
     <div class="table-scroll-x table-scroll-x-top" id="tableScrollTop">
       <div class="table-scroll-x-spacer" id="tableScrollTopSpacer"></div>
     </div>
