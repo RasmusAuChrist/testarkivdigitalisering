@@ -741,3 +741,31 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 @keyframes btnSpin {
   to { transform: rotate(360deg); }
 }
+
+/* Order badge in Seriehierarki table */
+.order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  padding: 4px 10px;
+  border-radius: 999px;
+
+  background: rgba(253, 216, 53, 0.14);         /* gold tint */
+  border: 1px solid rgba(253, 216, 53, 0.55);   /* gold outline */
+  color: #fdd835;                                /* gold */
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+
+  white-space: nowrap;
+}
+
+.order-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(253, 216, 53, 0.9);
+  box-shadow: 0 0 0 3px rgba(253, 216, 53, 0.12);
+}

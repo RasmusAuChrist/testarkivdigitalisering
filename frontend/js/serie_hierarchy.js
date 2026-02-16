@@ -26,16 +26,23 @@ const columns = [
   { key: "identifikator", label: "Identifikator" },
   { key: "path", label: "Path" },
 
-  {
-    key: "order_no",
-    label: "Ordre",
-    numeric: false,
-    render: (row) => {
-      const v = row.order_no;
-      if (v === null || v === undefined || v === "") return "";
-      return { type: "icon", text: "📦", title: `Order: ${v}` };
-    }
-  },
+{
+  key: "order_no",
+  label: "Ordre",
+  numeric: false,
+  render: (row) => {
+    const v = row.order_no;
+    if (v === null || v === undefined || v === "") return "";
+
+    const safe = String(v).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return {
+      type: "html",
+      title: `Order: ${safe}`,
+      html: `<span class="order-badge"><span class="dot"></span>${safe}</span>`
+    };
+  }
+},
+
 
   { key: "startaar", label: "Startår", numeric: true },
   { key: "sluttaar", label: "Sluttår", numeric: true },
@@ -364,7 +371,11 @@ function render() {
         if (typeof c.render === "function") {
           const out = c.render(r);
 
-          if (out && out.type === "icon") {
+          if (out && out.type === "html") {
+            td.innerHTML = out.html || "";
+            if (out.title) td.title = out.title;
+            td.style.textAlign = "center";
+          } else if (out && out.type === "icon") {
             td.textContent = out.text || "";
             if (out.title) td.title = out.title;
             td.style.textAlign = "center";
@@ -375,6 +386,7 @@ function render() {
           const v = r[c.key];
           td.textContent = (v === null || v === undefined) ? "" : String(v);
         }
+
 
         tr.appendChild(td);
       }
