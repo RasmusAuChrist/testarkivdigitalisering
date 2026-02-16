@@ -1,5 +1,24 @@
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
+const ARKIV_PAGE = "/views/arkiv.html";
+
+function getUrlParam(name) {
+  const v = new URLSearchParams(window.location.search).get(name);
+  return v ? v.trim() : "";
+}
+
+function extractArkivFromPath(path) {
+  if (!path) return "";
+  return String(path).split("/")[0].trim();
+}
+
+function gotoArkiv(arkivIdent) {
+  if (!arkivIdent) return;
+  const url = `${ARKIV_PAGE}?q=${encodeURIComponent(arkivIdent)}`;
+  window.location.assign(url);
+}
+
+
 const state = {
   page: 1,
   pageSize: 100,
