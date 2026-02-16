@@ -123,34 +123,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function refreshValidation() {
-    refreshBtn.disabled = true;
-    setStatus("Oppdaterer…");
-    setLoading(true);
+async function refreshValidation() {
+  refreshBtn.disabled = true;
+  setStatus("Oppdaterer…");
+  setLoading(true);
 
-    try {
-      const res = await fetch(`${API_BASE}/api/validation-status/refresh`, {
-        method: "POST",
-      });
-      const out = await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/validation-status/refresh`, { method: "POST" });
+    const out = await res.json();
 
-      if (!out || out.ok !== true) {
-        const msg = out?.error || `Refresh feilet (HTTP ${res.status})`;
-        setStatus(msg, true);
-        console.error("Refresh failed:", out);
-        return;
-      }
+    console.log("Refresh response:", out);
 
-      setStatus("Oppdatert ✅");
-      await loadValidation();
-    } catch (err) {
-      setStatus("Refresh feilet 😢", true);
-      console.error("Refresh error:", err);
-    } finally {
-      setLoading(false);
-      refreshBtn.disabled = false;
+    if (!res.ok || out.ok !== true) {
+      setStatus(out?.error || `Refresh feilet (HTTP ${res.status})`, true);
+      return;
     }
+
+    setStatus(`Oppdatert ✅ (${out.count.toLocaleString("no-NO")} rader)`);
+    await loadValidation();
+  } catch (err) {
+    setStatus("Refresh feilet 😢", true);
+    console.error(err);
+  } finally {
+    setLoading(false);
+    refreshBtn.disabled = false;
   }
+}
 
   if (refreshBtn) {
     refreshBtn.addEventListener("click", refreshValidation);

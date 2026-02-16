@@ -32,7 +32,7 @@ def get_validation_status():
             ordre_startdato_ok,
             ordre_sluttdato_ok,
             ordre_hyllemeter_ok
-        FROM tbl_ref_validation_status
+        FROM dbo.tbl_ref_validation_status
         ORDER BY ordre;
         """
         cursor.execute(query)
@@ -52,21 +52,22 @@ def get_validation_status():
 
 @router.post("/validation-status/refresh")
 def refresh_validation_status():
-    """
-    Triggers usp_RefreshValidationStatus to rebuild tbl_ref_validation_status.
-    """
     conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
-        # Execute stored procedure
-        cursor.execute("EXEC usp_RefreshValidationStatus;")
+        # ✅ schema-qualify the proc
+        cursor.execute("EXEC dbo.usp_RefreshValidationStatus;")
         conn.commit()
 
-        return {"ok": True}
+        # ✅ verify table exists + readable AFTER refresh
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute("SELECT COUNT(1) AS cnt FROM dbo.tbl_ref_validation_status;")
+        cnt = cursor.fetchone()["cnt"]
+
+        return {"ok": True, "count": int(cnt)}
     except Exception as e:
-        # If your SQL user lacks EXECUTE permission, you'll see it here.
         return {"ok": False, "error": str(e)}
     finally:
         if conn:
