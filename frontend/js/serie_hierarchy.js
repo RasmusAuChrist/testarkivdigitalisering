@@ -16,16 +16,27 @@ const state = {
   sluttaarTo: "",
 
   // ✅ multi-select values
-  orderNos: [],
   navnValues: [],
   identValues: [],
 };
 
+// ✅ order_no is shown as an icon (not a filter)
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "identifikator", label: "Identifikator" },
   { key: "path", label: "Path" },
-  { key: "order_no", label: "Order", numeric: true },
+
+  {
+    key: "order_no",
+    label: "Ordre",
+    numeric: false,
+    render: (row) => {
+      const v = row.order_no;
+      if (v === null || v === undefined || v === "") return "";
+      return { type: "icon", text: "📦", title: `Order: ${v}` };
+    }
+  },
+
   { key: "startaar", label: "Startår", numeric: true },
   { key: "sluttaar", label: "Sluttår", numeric: true },
   { key: "stykke_count", label: "Stykke", numeric: true },
@@ -52,7 +63,7 @@ const el = {
 
   loading: document.getElementById("loadingOverlay"),
 
-  msOrder: document.getElementById("msOrder"),
+  // ✅ only keep the dropdowns that exist in HTML
   msNavn: document.getElementById("msNavn"),
   msIdent: document.getElementById("msIdent"),
 };
@@ -85,16 +96,23 @@ function qs(params) {
 }
 
 /**
- * ✅ MultiSelect dropdown with async suggestions
+ * MultiSelect dropdown with async suggestions
  * Requires backend endpoints:
  *   GET /api/serie-hierarchy/suggest/<field>?q=...&limit=20
  * Returns: { items: ["...", "..."] }
  */
 class MultiSelect {
   constructor(root, opts) {
+    if (!root) throw new Error("MultiSelect root is null (missing element in HTML).");
+
     this.root = root;
     this.input = root.querySelector("input");
     this.menu = root.querySelector(".ms-menu");
+
+    if (!this.input || !this.menu) {
+      throw new Error("MultiSelect requires an <input> and a .ms-menu inside the root element.");
+    }
+
     this.getSelected = opts.getSelected;
     this.setSelected = opts.setSelected;
     this.fetchItems = opts.fetchItems; // (q) => Promise<string[]>
@@ -109,7 +127,6 @@ class MultiSelect {
   }
 
   _wire() {
-    // Click root focuses input
     this.root.addEventListener("mousedown", (e) => {
       if (e.target === this.root) {
         e.preventDefault();
@@ -117,7 +134,6 @@ class MultiSelect {
       }
     });
 
-    // Input typing triggers suggestion fetch
     this.input.addEventListener("input", debounce(async () => {
       const q = this.input.value.trim();
       if (!q) {
@@ -132,12 +148,10 @@ class MultiSelect {
       if (q) await this.showSuggestions(q);
     });
 
-    // ESC closes
     this.input.addEventListener("keydown", (e) => {
       if (e.key === "Escape") this.closeMenu();
     });
 
-    // Click outside closes
     document.addEventListener("mousedown", (e) => {
       if (!this.root.contains(e.target)) this.closeMenu();
     });
@@ -164,7 +178,7 @@ class MultiSelect {
         div.className = "ms-item";
         div.textContent = v;
         div.addEventListener("mousedown", (e) => {
-          e.preventDefault(); // prevent input blur
+          e.preventDefault();
           this.add(v);
         });
         this.menu.appendChild(div);
@@ -181,7 +195,6 @@ class MultiSelect {
 
     const cur = this.getSelected().map(String);
     if (cur.includes(v)) return;
-
     if (cur.length >= this.maxSelected) return;
 
     this.setSelected([...cur, v]);
@@ -208,7 +221,6 @@ class MultiSelect {
   }
 
   renderChips() {
-    // remove existing chips (keep input + menu)
     const chips = Array.from(this.root.querySelectorAll(".chip"));
     for (const c of chips) c.remove();
 
@@ -226,11 +238,9 @@ class MultiSelect {
       btn.addEventListener("click", () => this.remove(v));
 
       chip.appendChild(btn);
-      // insert chip before input
       this.root.insertBefore(chip, this.input);
     }
 
-    // placeholder behavior
     this.input.placeholder = selected.length ? "" : this.placeholder;
   }
 
@@ -264,14 +274,12 @@ async function fetchPage() {
       sort_dir: state.sortDir,
 
       q: state.q,
-
       startaar_from: state.startaarFrom,
       startaar_to: state.startaarTo,
       sluttaar_from: state.sluttaarFrom,
       sluttaar_to: state.sluttaarTo,
 
-      // ✅ multi-select params expected by your patched backend
-      order_nos: state.orderNos,
+      // ✅ multi-select params
       navn_values: state.navnValues,
       identifikator_values: state.identValues,
     });
@@ -352,8 +360,22 @@ function render() {
         const td = document.createElement("td");
         td.style.padding = "10px";
         td.style.textAlign = c.numeric ? "right" : "left";
-        const v = r[c.key];
-        td.textContent = (v === null || v === undefined) ? "" : String(v);
+
+        if (typeof c.render === "function") {
+          const out = c.render(r);
+
+          if (out && out.type === "icon") {
+            td.textContent = out.text || "";
+            if (out.title) td.title = out.title;
+            td.style.textAlign = "center";
+          } else {
+            td.textContent = (out === null || out === undefined) ? "" : String(out);
+          }
+        } else {
+          const v = r[c.key];
+          td.textContent = (v === null || v === undefined) ? "" : String(v);
+        }
+
         tr.appendChild(td);
       }
       frag.appendChild(tr);
@@ -439,14 +461,6 @@ async function init() {
   const trigger = debounce(() => fetchPage(), 0);
 
   // ✅ Multi-select dropdowns (search + chips)
-  const msOrder = new MultiSelect(el.msOrder, {
-    getSelected: () => state.orderNos,
-    setSelected: (v) => { state.orderNos = v; },
-    fetchItems: async (q) => await fetchSuggest("order_no", q),
-    maxSelected: 200,
-  });
-  msOrder.onChange = () => { state.page = 1; trigger(); };
-
   const msIdent = new MultiSelect(el.msIdent, {
     getSelected: () => state.identValues,
     setSelected: (v) => { state.identValues = v; },
@@ -472,7 +486,6 @@ async function init() {
     el.sluttaarFrom.value = "";
     el.sluttaarTo.value = "";
 
-    msOrder.clear();
     msIdent.clear();
     msNavn.clear();
 
