@@ -1,5 +1,4 @@
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
-
 const ARKIV_PAGE = "/views/arkiv.html";
 
 function getUrlParam(name) {
@@ -7,17 +6,18 @@ function getUrlParam(name) {
   return v ? v.trim() : "";
 }
 
-function extractArkivFromPath(path) {
-  if (!path) return "";
-  return String(path).split("/")[0].trim();
+function arkivIdentFromPath(path) {
+  // Assumption: archive ident is the first segment in the path, e.g. "SAT-A-1353/G/Gqb" -> "SAT-A-1353"
+  const p = String(path ?? "").trim();
+  if (!p) return "";
+  return p.split("/")[0] || "";
 }
 
-function gotoArkiv(arkivIdent) {
-  if (!arkivIdent) return;
-  const url = `${ARKIV_PAGE}?q=${encodeURIComponent(arkivIdent)}`;
-  window.location.assign(url);
+function gotoArkivForSerie(row) {
+  const arkiv = arkivIdentFromPath(row.path);
+  if (!arkiv) return;
+  window.location.assign(`${ARKIV_PAGE}?arkiv=${encodeURIComponent(arkiv)}`);
 }
-
 
 const state = {
   page: 1,
@@ -39,29 +39,79 @@ const state = {
   identValues: [],
 };
 
-// ✅ order_no is shown as an icon (not a filter)
+// ✅ order_no shown as badge (not a filter)
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "identifikator", label: "Identifikator" },
-  { key: "path", label: "Path" },
 
-{
-  key: "order_no",
-  label: "Ordre",
-  numeric: false,
-  render: (row) => {
-    const v = row.order_no;
-    if (v === null || v === undefined || v === "") return "";
+  // ✅ Clickable path pill -> goes to arkiv page for that series' arkiv
+  {
+    key: "path",
+    label: "Path",
+    numeric: false,
+    render: (row) => {
+      const p = row.path;
+      if (!p) return "";
+      const safe = String(p).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const arkiv = arkivIdentFromPath(p);
+      return {
+        type: "html",
+        title: arkiv ? `Gå til arkiv: ${arkiv}` : "Gå til arkiv",
+        html: `
+          <button
+            type="button"
+            class="path-pill"
+            style="
+              display:inline-flex;align-items:center;gap:8px;
+              border:1px solid #cbd5e1;border-radius:999px;
+              padding:4px 10px;background:#0f172a;color:#fff;
+              font-weight:700;font-size:12px;line-height:1;
+              cursor:pointer;
+            "
+            data-path="${safe}"
+          >
+            <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
+            ${safe}
+            <span style="opacity:.85;font-weight:600;">↩︎</span>
+          </button>
+        `
+      };
+    }
+  },
 
-    const safe = String(v).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return {
-      type: "html",
-      title: `Order: ${safe}`,
-      html: `<span class="order-badge"><span class="dot"></span>${safe}</span>`
-    };
-  }
-},
-
+  {
+    key: "order_no",
+    label: "Ordre",
+    numeric: false,
+    render: (row) => {
+      const v = row.order_no;
+      if (v === null || v === undefined || v === "") return "";
+      const safe = String(v).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return {
+        type: "html",
+        title: `Ordre: ${safe}`,
+        html: `
+          <span
+            class="order-badge"
+            style="
+              display:inline-flex;align-items:center;gap:8px;
+              border-radius:999px;
+              padding:4px 10px;
+              background:#0f172a;
+              color:#fff;
+              font-weight:700;
+              font-size:12px;
+              line-height:1;
+              border:1px solid #0b1220;
+            "
+          >
+            <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
+            ${safe}
+          </span>
+        `
+      };
+    }
+  },
 
   { key: "startaar", label: "Startår", numeric: true },
   { key: "sluttaar", label: "Sluttår", numeric: true },
@@ -89,7 +139,6 @@ const el = {
 
   loading: document.getElementById("loadingOverlay"),
 
-  // ✅ only keep the dropdowns that exist in HTML
   msNavn: document.getElementById("msNavn"),
   msIdent: document.getElementById("msIdent"),
 };
@@ -141,12 +190,9 @@ class MultiSelect {
 
     this.getSelected = opts.getSelected;
     this.setSelected = opts.setSelected;
-    this.fetchItems = opts.fetchItems; // (q) => Promise<string[]>
+    this.fetchItems = opts.fetchItems;
     this.placeholder = this.input.placeholder || "";
     this.maxSelected = opts.maxSelected ?? 50;
-
-    this._open = false;
-    this._lastResults = [];
 
     this._wire();
     this.renderChips();
@@ -162,10 +208,7 @@ class MultiSelect {
 
     this.input.addEventListener("input", debounce(async () => {
       const q = this.input.value.trim();
-      if (!q) {
-        this.closeMenu();
-        return;
-      }
+      if (!q) { this.closeMenu(); return; }
       await this.showSuggestions(q);
     }, 200));
 
@@ -190,9 +233,8 @@ class MultiSelect {
 
     try {
       const items = await this.fetchItems(q);
-      this._lastResults = items;
-
       const filtered = items.filter(v => !selected.has(String(v)));
+
       if (!filtered.length) {
         this.menu.innerHTML = `<div class="ms-muted">Ingen forslag.</div>`;
         return;
@@ -271,12 +313,10 @@ class MultiSelect {
   }
 
   openMenu() {
-    this._open = true;
     this.menu.classList.add("open");
   }
 
   closeMenu() {
-    this._open = false;
     this.menu.classList.remove("open");
     this.menu.innerHTML = "";
   }
@@ -305,7 +345,6 @@ async function fetchPage() {
       sluttaar_from: state.sluttaarFrom,
       sluttaar_to: state.sluttaarTo,
 
-      // ✅ multi-select params
       navn_values: state.navnValues,
       identifikator_values: state.identValues,
     });
@@ -393,11 +432,19 @@ function render() {
           if (out && out.type === "html") {
             td.innerHTML = out.html || "";
             if (out.title) td.title = out.title;
-            td.style.textAlign = "center";
-          } else if (out && out.type === "icon") {
-            td.textContent = out.text || "";
-            if (out.title) td.title = out.title;
-            td.style.textAlign = "center";
+
+            // Bind nav from path-pill -> arkiv page
+            const btn = td.querySelector("button.path-pill");
+            if (btn) {
+              td.style.textAlign = "left";
+              btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                gotoArkivForSerie(r);
+              });
+            } else {
+              td.style.textAlign = "center";
+            }
           } else {
             td.textContent = (out === null || out === undefined) ? "" : String(out);
           }
@@ -406,9 +453,9 @@ function render() {
           td.textContent = (v === null || v === undefined) ? "" : String(v);
         }
 
-
         tr.appendChild(td);
       }
+
       frag.appendChild(tr);
     }
     el.body.appendChild(frag);
@@ -489,9 +536,17 @@ async function init() {
   buildHeader();
   setupHorizontalScrollSync();
 
+  // ✅ If we came from Arkiv page: /views/serie_hierarchy.html?arkiv=SAT-A-1353
+  const arkiv = getUrlParam("arkiv");
+  if (arkiv) {
+    // Make it specifically match the path prefix
+    const qVal = `${arkiv}/`;
+    state.q = qVal;
+    if (el.q) el.q.value = qVal;
+  }
+
   const trigger = debounce(() => fetchPage(), 0);
 
-  // ✅ Multi-select dropdowns (search + chips)
   const msIdent = new MultiSelect(el.msIdent, {
     getSelected: () => state.identValues,
     setSelected: (v) => { state.identValues = v; },
