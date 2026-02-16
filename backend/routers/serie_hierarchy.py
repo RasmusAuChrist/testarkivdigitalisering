@@ -77,7 +77,6 @@ def get_serie_hierarchy(
     identifikator: Optional[str] = Query(default=None, description="Exact match filter (single)"),
 
     # multi-select filters (comma-separated)
-    order_nos: Optional[str] = Query(default=None, description="Comma-separated order_no values. Example: 1,2,10"),
     navn_values: Optional[str] = Query(default=None, description="Comma-separated navn values (exact match)"),
     identifikator_values: Optional[str] = Query(default=None, description="Comma-separated identifikator values (exact match)"),
 
@@ -94,7 +93,6 @@ def get_serie_hierarchy(
     sort_col = ALLOWED_SORT.get(sort_key, "startaar")
     sort_dir_sql = "DESC" if sort_dir.lower() == "desc" else "ASC"
 
-    order_no_list = _csv_to_int_list(order_nos, limit=500)
     navn_list = _csv_to_str_list(navn_values, limit=200)
     ident_list = _csv_to_str_list(identifikator_values, limit=200)
 
@@ -108,10 +106,6 @@ def get_serie_hierarchy(
     if identifikator:
         where.append("identifikator = %(identifikator)s")
         params["identifikator"] = identifikator
-
-    clause = _build_in_clause("order_no", order_no_list, params, "order_no")
-    if clause:
-        where.append(clause)
 
     clause = _build_in_clause("navn", navn_list, params, "navn")
     if clause:
@@ -206,37 +200,6 @@ def get_serie_hierarchy_facets() -> Dict[str, Any]:
 # -----------------------------
 # SUGGEST ENDPOINTS (tags removed)
 # -----------------------------
-@router.get("/serie-hierarchy/suggest/order_no")
-def suggest_order_no(
-    q: str = Query(..., min_length=1),
-    limit: int = Query(20, ge=1, le=100),
-) -> Dict[str, Any]:
-    q_digits = "".join(ch for ch in q if ch.isdigit())
-    if not q_digits:
-        return {"items": []}
-
-    sql = f"""
-        SELECT DISTINCT TOP ({limit})
-            CAST(order_no AS VARCHAR(50)) AS v
-        FROM tbl_gold_serie_hierarchy
-        WHERE order_no IS NOT NULL
-          AND CAST(order_no AS VARCHAR(50)) LIKE %(q)s
-        ORDER BY v;
-    """
-
-    conn = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor(as_dict=True)
-        cur.execute(sql, {"q": f"{q_digits}%"})
-        rows = cur.fetchall()
-        return {"items": [r["v"] for r in rows if r.get("v") is not None]}
-    except Exception as e:
-        return {"error": str(e), "items": []}
-    finally:
-        if conn:
-            conn.close()
-
 
 @router.get("/serie-hierarchy/suggest/identifikator")
 def suggest_identifikator(
