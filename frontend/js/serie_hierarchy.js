@@ -19,7 +19,6 @@ const state = {
   orderNos: [],
   navnValues: [],
   identValues: [],
-  tagValues: [],
 };
 
 const columns = [
@@ -30,8 +29,7 @@ const columns = [
   { key: "startaar", label: "Startår", numeric: true },
   { key: "sluttaar", label: "Sluttår", numeric: true },
   { key: "stykke_count", label: "Stykke", numeric: true },
-  { key: "hyllemeter", label: "Hyllemeter", numeric: true },
-  { key: "predicted_tags", label: "Tags" }
+  { key: "hyllemeter", label: "Hyllemeter", numeric: true }
 ];
 
 const el = {
@@ -57,7 +55,6 @@ const el = {
   msOrder: document.getElementById("msOrder"),
   msNavn: document.getElementById("msNavn"),
   msIdent: document.getElementById("msIdent"),
-  msTags: document.getElementById("msTags"),
 };
 
 function showLoading() { if (el.loading) el.loading.style.display = "flex"; }
@@ -277,7 +274,6 @@ async function fetchPage() {
       order_nos: state.orderNos,
       navn_values: state.navnValues,
       identifikator_values: state.identValues,
-      tags_any: state.tagValues,
     });
 
     const res = await fetch(`${API_BASE}/api/serie-hierarchy?${query}`);
@@ -467,14 +463,6 @@ async function init() {
   });
   msNavn.onChange = () => { state.page = 1; trigger(); };
 
-  const msTags = new MultiSelect(el.msTags, {
-    getSelected: () => state.tagValues,
-    setSelected: (v) => { state.tagValues = v; },
-    fetchItems: async (q) => await fetchSuggest("tags", q),
-    maxSelected: 200,
-  });
-  msTags.onChange = () => { state.page = 1; trigger(); };
-
   wireBasicInputs(() => fetchPage());
 
   el.resetBtn.addEventListener("click", () => {
@@ -487,7 +475,6 @@ async function init() {
     msOrder.clear();
     msIdent.clear();
     msNavn.clear();
-    msTags.clear();
 
     state.sortKey = "startaar";
     state.sortDir = "asc";

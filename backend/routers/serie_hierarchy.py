@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 import pymssql
 import os
-from typing import Optional, List, Dict, Any, Set
+from typing import Optional, List, Dict, Any
 
 router = APIRouter()
 
@@ -59,10 +59,6 @@ def _build_in_clause(
     params: Dict[str, Any],
     param_prefix: str,
 ) -> Optional[str]:
-    """
-    Builds:  column IN (%(prefix0)s, %(prefix1)s, ...)
-    and fills params accordingly.
-    """
     if not values:
         return None
     ph = []
@@ -78,14 +74,12 @@ def _build_in_clause(
 @router.get("/serie-hierarchy")
 def get_serie_hierarchy(
     q: Optional[str] = Query(default=None, description="Search in navn, identifikator, path"),
-    # Keep single exact match for convenience:
     identifikator: Optional[str] = Query(default=None, description="Exact match filter (single)"),
 
     # multi-select filters (comma-separated)
     order_nos: Optional[str] = Query(default=None, description="Comma-separated order_no values. Example: 1,2,10"),
     navn_values: Optional[str] = Query(default=None, description="Comma-separated navn values (exact match)"),
     identifikator_values: Optional[str] = Query(default=None, description="Comma-separated identifikator values (exact match)"),
-    tags_any: Optional[str] = Query(default=None, description="Comma-separated tags; matches if row contains ANY"),
 
     startaar_from: Optional[int] = Query(default=None),
     startaar_to: Optional[int] = Query(default=None),
@@ -103,7 +97,6 @@ def get_serie_hierarchy(
     order_no_list = _csv_to_int_list(order_nos, limit=500)
     navn_list = _csv_to_str_list(navn_values, limit=200)
     ident_list = _csv_to_str_list(identifikator_values, limit=200)
-    tag_list = _csv_to_str_list(tags_any, limit=200)
 
     where: List[str] = []
     params: Dict[str, Any] = {}
@@ -112,12 +105,10 @@ def get_serie_hierarchy(
         where.append("(navn LIKE %(q)s OR identifikator LIKE %(q)s OR path LIKE %(q)s)")
         params["q"] = f"%{q}%"
 
-    # single exact match (kept)
     if identifikator:
         where.append("identifikator = %(identifikator)s")
         params["identifikator"] = identifikator
 
-    # multi-select exact matches
     clause = _build_in_clause("order_no", order_no_list, params, "order_no")
     if clause:
         where.append(clause)
@@ -146,15 +137,6 @@ def get_serie_hierarchy(
         where.append("sluttaar <= %(sluttaar_to)s")
         params["sluttaar_to"] = sluttaar_to
 
-    # tags: ANY match within the comma-separated predicted_tags string
-    if tag_list:
-        ors = []
-        for i, t in enumerate(tag_list):
-            key = f"tag{i}"
-            ors.append("predicted_tags LIKE %(" + key + ")s")
-            params[key] = f"%{t}%"
-        where.append("(" + " OR ".join(ors) + ")")
-
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     offset = (page - 1) * page_size
@@ -177,7 +159,6 @@ def get_serie_hierarchy(
             hyllemeter,
             startaar,
             sluttaar,
-            predicted_tags,
             identifikator,
             navn
         {base_from}
@@ -206,9 +187,6 @@ def get_serie_hierarchy(
             conn.close()
 
 
-# -----------------------------
-# FACETS (kept)
-# -----------------------------
 @router.get("/serie-hierarchy/facets")
 def get_serie_hierarchy_facets() -> Dict[str, Any]:
     conn = None
@@ -226,16 +204,13 @@ def get_serie_hierarchy_facets() -> Dict[str, Any]:
 
 
 # -----------------------------
-# SUGGEST ENDPOINTS (NEW)
-# These are required by your JS dropdowns.
-# They return: { "items": [...] }
+# SUGGEST ENDPOINTS (tags removed)
 # -----------------------------
 @router.get("/serie-hierarchy/suggest/order_no")
 def suggest_order_no(
-    q: str = Query(..., min_length=1, description="Prefix match for order_no (digits)"),
+    q: str = Query(..., min_length=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> Dict[str, Any]:
-    # keep only digits so weird input doesn't cause surprises
     q_digits = "".join(ch for ch in q if ch.isdigit())
     if not q_digits:
         return {"items": []}
@@ -310,67 +285,6 @@ def suggest_navn(
         cur.execute(sql, {"q": f"%{q}%"})
         rows = cur.fetchall()
         return {"items": [r["v"] for r in rows if r.get("v") is not None]}
-    except Exception as e:
-        return {"error": str(e), "items": []}
-    finally:
-        if conn:
-            conn.close()
-
-
-@router.get("/serie-hierarchy/suggest/tags")
-def suggest_tags(
-    q: str = Query(..., min_length=1, description="Matches individual tags inside predicted_tags"),
-    limit: int = Query(20, ge=1, le=100),
-    scan_rows: int = Query(500, ge=50, le=5000, description="How many rows to scan for splitting tags"),
-) -> Dict[str, Any]:
-    """
-    predicted_tags is a comma-separated string.
-    We:
-      1) fetch TOP(scan_rows) rows where predicted_tags contains q
-      2) split by comma
-      3) dedupe + return up to limit tags containing q (case-insensitive)
-    """
-    q_norm = q.strip().lower()
-    if not q_norm:
-        return {"items": []}
-
-    sql = f"""
-        SELECT TOP ({scan_rows})
-            predicted_tags
-        FROM tbl_gold_serie_hierarchy
-        WHERE predicted_tags IS NOT NULL
-          AND predicted_tags LIKE %(q)s;
-    """
-
-    conn = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor(as_dict=True)
-        cur.execute(sql, {"q": f"%{q}%"})
-        rows = cur.fetchall()
-
-        seen: Set[str] = set()
-        out: List[str] = []
-
-        for r in rows:
-            s = r.get("predicted_tags")
-            if not s:
-                continue
-            # split comma-separated tags
-            for raw in str(s).split(","):
-                tag = raw.strip()
-                if not tag:
-                    continue
-                if q_norm not in tag.lower():
-                    continue
-                if tag in seen:
-                    continue
-                seen.add(tag)
-                out.append(tag)
-                if len(out) >= limit:
-                    return {"items": out}
-
-        return {"items": out}
     except Exception as e:
         return {"error": str(e), "items": []}
     finally:
