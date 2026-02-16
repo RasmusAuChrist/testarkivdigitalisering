@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
-     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -12,32 +12,36 @@
 </head>
 <body>
 
-<!-- Navbar -->
+  <!-- Navbar -->
   <div id="navbar-container"></div>
   <link rel="stylesheet" href="/assets/navbar.css" />
 
-<!-- Spinner overlay -->
-<div id="loadingOverlay" style="display: flex;">
-  <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
-</div>
-
-<main style="padding: 20px;">
-  <h1>Status for validering</h1>
-
-  <div id="validation-container" style="margin-top: 20px;">
-    <!-- Accordion content will go here -->
+  <!-- Spinner overlay -->
+  <div id="loadingOverlay" style="display: flex;">
+    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
   </div>
-</main>
 
-<script>
-  fetch("/partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-container").innerHTML = html;
-    });
-</script>
+  <main style="padding: 20px;">
+    <h1>Status for validering</h1>
 
-<script type="module" src="/js/validation.js"></script>
+    <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+      <button id="refreshBtn" type="button">Oppdater (kjør refresh)</button>
+      <span id="refreshStatus" style="color:#bbb;"></span>
+    </div>
 
+    <div id="validation-container" style="margin-top: 20px;">
+      <!-- Accordion content will go here -->
+    </div>
+  </main>
+
+  <script>
+    fetch("/partials/navbar.html")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("navbar-container").innerHTML = html;
+      });
+  </script>
+
+  <script type="module" src="/js/validation.js"></script>
 </body>
 </html>

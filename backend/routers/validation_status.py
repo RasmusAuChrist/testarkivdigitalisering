@@ -49,3 +49,25 @@ def get_validation_status():
 
     except Exception as e:
         return {"error": str(e)}
+
+@router.post("/validation-status/refresh")
+def refresh_validation_status():
+    """
+    Triggers usp_RefreshValidationStatus to rebuild tbl_ref_validation_status.
+    """
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Execute stored procedure
+        cursor.execute("EXEC usp_RefreshValidationStatus;")
+        conn.commit()
+
+        return {"ok": True}
+    except Exception as e:
+        # If your SQL user lacks EXECUTE permission, you'll see it here.
+        return {"ok": False, "error": str(e)}
+    finally:
+        if conn:
+            conn.close()
