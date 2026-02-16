@@ -24,10 +24,13 @@
   <main style="padding: 20px;">
     <h1>Status for validering</h1>
 
-    <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
-      <button id="refreshBtn" type="button">Oppdater (kjør refresh)</button>
-      <span id="refreshStatus" style="color:#bbb;"></span>
-    </div>
+  <button id="refreshBtn" type="button" class="btn btn-primary">
+    <span class="btn-spinner" aria-hidden="true"></span>
+    <span class="btn-icon" aria-hidden="true">↻</span>
+    <span class="btn-text">Oppdater</span>
+  </button>
+  <span id="refreshStatus" style="color:#bbb;"></span>
+
 
     <div id="validation-container" style="margin-top: 20px;">
       <!-- Accordion content will go here -->

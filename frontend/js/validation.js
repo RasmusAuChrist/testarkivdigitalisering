@@ -125,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function refreshValidation() {
   refreshBtn.disabled = true;
+  refreshBtn.classList.add("is-loading");   // ✅ add
   setStatus("Oppdaterer…");
   setLoading(true);
 
@@ -132,23 +133,23 @@ async function refreshValidation() {
     const res = await fetch(`${API_BASE}/api/validation-status/refresh`, { method: "POST" });
     const out = await res.json();
 
-    console.log("Refresh response:", out);
-
     if (!res.ok || out.ok !== true) {
       setStatus(out?.error || `Refresh feilet (HTTP ${res.status})`, true);
       return;
     }
 
-    setStatus(`Oppdatert ✅ (${out.count.toLocaleString("no-NO")} rader)`);
+    setStatus(`Oppdatert ✅`);
     await loadValidation();
   } catch (err) {
     setStatus("Refresh feilet 😢", true);
     console.error(err);
   } finally {
     setLoading(false);
+    refreshBtn.classList.remove("is-loading"); // ✅ remove
     refreshBtn.disabled = false;
   }
 }
+
 
   if (refreshBtn) {
     refreshBtn.addEventListener("click", refreshValidation);

@@ -670,3 +670,74 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   word-break: break-word;       /* break very long tokens */
   overflow-wrap: anywhere;      /* modern browsers */
 }
+
+
+/* =========================
+   ASK Buttons (dark shell)
+========================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 14px;
+  border-radius: 10px;
+
+  font-weight: 700;
+  letter-spacing: 0.2px;
+
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+
+  transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+
+/* Primary: gold */
+.btn-primary {
+  background: var(--gold);
+  color: #111;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px rgba(253, 216, 53, 0.18);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.03);
+  box-shadow: 0 14px 28px rgba(253, 216, 53, 0.24);
+}
+
+/* Secondary: dark surface + gold outline */
+.btn-outline {
+  background: var(--dark-surface);
+  color: var(--gold);
+  border-color: rgba(253, 216, 53, 0.65);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+.btn-outline:hover {
+  background: #161616;
+  border-color: rgba(253, 216, 53, 0.9);
+  box-shadow: 0 12px 26px rgba(253, 216, 53, 0.12);
+}
+
+/* Small inline spinner for buttons */
+.btn .btn-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,0.18);
+  border-top-color: rgba(0,0,0,0.75);
+  animation: btnSpin 0.8s linear infinite;
+  display: none;
+}
+
+.btn.is-loading .btn-spinner { display: inline-block; }
+.btn.is-loading .btn-icon,
+.btn.is-loading .btn-text { opacity: 0.85; }
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
