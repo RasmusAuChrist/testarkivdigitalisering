@@ -117,7 +117,7 @@ const columns = [
   { key: "sluttaar", label: "Sluttår", numeric: true },
   { key: "stykke_count", label: "Stykke", numeric: true },
   { key: "hyllemeter", label: "Hyllemeter", numeric: true },
-  {
+ {
   key: "_actions",
   label: "Handling",
   numeric: false,
@@ -125,21 +125,41 @@ const columns = [
     const amid = row._amid;
     if (!amid) return "";
 
+    const safeAmid = String(amid).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const pillStyle = `
+      display:inline-flex;align-items:center;gap:8px;
+      border:1px solid #0b1220;border-radius:999px;
+      padding:4px 10px;background:#0f172a;color:#fff;
+      font-weight:700;font-size:12px;line-height:1;
+      cursor:pointer;
+    `;
+
     return {
       type: "html",
       html: `
-        <div style="display:flex;gap:6px;">
-          <button type="button"
-            class="order-add-btn"
-            data-amid="${amid}"
-            style="padding:4px 8px;font-size:12px;cursor:pointer;">
+        <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
+          <button
+            type="button"
+            class="order-action-pill order-add-pill"
+            data-amid="${safeAmid}"
+            data-action="add"
+            title="Legg til i ordre"
+            style="${pillStyle}"
+          >
+            <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
             Legg til
           </button>
 
-          <button type="button"
-            class="order-remove-btn"
-            data-amid="${amid}"
-            style="padding:4px 8px;font-size:12px;cursor:pointer;">
+          <button
+            type="button"
+            class="order-action-pill order-remove-pill"
+            data-amid="${safeAmid}"
+            data-action="remove"
+            title="Fjern fra ordre"
+            style="${pillStyle}"
+          >
+            <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
             Fjern
           </button>
         </div>
@@ -147,6 +167,7 @@ const columns = [
     };
   }
 }
+
 
 ];
 
@@ -173,7 +194,6 @@ const el = {
   msNavn: document.getElementById("msNavn"),
   msIdent: document.getElementById("msIdent"),
 
-  orderNo: document.getElementById("orderNo"),
   toast: document.getElementById("toast"),
 
 };
@@ -580,11 +600,16 @@ function wireBasicInputs(onAnyChange) {
   el.sluttaarTo.addEventListener("input", onChange);
 }
 
-function getSelectedOrderNo() {
-  const v = el.orderNo?.value?.trim();
+function promptOrderNo(actionLabel = "ordre") {
+  const raw = window.prompt(`Skriv inn ordrenr for ${actionLabel}:`, "");
+  if (raw === null) return null; // user cancelled
+
+  const v = String(raw).trim();
   if (!v) return null;
+
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return null;
+
   return Math.trunc(n);
 }
 
@@ -666,37 +691,43 @@ async function init() {
 
   // Delegate add/remove buttons
 el.body.addEventListener("click", async (e) => {
-  const addBtn = e.target.closest(".order-add-btn");
-  const removeBtn = e.target.closest(".order-remove-btn");
-  const btn = addBtn || removeBtn;
+  const btn = e.target.closest?.("button.order-action-pill");
   if (!btn) return;
 
-  const amid = btn.dataset.amid;
-  const orderNo = getSelectedOrderNo();
+  e.preventDefault();
+  e.stopPropagation();
 
+  const amid = btn.dataset.amid;
+  const action = btn.dataset.action; // "add" or "remove"
+  if (!amid || (action !== "add" && action !== "remove")) return;
+
+  const orderNo = promptOrderNo(action === "add" ? "legg til" : "fjern");
   if (!orderNo) {
-    showToast("Skriv inn et gyldig ordrenr.", "error");
-    el.orderNo?.focus();
+    showToast("Avbrutt eller ugyldig ordrenr.", "error");
     return;
   }
 
   try {
     btn.disabled = true;
+    btn.style.opacity = "0.75";
+    btn.style.cursor = "wait";
 
-    if (addBtn) {
-      await callOrderApi("add", amid, orderNo);
-      showToast(`La til i ordre ${orderNo}.`);
-    } else {
-      await callOrderApi("remove", amid, orderNo);
-      showToast(`Fjernet fra ordre ${orderNo}.`);
-    }
+    await callOrderApi(action, amid, orderNo);
 
-    await fetchPage(); // refresh table
+    showToast(
+      action === "add"
+        ? `La til i ordre ${orderNo}.`
+        : `Fjernet fra ordre ${orderNo}.`,
+      "success"
+    );
 
+    await fetchPage();
   } catch (err) {
-    showToast(err.message, "error");
+    showToast(err.message || "Ukjent feil.", "error");
   } finally {
     btn.disabled = false;
+    btn.style.opacity = "";
+    btn.style.cursor = "";
   }
 });
 
