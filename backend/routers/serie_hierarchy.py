@@ -75,20 +75,53 @@ def _build_in_clause(
 
 def _sql_error_message(e: Exception) -> str:
     """
-    pymssql exceptions often have args like:
-      (severity, state, message, procname, lineno)
-    or simply a string. We try to extract the most human-readable message.
+    Extract a human-readable SQL Server error message from pymssql exceptions.
+
+    pymssql sometimes returns the error number (e.g. 51002) as args[0] and the
+    actual message as another arg (sometimes bytes). We prefer the longest
+    non-numeric message string we can find.
     """
     try:
-        if hasattr(e, "args") and e.args:
-            # Find a string-like payload in args
-            for a in reversed(e.args):
-                if isinstance(a, str) and a.strip():
-                    return a.strip()
-            return str(e.args[0])
+        args = getattr(e, "args", None) or []
+        candidates: list[str] = []
+
+        for a in args:
+            # bytes -> str
+            if isinstance(a, (bytes, bytearray)):
+                s = a.decode("utf-8", errors="ignore").strip()
+                if s:
+                    candidates.append(s)
+                continue
+
+            # plain string
+            if isinstance(a, str):
+                s = a.strip()
+                if s:
+                    candidates.append(s)
+                continue
+
+            # anything else (int, etc.)
+            s = str(a).strip()
+            if s:
+                candidates.append(s)
+
+        def is_digits_only(s: str) -> bool:
+            return s.isdigit()
+
+        # Prefer a message that isn't just digits; longest usually contains the full SQL text
+        non_numeric = [c for c in candidates if not is_digits_only(c)]
+        if non_numeric:
+            return max(non_numeric, key=len)
+
+        # Fallback
+        if candidates:
+            return max(candidates, key=len)
+
     except Exception:
         pass
+
     return str(e)
+
 
 # -----------------------------
 # MAIN DATA ENDPOINT
@@ -344,4 +377,3 @@ def remove_from_order(payload: OrderAction) -> Dict[str, Any]:
     finally:
         if conn:
             conn.close()
-    
