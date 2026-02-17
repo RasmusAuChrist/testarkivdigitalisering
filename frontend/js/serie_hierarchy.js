@@ -117,13 +117,19 @@ const columns = [
   { key: "sluttaar", label: "Sluttår", numeric: true },
   { key: "stykke_count", label: "Stykke", numeric: true },
   { key: "hyllemeter", label: "Hyllemeter", numeric: true },
- {
+{
   key: "_actions",
   label: "Handling",
   numeric: false,
   render: (row) => {
     const amid = row._amid;
     if (!amid) return "";
+
+    // ✅ "in order" if order_no is present (comes from tbl_order_log now)
+    const inOrder =
+      row.order_no !== null &&
+      row.order_no !== undefined &&
+      String(row.order_no).trim() !== "";
 
     const safeAmid = String(amid).replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -135,37 +141,62 @@ const columns = [
       cursor:pointer;
     `;
 
+    const addBtn = !inOrder
+      ? `
+        <button
+          type="button"
+          class="order-action-pill order-add-pill"
+          data-amid="${safeAmid}"
+          data-action="add"
+          title="Legg til i ordre"
+          style="${pillStyle}"
+        >
+          <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
+          Legg til
+        </button>
+      `
+      : ``;
+
+    const removeBtn = inOrder
+      ? `
+        <button
+          type="button"
+          class="order-action-pill order-remove-pill"
+          data-amid="${safeAmid}"
+          data-action="remove"
+          data-order-no="${row.order_no}"
+          title="Fjern fra ordre ${row.order_no}"
+          style="${pillStyle}"
+        >
+          <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
+          Fjern
+        </button>
+      `
+      : `
+        <button
+          type="button"
+          class="order-action-pill order-remove-pill"
+          data-amid="${safeAmid}"
+          data-action="remove"
+          title="Ikke i ordre"
+          style="${pillStyle};opacity:.45;cursor:not-allowed;"
+          disabled
+        >
+          <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
+          Fjern
+        </button>
+      `;
+
     return {
       type: "html",
       html: `
         <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
-          <button
-            type="button"
-            class="order-action-pill order-add-pill"
-            data-amid="${safeAmid}"
-            data-action="add"
-            title="Legg til i ordre"
-            style="${pillStyle}"
-          >
-            <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
-            Legg til
-          </button>
-
-          <button
-            type="button"
-            class="order-action-pill order-remove-pill"
-            data-amid="${safeAmid}"
-            data-action="remove"
-            title="Fjern fra ordre"
-            style="${pillStyle}"
-          >
-            <span style="width:7px;height:7px;border-radius:50%;background:#fdd835;display:inline-block;"></span>
-            Fjern
-          </button>
+          ${addBtn}
+          ${removeBtn}
         </div>
-      `
+      `,
     };
-  }
+  },
 }
 
 
@@ -701,11 +732,16 @@ el.body.addEventListener("click", async (e) => {
   const action = btn.dataset.action; // "add" or "remove"
   if (!amid || (action !== "add" && action !== "remove")) return;
 
-  const orderNo = promptOrderNo(action === "add" ? "legg til" : "fjern");
-  if (!orderNo) {
+  const orderNo =
+    action === "remove" && btn.dataset.orderNo
+      ? Number(btn.dataset.orderNo)
+      : promptOrderNo(action === "add" ? "legg til" : "fjern");
+
+  if (!orderNo || Number.isNaN(orderNo)) {
     showToast("Avbrutt eller ugyldig ordrenr.", "error");
     return;
   }
+
 
   try {
     btn.disabled = true;
