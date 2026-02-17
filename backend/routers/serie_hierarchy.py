@@ -6,15 +6,17 @@ from typing import Optional, List, Dict, Any
 
 router = APIRouter()
 
+# ✅ Keep behavior, but make sort columns safe after adding table alias "h"
 ALLOWED_SORT = {
+    # order_no is computed/aliased in SELECT via COALESCE(l.order_no, h.order_no)
     "order_no": "order_no",
-    "navn": "navn",
-    "identifikator": "identifikator",
-    "path": "path",
-    "startaar": "startaar",
-    "sluttaar": "sluttaar",
-    "stykke_count": "stykke_count",
-    "hyllemeter": "hyllemeter",
+    "navn": "h.navn",
+    "identifikator": "h.identifikator",
+    "path": "h.path",
+    "startaar": "h.startaar",
+    "sluttaar": "h.sluttaar",
+    "stykke_count": "h.stykke_count",
+    "hyllemeter": "h.hyllemeter",
 }
 
 def get_connection():
@@ -110,7 +112,7 @@ def get_serie_hierarchy(
     sort_key: str = Query(default="startaar"),
     sort_dir: str = Query(default="asc"),
 ) -> Dict[str, Any]:
-    sort_col = ALLOWED_SORT.get(sort_key, "startaar")
+    sort_col = ALLOWED_SORT.get(sort_key, "h.startaar")
     sort_dir_sql = "DESC" if sort_dir.lower() == "desc" else "ASC"
 
     navn_list = _csv_to_str_list(navn_values, limit=200)
@@ -119,36 +121,37 @@ def get_serie_hierarchy(
     where: List[str] = []
     params: Dict[str, Any] = {}
 
+    # ✅ Prefix with "h." because we alias tbl_gold_serie_hierarchy as h
     if q:
-        where.append("(navn LIKE %(q)s OR identifikator LIKE %(q)s OR path LIKE %(q)s)")
+        where.append("(h.navn LIKE %(q)s OR h.identifikator LIKE %(q)s OR h.path LIKE %(q)s)")
         params["q"] = f"%{q}%"
 
     if identifikator:
-        where.append("identifikator = %(identifikator)s")
+        where.append("h.identifikator = %(identifikator)s")
         params["identifikator"] = identifikator
 
-    clause = _build_in_clause("navn", navn_list, params, "navn")
+    clause = _build_in_clause("h.navn", navn_list, params, "navn")
     if clause:
         where.append(clause)
 
-    clause = _build_in_clause("identifikator", ident_list, params, "identv")
+    clause = _build_in_clause("h.identifikator", ident_list, params, "identv")
     if clause:
         where.append(clause)
 
     if startaar_from is not None:
-        where.append("startaar >= %(startaar_from)s")
+        where.append("h.startaar >= %(startaar_from)s")
         params["startaar_from"] = startaar_from
 
     if startaar_to is not None:
-        where.append("startaar <= %(startaar_to)s")
+        where.append("h.startaar <= %(startaar_to)s")
         params["startaar_to"] = startaar_to
 
     if sluttaar_from is not None:
-        where.append("sluttaar >= %(sluttaar_from)s")
+        where.append("h.sluttaar >= %(sluttaar_from)s")
         params["sluttaar_from"] = sluttaar_from
 
     if sluttaar_to is not None:
-        where.append("sluttaar <= %(sluttaar_to)s")
+        where.append("h.sluttaar <= %(sluttaar_to)s")
         params["sluttaar_to"] = sluttaar_to
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
@@ -157,24 +160,28 @@ def get_serie_hierarchy(
     params["offset"] = offset
     params["page_size"] = page_size
 
+    # ✅ Join current-state order log
     base_from = f"""
-        FROM tbl_gold_serie_hierarchy
+        FROM tbl_gold_serie_hierarchy h
+        LEFT JOIN dbo.tbl_order_log l
+          ON l._amid = h._amid
         {where_sql}
     """
 
     count_sql = f"SELECT COUNT(1) AS total {base_from};"
 
+    # ✅ order_no comes from log (current state) with fallback to gold (if you still have it populated)
     data_sql = f"""
         SELECT
-            _amid,
-            path,
-            order_no,
-            stykke_count,
-            hyllemeter,
-            startaar,
-            sluttaar,
-            identifikator,
-            navn
+            h._amid,
+            h.path,
+            COALESCE(l.order_no, h.order_no) AS order_no,
+            h.stykke_count,
+            h.hyllemeter,
+            h.startaar,
+            h.sluttaar,
+            h.identifikator,
+            h.navn
         {base_from}
         ORDER BY {sort_col} {sort_dir_sql}
         OFFSET %(offset)s ROWS
@@ -304,9 +311,6 @@ def build_order(payload: OrderAction) -> Dict[str, Any]:
         if conn:
             conn.rollback()
         msg = _sql_error_message(e)
-
-        # Your stored proc uses THROW with clear messages -> treat as 400 so UI can show it.
-        # (We don't strictly parse error numbers here; message is enough for a good UX.)
         raise HTTPException(status_code=400, detail=msg)
 
     finally:
@@ -340,3 +344,4 @@ def remove_from_order(payload: OrderAction) -> Dict[str, Any]:
     finally:
         if conn:
             conn.close()
+    
