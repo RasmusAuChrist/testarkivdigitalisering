@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
+from pydantic import BaseModel, Field
 import pymssql
 import os
 from typing import Optional, List, Dict, Any
@@ -17,11 +18,13 @@ ALLOWED_SORT = {
 }
 
 def get_connection():
+    # Important: do NOT enable autocommit; we want explicit commit for the proc calls.
     return pymssql.connect(
         server=os.getenv("AZURE_SERVER"),
         user=os.getenv("AZURE_USERNAME"),
         password=os.getenv("AZURE_PASSWORD"),
         database=os.getenv("AZURE_DATABASE"),
+        autocommit=False,
     )
 
 def _csv_to_str_list(v: Optional[str], limit: int = 200) -> List[str]:
@@ -67,6 +70,23 @@ def _build_in_clause(
         ph.append(f"%({k})s")
         params[k] = v
     return f"{column} IN (" + ", ".join(ph) + ")"
+
+def _sql_error_message(e: Exception) -> str:
+    """
+    pymssql exceptions often have args like:
+      (severity, state, message, procname, lineno)
+    or simply a string. We try to extract the most human-readable message.
+    """
+    try:
+        if hasattr(e, "args") and e.args:
+            # Find a string-like payload in args
+            for a in reversed(e.args):
+                if isinstance(a, str) and a.strip():
+                    return a.strip()
+            return str(e.args[0])
+    except Exception:
+        pass
+    return str(e)
 
 # -----------------------------
 # MAIN DATA ENDPOINT
@@ -175,6 +195,7 @@ def get_serie_hierarchy(
 
         return {"page": page, "page_size": page_size, "total": total, "items": items}
     except Exception as e:
+        # keep your existing behavior for this endpoint
         return {"error": str(e)}
     finally:
         if conn:
@@ -198,9 +219,8 @@ def get_serie_hierarchy_facets() -> Dict[str, Any]:
 
 
 # -----------------------------
-# SUGGEST ENDPOINTS (tags removed)
+# SUGGEST ENDPOINTS
 # -----------------------------
-
 @router.get("/serie-hierarchy/suggest/identifikator")
 def suggest_identifikator(
     q: str = Query(..., min_length=1),
@@ -250,6 +270,73 @@ def suggest_navn(
         return {"items": [r["v"] for r in rows if r.get("v") is not None]}
     except Exception as e:
         return {"error": str(e), "items": []}
+    finally:
+        if conn:
+            conn.close()
+
+
+# -----------------------------
+# ORDER ACTION ENDPOINTS (NEW)
+# -----------------------------
+class OrderAction(BaseModel):
+    amid: str = Field(..., description="UNIQUEIDENTIFIER as string")
+    order_no: int = Field(..., ge=1, description="Order number (int)")
+
+@router.post("/orders/build")
+def build_order(payload: OrderAction) -> Dict[str, Any]:
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Execute proc; parameters are passed safely via DBAPI
+        cur.execute("EXEC dbo.usp_build_order %s, %s", (payload.amid, payload.order_no))
+        conn.commit()
+
+        return {
+            "ok": True,
+            "action": "added",
+            "amid": payload.amid,
+            "order_no": payload.order_no,
+        }
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        msg = _sql_error_message(e)
+
+        # Your stored proc uses THROW with clear messages -> treat as 400 so UI can show it.
+        # (We don't strictly parse error numbers here; message is enough for a good UX.)
+        raise HTTPException(status_code=400, detail=msg)
+
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.post("/orders/remove")
+def remove_from_order(payload: OrderAction) -> Dict[str, Any]:
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("EXEC dbo.usp_remove_from_order %s, %s", (payload.amid, payload.order_no))
+        conn.commit()
+
+        return {
+            "ok": True,
+            "action": "removed",
+            "amid": payload.amid,
+            "order_no": payload.order_no,
+        }
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        msg = _sql_error_message(e)
+        raise HTTPException(status_code=400, detail=msg)
+
     finally:
         if conn:
             conn.close()

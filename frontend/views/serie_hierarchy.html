@@ -81,6 +81,8 @@
   </style>
 </head>
 
+<div id="toast" class="toast"></div>
+
 <body>
   <div class="surface-light" style="padding:20px;">
 
@@ -135,6 +137,11 @@
             <span>–</span>
             <input id="sluttaarTo" type="number" placeholder="2000" style="width:110px;" />
           </div>
+        </div>
+
+        <div style="grid-column: span 2;">
+          <label>Ordrenr</label>
+          <input id="orderNo" type="number" placeholder="123" style="width:110px;" min="1" />
         </div>
 
         <div style="grid-column: span 6; display:flex; gap:10px; align-items:end;">

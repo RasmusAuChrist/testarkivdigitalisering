@@ -116,7 +116,38 @@ const columns = [
   { key: "startaar", label: "Startår", numeric: true },
   { key: "sluttaar", label: "Sluttår", numeric: true },
   { key: "stykke_count", label: "Stykke", numeric: true },
-  { key: "hyllemeter", label: "Hyllemeter", numeric: true }
+  { key: "hyllemeter", label: "Hyllemeter", numeric: true },
+  {
+  key: "_actions",
+  label: "Handling",
+  numeric: false,
+  render: (row) => {
+    const amid = row._amid;
+    if (!amid) return "";
+
+    return {
+      type: "html",
+      html: `
+        <div style="display:flex;gap:6px;">
+          <button type="button"
+            class="order-add-btn"
+            data-amid="${amid}"
+            style="padding:4px 8px;font-size:12px;cursor:pointer;">
+            Legg til
+          </button>
+
+          <button type="button"
+            class="order-remove-btn"
+            data-amid="${amid}"
+            style="padding:4px 8px;font-size:12px;cursor:pointer;">
+            Fjern
+          </button>
+        </div>
+      `
+    };
+  }
+}
+
 ];
 
 const el = {
@@ -141,6 +172,10 @@ const el = {
 
   msNavn: document.getElementById("msNavn"),
   msIdent: document.getElementById("msIdent"),
+
+  orderNo: document.getElementById("orderNo"),
+  toast: document.getElementById("toast"),
+
 };
 
 function showLoading() { if (el.loading) el.loading.style.display = "flex"; }
@@ -329,6 +364,19 @@ async function fetchSuggest(field, q, limit = 20) {
   const data = await res.json();
   return data.items || [];
 }
+
+function showToast(msg, type = "success") {
+  if (!el.toast) return;
+
+  el.toast.textContent = msg;
+  el.toast.className = "toast show " + type;
+
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    el.toast.className = "toast";
+  }, 4000);
+}
+
 
 async function fetchPage() {
   showLoading();
@@ -532,6 +580,36 @@ function wireBasicInputs(onAnyChange) {
   el.sluttaarTo.addEventListener("input", onChange);
 }
 
+function getSelectedOrderNo() {
+  const v = el.orderNo?.value?.trim();
+  if (!v) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.trunc(n);
+}
+
+async function callOrderApi(type, amid, orderNo) {
+  const url =
+    type === "add"
+      ? `${API_BASE}/api/orders/build`
+      : `${API_BASE}/api/orders/remove`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amid, order_no: orderNo }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.detail || data.error || "Server error");
+  }
+
+  return data;
+}
+
+
 async function init() {
   buildHeader();
   setupHorizontalScrollSync();
@@ -585,6 +663,43 @@ async function init() {
   window.addEventListener("resize", debounce(updateTopScrollbarSpacer, 150));
 
   await fetchPage();
+
+  // Delegate add/remove buttons
+el.body.addEventListener("click", async (e) => {
+  const addBtn = e.target.closest(".order-add-btn");
+  const removeBtn = e.target.closest(".order-remove-btn");
+  const btn = addBtn || removeBtn;
+  if (!btn) return;
+
+  const amid = btn.dataset.amid;
+  const orderNo = getSelectedOrderNo();
+
+  if (!orderNo) {
+    showToast("Skriv inn et gyldig ordrenr.", "error");
+    el.orderNo?.focus();
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+
+    if (addBtn) {
+      await callOrderApi("add", amid, orderNo);
+      showToast(`La til i ordre ${orderNo}.`);
+    } else {
+      await callOrderApi("remove", amid, orderNo);
+      showToast(`Fjernet fra ordre ${orderNo}.`);
+    }
+
+    await fetchPage(); // refresh table
+
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 }
 
 window.addEventListener("DOMContentLoaded", init);
