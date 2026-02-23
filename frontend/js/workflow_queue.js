@@ -20,6 +20,8 @@ const steps = [
   { id: 14, name: "Opprydning for videresending" },
 ];
 
+let me = null; // { user_id, username, roles, ... }
+
 function ensureLoggedIn() {
   const token = getToken();
   if (!token) {
@@ -85,6 +87,25 @@ async function apiGet(path) {
   return data;
 }
 
+async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body ?? {}),
+  });
+
+  if (res.status === 401) {
+    clearToken();
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/views/login.html?next=${next}`);
+    throw new Error("Ikke innlogget.");
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.detail || "Ukjent feil");
+  return data;
+}
+
 async function loadNavbar() {
   const container = document.getElementById("navbar-container");
   try {
@@ -100,28 +121,74 @@ async function loadNavbar() {
   }
 }
 
+function canClaimRow(it) {
+  // Claim allowed if not assigned, or assigned to me
+  if (!me) return false;
+
+  const assignedTo = it.AssignedToUserId;
+  const stepStatus = it.StepStatus;
+
+  // Only sensible to claim Pending/Active/Blocked in our model
+  if (!["Pending", "Active", "Blocked"].includes(stepStatus)) return false;
+
+  // If assigned to someone else, only Admin can override (we’ll add override later)
+  if (assignedTo && assignedTo !== me.user_id) return false;
+
+  // Pending is claimable; Active/Blocked claimable if unassigned or mine
+  return true;
+}
+
 function render(items) {
   const tbody = document.getElementById("tbody");
   const countBox = document.getElementById("countBox");
   countBox.textContent = `Antall: ${items.length}`;
 
-  tbody.innerHTML = items.map(it => `
-    <tr>
-      <td>${escapeHtml(it.Priority)}</td>
-      <td>${escapeHtml(it.OrderId)}</td>
-      <td>${escapeHtml(it.BatchNo ?? "")}</td>
-      <td>${escapeHtml(it.Title ?? "")}</td>
-      <td>${statusBadge(it.StepStatus)}</td>
-      <td>${escapeHtml(it.AssignedToUserId ?? "")}</td>
-      <td>${fmtDate(it.StartedAt)}</td>
-      <td><code>${escapeHtml(it.ExternalAmid)}</code></td>
-      <td>
-        <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
-          Åpne
-        </a>
-      </td>
-    </tr>
-  `).join("");
+  tbody.innerHTML = items.map(it => {
+    const claimBtn = canClaimRow(it)
+      ? `<button class="btn btn-primary" data-claim="${it.OrderStepId}">
+           <span class="btn-text">Ta</span>
+         </button>`
+      : `<span class="muted">—</span>`;
+
+    return `
+      <tr>
+        <td>${escapeHtml(it.Priority)}</td>
+        <td>${escapeHtml(it.OrderId)}</td>
+        <td>${escapeHtml(it.BatchNo ?? "")}</td>
+        <td>${escapeHtml(it.Title ?? "")}</td>
+        <td>${statusBadge(it.StepStatus)}</td>
+        <td>${escapeHtml(it.AssignedToUserId ?? "")}</td>
+        <td>${fmtDate(it.StartedAt)}</td>
+        <td><code>${escapeHtml(it.ExternalAmid)}</code></td>
+        <td>
+          <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
+            Åpne
+          </a>
+        </td>
+        <td>${claimBtn}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // Wire claim buttons
+  tbody.querySelectorAll("button[data-claim]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const orderStepId = Number(btn.getAttribute("data-claim"));
+      if (!orderStepId) return;
+
+      try {
+        btn.disabled = true;
+        setMsg("Tar oppgave…");
+        await apiPost(`/api/wf/steps/${orderStepId}/claim`, {});
+        setMsg("Oppgave tatt.");
+        await refresh();
+      } catch (e) {
+        setMsg(e.message || "Feil ved taking.", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 async function refresh() {
@@ -136,11 +203,14 @@ function initStepSelect() {
   const select = document.getElementById("stepSelect");
   select.innerHTML = steps.map(s => `<option value="${s.id}">${s.id}. ${escapeHtml(s.name)}</option>`).join("");
 
-  // If user opens with ?step=7 in URL
   const stepFromQs = new URLSearchParams(window.location.search).get("step");
   if (stepFromQs && steps.some(s => String(s.id) === stepFromQs)) {
     select.value = stepFromQs;
   }
+}
+
+async function initMe() {
+  me = await apiGet("/api/auth/me");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -155,13 +225,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("refreshBtn").addEventListener("click", async () => {
     if (!ensureLoggedIn()) return;
-    try { await refresh(); }
-    catch (e) { setMsg(e.message || "Feil ved henting.", true); }
+    try {
+      if (!me) await initMe();
+      await refresh();
+    } catch (e) {
+      setMsg(e.message || "Feil ved henting.", true);
+    }
   });
 
-  // Auto-load on page open
   if (ensureLoggedIn()) {
-    try { await refresh(); }
-    catch (e) { setMsg(e.message || "Feil ved henting.", true); }
+    try {
+      await initMe();
+      await refresh();
+    } catch (e) {
+      setMsg(e.message || "Feil ved henting.", true);
+    }
   }
 });
