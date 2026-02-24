@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 
 from backend.db import get_connection
 from backend.routers.auth import get_current_user, MeResponse
@@ -15,6 +15,32 @@ class CreateOrderRequest(BaseModel):
     batch_no: Optional[int] = None
     title: Optional[str] = None
     priority: int = 3
+
+
+class HoldOrderRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=400)
+
+
+class CloseOrderRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=400)
+
+
+StepStatus = Literal["Pending", "Active", "Blocked", "Completed"]
+
+
+class SetStepStatusRequest(BaseModel):
+    status: StepStatus
+    reason_code: Optional[str] = Field(default=None, max_length=50)
+    comment: Optional[str] = Field(default=None, max_length=400)
+
+
+class CompleteStepRequest(BaseModel):
+    disposition: str = Field(min_length=1, max_length=80)
+    notes: Optional[str] = Field(default=None, max_length=400)
+
+
+class UnclaimStepRequest(BaseModel):
+    comment: Optional[str] = Field(default=None, max_length=400)
 
 
 # -----------------------------
@@ -95,6 +121,143 @@ def claim_step(order_step_id: int, me: MeResponse = Depends(get_current_user)):
     try:
         cur = conn.cursor(as_dict=True)
         cur.execute("EXEC dbo.usp_wf_claim_step %s, %s", (me.user_id, order_step_id))
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ============================================================
+# NEW: Order-level mutations
+# ============================================================
+
+@router.post("/wf/orders/{order_id}/hold")
+def hold_order(order_id: int, payload: HoldOrderRequest, me: MeResponse = Depends(get_current_user)):
+    """
+    Put whole order on hold (pa vent). Should also prevent step work until released.
+    Expected SP: dbo.usp_wf_hold_order(@UserId, @OrderId, @Reason)
+    """
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_hold_order %s, %s, %s", (me.user_id, order_id, payload.reason))
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/wf/orders/{order_id}/unhold")
+def unhold_order(order_id: int, me: MeResponse = Depends(get_current_user)):
+    """
+    Release hold.
+    Expected SP: dbo.usp_wf_unhold_order(@UserId, @OrderId)
+    """
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_unhold_order %s, %s", (me.user_id, order_id))
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/wf/orders/{order_id}/close")
+def close_order(order_id: int, payload: CloseOrderRequest, me: MeResponse = Depends(get_current_user)):
+    """
+    Stop/close order early.
+    Expected SP: dbo.usp_wf_close_order(@UserId, @OrderId, @Reason)
+    """
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_close_order %s, %s, %s", (me.user_id, order_id, payload.reason))
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+# ============================================================
+# NEW: Step-level mutations
+# ============================================================
+
+@router.post("/wf/steps/{order_step_id}/set-status")
+def set_step_status(order_step_id: int, payload: SetStepStatusRequest, me: MeResponse = Depends(get_current_user)):
+    """
+    Generic status setter with audit.
+    Expected SP: dbo.usp_wf_set_step_status(@UserId, @OrderStepId, @Status, @ReasonCode, @Comment)
+    """
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_wf_set_step_status %s, %s, %s, %s, %s",
+            (me.user_id, order_step_id, payload.status, payload.reason_code, payload.comment),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/wf/steps/{order_step_id}/complete")
+def complete_step(order_step_id: int, payload: CompleteStepRequest, me: MeResponse = Depends(get_current_user)):
+    """
+    Complete a step with disposition + notes.
+    Expected SP: dbo.usp_wf_complete_step(@UserId, @OrderStepId, @Disposition, @Notes)
+    """
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_wf_complete_step %s, %s, %s, %s",
+            (me.user_id, order_step_id, payload.disposition, payload.notes),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/wf/steps/{order_step_id}/unclaim")
+def unclaim_step(order_step_id: int, payload: UnclaimStepRequest, me: MeResponse = Depends(get_current_user)):
+    """
+    Release assignment on a step (put it back in queue).
+    Expected SP: dbo.usp_wf_unclaim_step(@UserId, @OrderStepId, @Comment)
+    """
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_wf_unclaim_step %s, %s, %s",
+            (me.user_id, order_step_id, payload.comment),
+        )
         row = cur.fetchone()
         conn.commit()
         return row or {"ok": True}
