@@ -2,18 +2,20 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8" />
-  <title>Arbeidsflyt – Ordre</title>
+  <title>Arbeidsflyt – Ordre (detaljer)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <link rel="stylesheet" href="/css/styles.css" />
-  <link rel="stylesheet" href="/assets/navbar.css" /></head>
+  <link rel="stylesheet" href="/assets/navbar.css" />
+</head>
+
 <body>
   <!-- Navbar -->
   <div id="navbar-container"></div>
 
   <div class="surface-light" style="max-width: 1200px; margin: 18px auto; padding: 0 14px;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
-      <h2 style="margin: 12px 0;">Arbeidsflyt – ordre</h2>
+      <h2 style="margin: 12px 0;">Arbeidsflyt – ordre (detaljer)</h2>
       <button id="logoutBtn" class="btn btn-outline" type="button">
         <span class="btn-text">Logg ut</span>
       </button>
@@ -40,101 +42,6 @@
       <div style="background:#fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 14px;">
         <h3 style="margin-bottom: 8px;">Oppsummering</h3>
         <div id="headerGrid" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;"></div>
-      </div>
-    </div>
-
-    <!-- Actions -->
-    <div id="actionsCard" class="surface-light" style="margin-top: 14px; display:none;">
-      <div style="background:#fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 14px;">
-        <h3 style="margin-bottom: 8px;">Handlinger</h3>
-
-        <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap: 12px;">
-          <!-- Step actions -->
-          <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-            <div style="font-weight:800; margin-bottom:10px;">Steg</div>
-
-            <label for="stepPick">Velg OrderStep</label><br />
-            <select id="stepPick" style="width:100%; margin-bottom:10px;"></select>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-              <div>
-                <label for="stepStatus">Sett status</label><br />
-                <select id="stepStatus" style="width:100%;">
-                  <option value="Pending">Pending</option>
-                  <option value="Active">Active</option>
-                  <option value="Blocked">Blocked</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              </div>
-              <div>
-                <label for="reasonCode">Årsakskode</label><br />
-                <input id="reasonCode" placeholder="f.eks. WAIT_EXT" style="width:100%;" />
-              </div>
-            </div>
-
-            <label for="stepComment">Kommentar</label><br />
-            <input id="stepComment" placeholder="valgfritt" style="width:100%; margin-bottom:10px;" />
-
-            <div style="display:flex; gap: 10px; flex-wrap: wrap;">
-              <button id="btnSetStatus" class="btn btn-primary" type="button">
-                <span class="btn-text">Oppdater status</span>
-              </button>
-
-              <button id="btnUnclaim" class="btn btn-outline" type="button">
-                <span class="btn-text">Frigi (unclaim)</span>
-              </button>
-            </div>
-
-            <hr style="border:none; border-top:1px solid #e5e7eb; margin:12px 0;" />
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-              <div>
-                <label for="disposition">Disposition</label><br />
-                <input id="disposition" placeholder="f.eks. OK" style="width:100%;" />
-              </div>
-              <div>
-                <label for="completeNotes">Merknad</label><br />
-                <input id="completeNotes" placeholder="valgfritt" style="width:100%;" />
-              </div>
-            </div>
-
-            <button id="btnComplete" class="btn btn-primary" type="button">
-              <span class="btn-text">Fullfør steg</span>
-            </button>
-          </div>
-
-          <!-- Order actions -->
-          <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-            <div style="font-weight:800; margin-bottom:10px;">Ordre</div>
-
-            <label for="holdReason">På vent – årsak</label><br />
-            <input id="holdReason" placeholder="Hvorfor settes på vent?" style="width:100%; margin-bottom:10px;" />
-
-            <div style="display:flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
-              <button id="btnHold" class="btn btn-primary" type="button">
-                <span class="btn-text">Sett på vent</span>
-              </button>
-              <button id="btnUnhold" class="btn btn-outline" type="button">
-                <span class="btn-text">Ta av vent</span>
-              </button>
-            </div>
-
-            <hr style="border:none; border-top:1px solid #e5e7eb; margin:12px 0;" />
-
-            <label for="closeReason">Stopp tidlig – årsak</label><br />
-            <input id="closeReason" placeholder="Hvorfor stoppes ordren?" style="width:100%; margin-bottom:10px;" />
-
-            <button id="btnClose" class="btn btn-outline" type="button" style="border-color:#ef4444; color:#ef4444;">
-              <span class="btn-text">Stopp ordre</span>
-            </button>
-
-            <div style="margin-top:10px; font-size:12px; color:#6b7280;">
-              Tips: “Stopp ordre” bør typisk låse videre arbeid + logge hendelse.
-            </div>
-          </div>
-        </div>
-
-        <div id="actionMsg" style="margin-top: 10px; color:#111827; font-weight:700;"></div>
       </div>
     </div>
 
