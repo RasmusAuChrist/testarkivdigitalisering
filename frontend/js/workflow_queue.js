@@ -195,8 +195,8 @@ function restoreFilters() {
 }
 
 /* ---------- Rendering ---------- */
-function isOrderOpen(it) {
-  return it.OrderStatus === "Open";
+function isOrderOpenish(it) {
+  return it.OrderStatus === "Open" || it.OrderStatus === "OnHold";
 }
 
 function isOrderOnHold(it) {
@@ -225,7 +225,7 @@ function isTakenByMe(it) {
 
 /** "Ta" allowed: order open, step claimable, and not taken */
 function canShowClaim(it) {
-  return !!me && isOrderOpen(it) && isStepClaimableByStatus(it) && !isTaken(it);
+  return !!me && isOrderOpenish(it) && isStepClaimableByStatus(it) && !isTaken(it);
 }
 
 /** "Frigi" allowed: order open, step not finished, and taken by me */
