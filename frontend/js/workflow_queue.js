@@ -144,11 +144,13 @@ function render(items) {
   countBox.textContent = `Antall: ${items.length}`;
 
   tbody.innerHTML = items.map(it => {
-    const claimBtn = canClaimRow(it)
-      ? `<button class="btn btn-primary" data-claim="${it.OrderStepId}">
-           <span class="btn-text">Ta</span>
-         </button>`
-      : `<span class="muted">—</span>`;
+  const isUnassigned = it.AssignedToUserId === null || it.AssignedToUserId === undefined || it.AssignedToUserId === "";
+
+  const claimBtn = isUnassigned
+    ? `<button class="btn btn-primary" data-claim="${it.OrderStepId}">
+        <span class="btn-text">Ta</span>
+      </button>`
+    : `<span class="muted">—</span>`;
 
     return `
       <tr>
