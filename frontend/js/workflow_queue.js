@@ -207,6 +207,10 @@ function isOrderOnHold(it) {
   return it.OrderStatus === "OnHold";
 }
 
+function isOrderOpenOnly(it) {
+  return it.OrderStatus === "Open";
+}
+
 function isOrderClosedLike(it) {
   return it.OrderStatus === "Closed" || it.OrderStatus === "Completed";
 }
@@ -249,7 +253,7 @@ function canShowComplete(it) {
 }
 
 function canShowHold(it) {
-  return isOrderOpen(it);
+  return isOrderOpenOnly(it);
 }
 
 function canShowUnhold(it) {
