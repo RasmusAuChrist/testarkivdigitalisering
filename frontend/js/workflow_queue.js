@@ -20,7 +20,11 @@ const steps = [
   { id: 14, name: "Opprydning for videresending" },
 ];
 
-let me = null; // { user_id, username, roles, . }
+let me = null;        // { user_id, username, roles, . }
+let rawItems = [];    // last queue fetch (unfiltered)
+
+const LS_SHOW_STOPPED = "wfq_show_stopped";
+const LS_SHOW_PAUSED = "wfq_show_paused";
 
 function ensureLoggedIn() {
   const token = getToken();
@@ -122,6 +126,73 @@ async function loadNavbar() {
   }
 }
 
+/* ---------- Filtering ---------- */
+
+function readFilterState() {
+  const chkShowStopped = document.getElementById("chkShowStopped");
+  const chkShowPaused = document.getElementById("chkShowPaused");
+
+  const showStopped = !!chkShowStopped?.checked;
+  const showPaused = !!chkShowPaused?.checked;
+
+  return { showStopped, showPaused };
+}
+
+// “Paused” detection supports future queue SP improvements.
+// Today it may only work if your queue endpoint includes any of these fields.
+function isPausedOrder(it) {
+  const orderStatus = it.OrderStatus ?? it.Status ?? null; // some SPs call it Status
+  if (orderStatus === "OnHold") return true;
+
+  if (it.IsOnHold === true) return true;
+
+  // If these exist and are populated, treat as paused
+  if (it.HoldAtUtc) return true;
+  if (it.HoldReason) return true;
+
+  return false;
+}
+
+function isStoppedOrder(it) {
+  const orderStatus = it.OrderStatus ?? it.Status ?? null;
+  if (orderStatus === "Closed" || orderStatus === "Completed") return true;
+
+  // We definitely have StepStatus in the queue rows (you render it today)
+  if (it.StepStatus === "Stopped") return true;
+
+  return false;
+}
+
+function applyFilters(items) {
+  const { showStopped, showPaused } = readFilterState();
+
+  return (items || []).filter(it => {
+    if (!showStopped && isStoppedOrder(it)) return false;
+    if (!showPaused && isPausedOrder(it)) return false;
+    return true;
+  });
+}
+
+function persistFilters() {
+  const { showStopped, showPaused } = readFilterState();
+  localStorage.setItem(LS_SHOW_STOPPED, showStopped ? "1" : "0");
+  localStorage.setItem(LS_SHOW_PAUSED, showPaused ? "1" : "0");
+}
+
+function restoreFilters() {
+  const chkShowStopped = document.getElementById("chkShowStopped");
+  const chkShowPaused = document.getElementById("chkShowPaused");
+
+  const sStopped = localStorage.getItem(LS_SHOW_STOPPED);
+  const sPaused = localStorage.getItem(LS_SHOW_PAUSED);
+
+  if (chkShowStopped) chkShowStopped.checked = (sStopped === "1");
+  // default: show paused = true
+  if (chkShowPaused) chkShowPaused.checked = (sPaused === null ? true : sPaused === "1");
+}
+
+/* ---------- Rendering ---------- */
+
 function canClaimRow(it) {
   if (!me) return false;
 
@@ -199,10 +270,12 @@ function controlsCell(it) {
   `;
 }
 
-function render(items) {
+function render(itemsAll) {
+  const items = applyFilters(itemsAll);
+
   const tbody = document.getElementById("tbody");
   const countBox = document.getElementById("countBox");
-  countBox.textContent = `Antall: ${items.length}`;
+  countBox.textContent = `Antall: ${items.length} / ${itemsAll.length}`;
 
   tbody.innerHTML = items.map(it => {
     return `
@@ -306,7 +379,6 @@ function wireDelegatedControls() {
     } catch (e) {
       setMsg(e.message || "Feil ved handling.", true);
     } finally {
-      // Re-enable after refresh completes
       btn.disabled = false;
     }
   });
@@ -330,17 +402,21 @@ function wireDelegatedControls() {
       await refresh();
     } catch (e) {
       setMsg(e.message || "Feil ved statusendring.", true);
-      // revert UI by refreshing from backend truth
       await refresh().catch(() => {});
     }
   });
 }
 
+/* ---------- Refresh ---------- */
+
 async function refresh() {
   const stepDefId = Number(document.getElementById("stepSelect").value);
   setMsg("Henter kø…");
+
   const data = await apiGet(`/api/wf/steps/${stepDefId}/queue`);
-  render(data.items || []);
+  rawItems = data.items || [];
+
+  render(rawItems);
   setMsg("OK");
 }
 
@@ -358,6 +434,19 @@ async function initMe() {
   me = await apiGet("/api/auth/me");
 }
 
+function wireFilterCheckboxes() {
+  const chkShowStopped = document.getElementById("chkShowStopped");
+  const chkShowPaused = document.getElementById("chkShowPaused");
+
+  const onChange = () => {
+    persistFilters();
+    render(rawItems);
+  };
+
+  chkShowStopped?.addEventListener("change", onChange);
+  chkShowPaused?.addEventListener("change", onChange);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
@@ -367,6 +456,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   initStepSelect();
+  restoreFilters();
+  wireFilterCheckboxes();
   wireDelegatedControls();
 
   document.getElementById("refreshBtn").addEventListener("click", async () => {
