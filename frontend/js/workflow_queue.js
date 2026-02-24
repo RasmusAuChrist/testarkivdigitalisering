@@ -20,7 +20,7 @@ const steps = [
   { id: 14, name: "Opprydning for videresending" },
 ];
 
-let me = null; // { user_id, username, roles, ... }
+let me = null; // { user_id, username, roles, . }
 
 function ensureLoggedIn() {
   const token = getToken();
@@ -68,6 +68,7 @@ function statusBadge(status) {
     status === "Pending" ? "#ca8a04" :
     status === "Blocked" ? "#b91c1c" :
     status === "Completed" ? "#2563eb" :
+    status === "Stopped" ? "#111827" :
     "#374151";
   return `<span style="display:inline-flex; padding:2px 8px; border-radius:999px; background:${color}; color:#fff; font-weight:700; font-size:12px;">${escapeHtml(status)}</span>`;
 }
@@ -122,20 +123,80 @@ async function loadNavbar() {
 }
 
 function canClaimRow(it) {
-  // Claim allowed if not assigned, or assigned to me
   if (!me) return false;
 
   const assignedTo = it.AssignedToUserId;
   const stepStatus = it.StepStatus;
 
-  // Only sensible to claim Pending/Active/Blocked in our model
   if (!["Pending", "Active", "Blocked"].includes(stepStatus)) return false;
-
-  // If assigned to someone else, only Admin can override (we’ll add override later)
   if (assignedTo && assignedTo !== me.user_id) return false;
 
-  // Pending is claimable; Active/Blocked claimable if unassigned or mine
   return true;
+}
+
+function controlsCell(it) {
+  const orderId = it.OrderId;
+  const orderStepId = it.OrderStepId;
+
+  const claimDisabled = !canClaimRow(it);
+  const claimText = (it.AssignedToUserId ? "Tatt" : "Ta");
+  const unclaimDisabled = !(it.AssignedToUserId && me && it.AssignedToUserId === me.user_id && !["Completed", "Stopped"].includes(it.StepStatus));
+
+  const statusOptions = ["Pending", "Active", "Blocked", "Completed"]
+    .map(s => `<option value="${s}" ${s === it.StepStatus ? "selected" : ""}>${s}</option>`)
+    .join("");
+
+  const completeDisabled = ["Completed", "Stopped"].includes(it.StepStatus);
+
+  return `
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button class="btn btn-primary"
+              data-action="claim"
+              data-order-step-id="${orderStepId}"
+              ${claimDisabled ? "disabled" : ""}>
+        <span class="btn-text">${claimText}</span>
+      </button>
+
+      <button class="btn btn-outline"
+              data-action="unclaim"
+              data-order-step-id="${orderStepId}"
+              ${unclaimDisabled ? "disabled" : ""}>
+        <span class="btn-text">Frigi</span>
+      </button>
+
+      <select data-action="set-status"
+              data-order-step-id="${orderStepId}"
+              style="padding:8px; border:1px solid #e5e7eb; border-radius:8px;">
+        ${statusOptions}
+      </select>
+
+      <button class="btn btn-outline"
+              data-action="complete"
+              data-order-step-id="${orderStepId}"
+              ${completeDisabled ? "disabled" : ""}>
+        <span class="btn-text">Fullfør</span>
+      </button>
+
+      <button class="btn btn-outline"
+              data-action="hold"
+              data-order-id="${orderId}">
+        <span class="btn-text">Vent</span>
+      </button>
+
+      <button class="btn btn-outline"
+              data-action="unhold"
+              data-order-id="${orderId}">
+        <span class="btn-text">Av vent</span>
+      </button>
+
+      <button class="btn btn-outline"
+              data-action="close"
+              data-order-id="${orderId}"
+              style="border-color:#ef4444; color:#ef4444;">
+        <span class="btn-text">Stopp</span>
+      </button>
+    </div>
+  `;
 }
 
 function render(items) {
@@ -144,14 +205,6 @@ function render(items) {
   countBox.textContent = `Antall: ${items.length}`;
 
   tbody.innerHTML = items.map(it => {
-  const isUnassigned = it.AssignedToUserId === null || it.AssignedToUserId === undefined || it.AssignedToUserId === "";
-
-  const claimBtn = isUnassigned
-    ? `<button class="btn btn-primary" data-claim="${it.OrderStepId}">
-        <span class="btn-text">Ta</span>
-      </button>`
-    : `<span class="muted">—</span>`;
-
     return `
       <tr>
         <td>${escapeHtml(it.Priority)}</td>
@@ -167,29 +220,119 @@ function render(items) {
             Åpne
           </a>
         </td>
-        <td>${claimBtn}</td>
+        <td>${controlsCell(it)}</td>
       </tr>
     `;
   }).join("");
+}
 
-  // Wire claim buttons
-  tbody.querySelectorAll("button[data-claim]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const orderStepId = Number(btn.getAttribute("data-claim"));
-      if (!orderStepId) return;
+/**
+ * Single delegated handler for all buttons/selects in the table
+ */
+function wireDelegatedControls() {
+  const tbody = document.getElementById("tbody");
 
-      try {
-        btn.disabled = true;
+  tbody.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-action]");
+    if (!btn) return;
+
+    if (!ensureLoggedIn()) return;
+
+    const action = btn.getAttribute("data-action");
+
+    try {
+      btn.disabled = true;
+
+      if (action === "claim") {
+        const orderStepId = Number(btn.getAttribute("data-order-step-id"));
         setMsg("Tar oppgave…");
         await apiPost(`/api/wf/steps/${orderStepId}/claim`, {});
         setMsg("Oppgave tatt.");
-        await refresh();
-      } catch (e) {
-        setMsg(e.message || "Feil ved taking.", true);
-      } finally {
-        btn.disabled = false;
       }
-    });
+
+      if (action === "unclaim") {
+        const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+        const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
+        setMsg("Frigir…");
+        await apiPost(`/api/wf/steps/${orderStepId}/unclaim`, { comment: comment.trim() || null });
+        setMsg("Frigitt.");
+      }
+
+      if (action === "complete") {
+        const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+        const disposition = (window.prompt("Disposition (påkrevd):", "OK") ?? "").trim();
+        if (!disposition) throw new Error("Disposition er påkrevd.");
+        const notes = window.prompt("Merknad (valgfritt):", "") ?? "";
+        setMsg("Fullfører…");
+        await apiPost(`/api/wf/steps/${orderStepId}/complete`, {
+          disposition,
+          notes: notes.trim() || null,
+        });
+        setMsg("Steg fullført.");
+      }
+
+      if (action === "hold") {
+        const orderId = Number(btn.getAttribute("data-order-id"));
+        const reason = (window.prompt("På vent – årsak (påkrevd):", "WAIT") ?? "").trim();
+        if (!reason) throw new Error("Årsak er påkrevd.");
+        const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
+        setMsg("Setter på vent…");
+        await apiPost(`/api/wf/orders/${orderId}/hold`, { reason, comment: comment.trim() || null });
+        setMsg("Ordre satt på vent.");
+      }
+
+      if (action === "unhold") {
+        const orderId = Number(btn.getAttribute("data-order-id"));
+        const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
+        setMsg("Tar av vent…");
+        await apiPost(`/api/wf/orders/${orderId}/unhold`, { comment: comment.trim() || null });
+        setMsg("Ordre tatt av vent.");
+      }
+
+      if (action === "close") {
+        const orderId = Number(btn.getAttribute("data-order-id"));
+        const ok = window.confirm("Er du sikker på at du vil stoppe ordren?");
+        if (!ok) return;
+
+        const reason = (window.prompt("Stopp – årsak (påkrevd):", "STOPPED") ?? "").trim();
+        if (!reason) throw new Error("Årsak er påkrevd.");
+        const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
+        setMsg("Stopper ordre…");
+        await apiPost(`/api/wf/orders/${orderId}/close`, { reason, comment: comment.trim() || null });
+        setMsg("Ordre stoppet.");
+      }
+
+      await refresh();
+    } catch (e) {
+      setMsg(e.message || "Feil ved handling.", true);
+    } finally {
+      // Re-enable after refresh completes
+      btn.disabled = false;
+    }
+  });
+
+  tbody.addEventListener("change", async (ev) => {
+    const sel = ev.target.closest('select[data-action="set-status"]');
+    if (!sel) return;
+
+    if (!ensureLoggedIn()) return;
+
+    const orderStepId = Number(sel.getAttribute("data-order-step-id"));
+    const status = sel.value;
+
+    try {
+      const reason_code = (window.prompt("Årsakskode (valgfritt):", "") ?? "").trim() || null;
+      const comment = (window.prompt("Kommentar (valgfritt):", "") ?? "").trim() || null;
+
+      setMsg("Oppdaterer status…");
+      await apiPost(`/api/wf/steps/${orderStepId}/set-status`, { status, reason_code, comment });
+      setMsg("Status oppdatert.");
+      await refresh();
+    } catch (e) {
+      setMsg(e.message || "Feil ved statusendring.", true);
+      // revert UI by refreshing from backend truth
+      await refresh().catch(() => {});
+    }
   });
 }
 
@@ -224,6 +367,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   initStepSelect();
+  wireDelegatedControls();
 
   document.getElementById("refreshBtn").addEventListener("click", async () => {
     if (!ensureLoggedIn()) return;
