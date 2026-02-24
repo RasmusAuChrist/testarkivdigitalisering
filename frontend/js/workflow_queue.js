@@ -20,8 +20,8 @@ const steps = [
   { id: 14, name: "Opprydning for videresending" },
 ];
 
-let me = null;        // { user_id, username, roles, . }
-let rawItems = [];    // last queue fetch (unfiltered)
+let me = null;
+let rawItems = [];
 
 const LS_SHOW_STOPPED = "wfq_show_stopped";
 const LS_SHOW_PAUSED = "wfq_show_paused";
@@ -43,6 +43,7 @@ function authHeaders() {
 
 function setMsg(text, isError = false) {
   const el = document.getElementById("msg");
+  if (!el) return;
   el.textContent = text || "";
   el.style.color = isError ? "#ffb4b4" : "#ffffff";
 }
@@ -71,9 +72,11 @@ function statusBadge(status) {
     status === "Active" ? "#16a34a" :
     status === "Pending" ? "#ca8a04" :
     status === "Blocked" ? "#b91c1c" :
-    status === "Completed" ? "#2563eb" :
+    status === "OnHold" ? "#b91c1c" :
     status === "Stopped" ? "#111827" :
+    status === "Completed" ? "#2563eb" :
     "#374151";
+
   return `<span style="display:inline-flex; padding:2px 8px; border-radius:999px; background:${color}; color:#fff; font-weight:700; font-size:12px;">${escapeHtml(status)}</span>`;
 }
 
@@ -113,6 +116,7 @@ async function apiPost(path, body) {
 
 async function loadNavbar() {
   const container = document.getElementById("navbar-container");
+  if (!container) return;
   try {
     const res = await fetch("/partials/navbar.html");
     container.innerHTML = await res.text();
@@ -126,46 +130,46 @@ async function loadNavbar() {
   }
 }
 
-/* ---------- Filtering ---------- */
+/* ---------------------------
+   Rule-based "Stegstatus"
+   --------------------------- */
+function computeDisplayStatus(it) {
+  // 1) Order-level hold overrides everything
+  if (it.OrderStatus === "OnHold") return "OnHold";
 
+  // 2) Order-level closure => stopped
+  if (it.OrderStatus === "Closed" || it.OrderStatus === "Completed") return "Stopped";
+
+  // 3) Step-level stop (if included in queue)
+  if (it.StepStatus === "Stopped") return "Stopped";
+
+  // 4) Blocked is explicit
+  if (it.StepStatus === "Blocked") return "Blocked";
+
+  // 5) Assigned => Active (your preferred rule)
+  if (it.AssignedToUserId != null) return "Active";
+
+  // 6) Default
+  return "Pending";
+}
+
+/* ---------- Filtering ---------- */
 function readFilterState() {
   const chkShowStopped = document.getElementById("chkShowStopped");
   const chkShowPaused = document.getElementById("chkShowPaused");
-
-  const showStopped = !!chkShowStopped?.checked;
-  const showPaused = !!chkShowPaused?.checked;
-
-  return { showStopped, showPaused };
+  return { showStopped: !!chkShowStopped?.checked, showPaused: !!chkShowPaused?.checked };
 }
 
-// “Paused” detection supports future queue SP improvements.
-// Today it may only work if your queue endpoint includes any of these fields.
 function isPausedOrder(it) {
-  const orderStatus = it.OrderStatus ?? it.Status ?? null; // some SPs call it Status
-  if (orderStatus === "OnHold") return true;
-
-  if (it.IsOnHold === true) return true;
-
-  // If these exist and are populated, treat as paused
-  if (it.HoldAtUtc) return true;
-  if (it.HoldReason) return true;
-
-  return false;
+  return it.OrderStatus === "OnHold";
 }
 
 function isStoppedOrder(it) {
-  const orderStatus = it.OrderStatus ?? it.Status ?? null;
-  if (orderStatus === "Closed" || orderStatus === "Completed") return true;
-
-  // We definitely have StepStatus in the queue rows (you render it today)
-  if (it.StepStatus === "Stopped") return true;
-
-  return false;
+  return (it.OrderStatus === "Closed" || it.OrderStatus === "Completed" || it.StepStatus === "Stopped");
 }
 
 function applyFilters(items) {
   const { showStopped, showPaused } = readFilterState();
-
   return (items || []).filter(it => {
     if (!showStopped && isStoppedOrder(it)) return false;
     if (!showPaused && isPausedOrder(it)) return false;
@@ -187,20 +191,21 @@ function restoreFilters() {
   const sPaused = localStorage.getItem(LS_SHOW_PAUSED);
 
   if (chkShowStopped) chkShowStopped.checked = (sStopped === "1");
-  // default: show paused = true
   if (chkShowPaused) chkShowPaused.checked = (sPaused === null ? true : sPaused === "1");
 }
 
 /* ---------- Rendering ---------- */
-
 function canClaimRow(it) {
   if (!me) return false;
 
-  const assignedTo = it.AssignedToUserId;
-  const stepStatus = it.StepStatus;
+  // Claim should follow real step status (server enforces anyway)
+  if (!["Pending", "Active", "Blocked"].includes(it.StepStatus)) return false;
 
-  if (!["Pending", "Active", "Blocked"].includes(stepStatus)) return false;
-  if (assignedTo && assignedTo !== me.user_id) return false;
+  // If assigned to another user, don't allow
+  if (it.AssignedToUserId && it.AssignedToUserId !== me.user_id) return false;
+
+  // If order is OnHold/Closed/Completed, claim will fail; disable here too
+  if (it.OrderStatus !== "Open") return false;
 
   return true;
 }
@@ -211,13 +216,16 @@ function controlsCell(it) {
 
   const claimDisabled = !canClaimRow(it);
   const claimText = (it.AssignedToUserId ? "Tatt" : "Ta");
-  const unclaimDisabled = !(it.AssignedToUserId && me && it.AssignedToUserId === me.user_id && !["Completed", "Stopped"].includes(it.StepStatus));
 
-  const statusOptions = ["Pending", "Active", "Blocked", "Completed"]
-    .map(s => `<option value="${s}" ${s === it.StepStatus ? "selected" : ""}>${s}</option>`)
-    .join("");
+  const unclaimDisabled = !(
+    it.OrderStatus === "Open" &&
+    it.AssignedToUserId &&
+    me &&
+    it.AssignedToUserId === me.user_id &&
+    !["Completed", "Stopped"].includes(it.StepStatus)
+  );
 
-  const completeDisabled = ["Completed", "Stopped"].includes(it.StepStatus);
+  const completeDisabled = !(it.OrderStatus === "Open") || ["Completed", "Stopped"].includes(it.StepStatus);
 
   return `
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -234,12 +242,6 @@ function controlsCell(it) {
               ${unclaimDisabled ? "disabled" : ""}>
         <span class="btn-text">Frigi</span>
       </button>
-
-      <select data-action="set-status"
-              data-order-step-id="${orderStepId}"
-              style="padding:8px; border:1px solid #e5e7eb; border-radius:8px;">
-        ${statusOptions}
-      </select>
 
       <button class="btn btn-outline"
               data-action="complete"
@@ -275,19 +277,26 @@ function render(itemsAll) {
 
   const tbody = document.getElementById("tbody");
   const countBox = document.getElementById("countBox");
-  countBox.textContent = `Antall: ${items.length} / ${itemsAll.length}`;
+  if (countBox) countBox.textContent = `Antall: ${items.length} / ${itemsAll.length}`;
+
+  if (!tbody) return;
 
   tbody.innerHTML = items.map(it => {
+    const dispStatus = computeDisplayStatus(it);
+
     return `
       <tr>
-        <td>${escapeHtml(it.Priority)}</td>
-        <td>${escapeHtml(it.OrderId)}</td>
+        <td>${statusBadge(dispStatus)}</td>
         <td>${escapeHtml(it.BatchNo ?? "")}</td>
-        <td>${escapeHtml(it.Title ?? "")}</td>
-        <td>${statusBadge(it.StepStatus)}</td>
+        <td>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <div style="font-weight:700;">${escapeHtml(it.Title ?? "")}</div>
+            <div style="font-size:12px; color:#6b7280;">
+              OrdreId: ${escapeHtml(it.OrderId)} · Steg: ${escapeHtml(it.Sequence)} · _amid: <code>${escapeHtml(it.ExternalAmid)}</code>
+            </div>
+          </div>
+        </td>
         <td>${escapeHtml(it.AssignedToUserId ?? "")}</td>
-        <td>${fmtDate(it.StartedAt)}</td>
-        <td><code>${escapeHtml(it.ExternalAmid)}</code></td>
         <td>
           <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
             Åpne
@@ -299,11 +308,10 @@ function render(itemsAll) {
   }).join("");
 }
 
-/**
- * Single delegated handler for all buttons/selects in the table
- */
+/* ---------- Delegated controls ---------- */
 function wireDelegatedControls() {
   const tbody = document.getElementById("tbody");
+  if (!tbody) return;
 
   tbody.addEventListener("click", async (ev) => {
     const btn = ev.target.closest("button[data-action]");
@@ -382,33 +390,9 @@ function wireDelegatedControls() {
       btn.disabled = false;
     }
   });
-
-  tbody.addEventListener("change", async (ev) => {
-    const sel = ev.target.closest('select[data-action="set-status"]');
-    if (!sel) return;
-
-    if (!ensureLoggedIn()) return;
-
-    const orderStepId = Number(sel.getAttribute("data-order-step-id"));
-    const status = sel.value;
-
-    try {
-      const reason_code = (window.prompt("Årsakskode (valgfritt):", "") ?? "").trim() || null;
-      const comment = (window.prompt("Kommentar (valgfritt):", "") ?? "").trim() || null;
-
-      setMsg("Oppdaterer status…");
-      await apiPost(`/api/wf/steps/${orderStepId}/set-status`, { status, reason_code, comment });
-      setMsg("Status oppdatert.");
-      await refresh();
-    } catch (e) {
-      setMsg(e.message || "Feil ved statusendring.", true);
-      await refresh().catch(() => {});
-    }
-  });
 }
 
 /* ---------- Refresh ---------- */
-
 async function refresh() {
   const stepDefId = Number(document.getElementById("stepSelect").value);
   setMsg("Henter kø…");
@@ -422,6 +406,8 @@ async function refresh() {
 
 function initStepSelect() {
   const select = document.getElementById("stepSelect");
+  if (!select) return;
+
   select.innerHTML = steps.map(s => `<option value="${s.id}">${s.id}. ${escapeHtml(s.name)}</option>`).join("");
 
   const stepFromQs = new URLSearchParams(window.location.search).get("step");
@@ -450,7 +436,7 @@ function wireFilterCheckboxes() {
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
-  document.getElementById("logoutBtn").addEventListener("click", () => {
+  document.getElementById("logoutBtn")?.addEventListener("click", () => {
     clearToken();
     window.location.assign("/views/login.html");
   });
@@ -460,7 +446,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireFilterCheckboxes();
   wireDelegatedControls();
 
-  document.getElementById("refreshBtn").addEventListener("click", async () => {
+  document.getElementById("refreshBtn")?.addEventListener("click", async () => {
     if (!ensureLoggedIn()) return;
     try {
       if (!me) await initMe();

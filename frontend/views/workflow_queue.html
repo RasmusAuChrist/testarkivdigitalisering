@@ -5,7 +5,8 @@
   <title>Arbeidsflyt – Stegkø</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/css/styles.css" />
-  <link rel="stylesheet" href="/assets/navbar.css" /></head>
+  <link rel="stylesheet" href="/assets/navbar.css" />
+</head>
 <body>
   <div id="navbar-container"></div>
 
@@ -17,48 +18,45 @@
       </button>
     </div>
 
-<div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
-  <div style="display:flex; flex-wrap:wrap; gap: 10px; align-items:flex-end;">
-    <div style="min-width: 320px;">
-      <label for="stepSelect">Velg steg</label><br />
-      <select id="stepSelect" style="width:100%;"></select>
+    <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
+      <div style="display:flex; flex-wrap:wrap; gap: 10px; align-items:flex-end;">
+        <div style="min-width: 320px;">
+          <label for="stepSelect">Velg steg</label><br />
+          <select id="stepSelect" style="width:100%;"></select>
+        </div>
+
+        <div style="display:flex; gap:12px; align-items:center; padding:8px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:10px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
+            <input id="chkShowStopped" type="checkbox" />
+            Vis stoppet
+          </label>
+
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
+            <input id="chkShowPaused" type="checkbox" checked />
+            Vis på vent
+          </label>
+        </div>
+
+        <button id="refreshBtn" class="btn btn-primary" type="button">
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span class="btn-text">Oppdater</span>
+        </button>
+
+        <div id="countBox" style="margin-left:auto; color:#fff; opacity:0.9;"></div>
+      </div>
+
+      <div id="msg" style="color:#fff; opacity:0.9;"></div>
     </div>
 
-    <div style="display:flex; gap:12px; align-items:center; padding:8px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:10px;">
-      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-        <input id="chkShowStopped" type="checkbox" />
-        Vis stoppet
-      </label>
-
-      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-        <input id="chkShowPaused" type="checkbox" checked />
-        Vis på vent
-      </label>
-    </div>
-
-    <button id="refreshBtn" class="btn btn-primary" type="button">
-      <span class="btn-spinner" aria-hidden="true"></span>
-      <span class="btn-text">Oppdater</span>
-    </button>
-
-    <div id="countBox" style="margin-left:auto; color:#fff; opacity:0.9;"></div>
-  </div>
-
-  <div id="msg" style="color:#fff; opacity:0.9;"></div>
-</div>
     <div style="margin-top: 14px;">
       <div class="table-scroll-x">
-        <table class="arkiv-table" style="min-width: 1400px;">
+        <table class="arkiv-table" style="min-width: 1200px;">
           <thead>
             <tr>
-              <th>Prioritet</th>
-              <th>OrdreId</th>
+              <th>Stegstatus</th>
               <th>Batch</th>
               <th>Tittel</th>
-              <th>Stegstatus</th>
               <th>Tildelt</th>
-              <th>Startet</th>
-              <th>_amid</th>
               <th>Detaljer</th>
               <th>Kontroller</th>
             </tr>
