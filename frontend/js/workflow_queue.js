@@ -195,81 +195,145 @@ function restoreFilters() {
 }
 
 /* ---------- Rendering ---------- */
-function canClaimRow(it) {
-  if (!me) return false;
-
-  // Claim should follow real step status (server enforces anyway)
-  if (!["Pending", "Active", "Blocked"].includes(it.StepStatus)) return false;
-
-  // If assigned to another user, don't allow
-  if (it.AssignedToUserId && it.AssignedToUserId !== me.user_id) return false;
-
-  // If order is OnHold/Closed/Completed, claim will fail; disable here too
-  if (it.OrderStatus !== "Open") return false;
-
-  return true;
+function isOrderOpen(it) {
+  return it.OrderStatus === "Open";
 }
+
+function isOrderOnHold(it) {
+  return it.OrderStatus === "OnHold";
+}
+
+function isOrderClosedLike(it) {
+  return it.OrderStatus === "Closed" || it.OrderStatus === "Completed";
+}
+
+function isStepFinished(it) {
+  return it.StepStatus === "Completed" || it.StepStatus === "Stopped";
+}
+
+function isStepClaimableByStatus(it) {
+  return ["Pending", "Active", "Blocked"].includes(it.StepStatus);
+}
+
+function isTaken(it) {
+  return it.AssignedToUserId != null;
+}
+
+function isTakenByMe(it) {
+  return me && it.AssignedToUserId === me.user_id;
+}
+
+/** "Ta" allowed: order open, step claimable, and not taken */
+function canShowClaim(it) {
+  return !!me && isOrderOpen(it) && isStepClaimableByStatus(it) && !isTaken(it);
+}
+
+/** "Frigi" allowed: order open, step not finished, and taken by me */
+function canShowUnclaim(it) {
+  return !!me && isOrderOpen(it) && !isStepFinished(it) && isTakenByMe(it);
+}
+
+/** "Fullfør" allowed: order open, step not finished, and either taken by me OR not taken (your choice) */
+function canShowComplete(it) {
+  if (!me) return false;
+  if (!isOrderOpen(it)) return false;
+  if (isStepFinished(it)) return false;
+  if (!isStepClaimableByStatus(it)) return false;
+
+  // if you want to require "taken by me", keep only isTakenByMe(it)
+  return isTakenByMe(it);
+}
+
+function canShowHold(it) {
+  return isOrderOpen(it);
+}
+
+function canShowUnhold(it) {
+  return isOrderOnHold(it);
+}
+
+function canShowClose(it) {
+  return !isOrderClosedLike(it); // allow close from Open or OnHold
+};
 
 function controlsCell(it) {
   const orderId = it.OrderId;
   const orderStepId = it.OrderStepId;
 
-  const claimDisabled = !canClaimRow(it);
-  const claimText = (it.AssignedToUserId ? "Tatt" : "Ta");
+  const parts = [];
 
-  const unclaimDisabled = !(
-    it.OrderStatus === "Open" &&
-    it.AssignedToUserId &&
-    me &&
-    it.AssignedToUserId === me.user_id &&
-    !["Completed", "Stopped"].includes(it.StepStatus)
-  );
-
-  const completeDisabled = !(it.OrderStatus === "Open") || ["Completed", "Stopped"].includes(it.StepStatus);
-
-  return `
-    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+  // Ta
+  if (canShowClaim(it)) {
+    parts.push(`
       <button class="btn btn-primary"
               data-action="claim"
-              data-order-step-id="${orderStepId}"
-              ${claimDisabled ? "disabled" : ""}>
-        <span class="btn-text">${claimText}</span>
+              data-order-step-id="${orderStepId}">
+        <span class="btn-text">Ta</span>
       </button>
+    `);
+  }
 
+  // Frigi
+  if (canShowUnclaim(it)) {
+    parts.push(`
       <button class="btn btn-outline"
               data-action="unclaim"
-              data-order-step-id="${orderStepId}"
-              ${unclaimDisabled ? "disabled" : ""}>
+              data-order-step-id="${orderStepId}">
         <span class="btn-text">Frigi</span>
       </button>
+    `);
+  }
 
+  // Fullfør
+  if (canShowComplete(it)) {
+    parts.push(`
       <button class="btn btn-outline"
               data-action="complete"
-              data-order-step-id="${orderStepId}"
-              ${completeDisabled ? "disabled" : ""}>
+              data-order-step-id="${orderStepId}">
         <span class="btn-text">Fullfør</span>
       </button>
+    `);
+  }
 
+  // Vent / Av vent
+  if (canShowHold(it)) {
+    parts.push(`
       <button class="btn btn-outline"
               data-action="hold"
               data-order-id="${orderId}">
         <span class="btn-text">Vent</span>
       </button>
+    `);
+  }
 
+  if (canShowUnhold(it)) {
+    parts.push(`
       <button class="btn btn-outline"
               data-action="unhold"
               data-order-id="${orderId}">
         <span class="btn-text">Av vent</span>
       </button>
+    `);
+  }
 
+  // Stopp
+  if (canShowClose(it)) {
+    parts.push(`
       <button class="btn btn-outline"
               data-action="close"
               data-order-id="${orderId}"
               style="border-color:#ef4444; color:#ef4444;">
         <span class="btn-text">Stopp</span>
       </button>
-    </div>
-  `;
+    `);
+  }
+
+  // If nothing is available, show a small dash
+  if (parts.length === 0) {
+    return `<span style="color:#6b7280;">–</span>`;
+  }
+
+  return `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${parts.join("")}</div>`;
 }
 
 function render(itemsAll) {
