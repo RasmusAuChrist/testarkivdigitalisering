@@ -199,6 +199,10 @@ function isOrderOpenish(it) {
   return it.OrderStatus === "Open" || it.OrderStatus === "OnHold";
 }
 
+function isOrderOpen(it) {
+  return isOrderOpenish(it);
+}
+
 function isOrderOnHold(it) {
   return it.OrderStatus === "OnHold";
 }
