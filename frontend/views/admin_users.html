@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Brukere</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="navbar-container"></div>
+
+  <div class="surface-light" style="max-width: 1100px; margin: 18px auto; padding: 0 14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
+      <h2 style="margin: 12px 0;">Admin – Brukere</h2>
+      <button id="logoutBtn" class="btn btn-outline" type="button"><span class="btn-text">Logg ut</span></button>
+    </div>
+
+    <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
+      <div id="msg" style="color:#fff; opacity:0.95;"></div>
+    </div>
+
+    <div style="margin-top:14px; display:grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <!-- Create user -->
+      <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
+        <h3>Opprett bruker</h3>
+        <p class="muted">Du må lime inn en bcrypt-hash for midlertidig passord.</p>
+
+        <label>Brukernavn<br/>
+          <input id="cu_username" style="width:100%;" />
+        </label>
+        <div style="height:8px;"></div>
+
+        <label>Midlertidig passord-hash (bcrypt)<br/>
+          <input id="cu_hash" style="width:100%;" placeholder="$2b$12$..." />
+        </label>
+        <div style="height:8px;"></div>
+
+        <label>
+          <input id="cu_mustChange" type="checkbox" checked />
+          Må bytte passord ved første innlogging
+        </label>
+
+        <div style="height:10px;"></div>
+        <button id="createUserBtn" class="btn btn-primary" type="button">
+          <span class="btn-text">Opprett</span>
+        </button>
+      </div>
+
+      <!-- Reset password -->
+      <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
+        <h3>Nullstill passord</h3>
+        <p class="muted">Setter nytt midlertidig passord (bcrypt-hash).</p>
+
+        <label>Bruker-ID<br/>
+          <input id="rp_userId" type="number" style="width:100%;" />
+        </label>
+        <div style="height:8px;"></div>
+
+        <label>Midlertidig passord-hash (bcrypt)<br/>
+          <input id="rp_hash" style="width:100%;" placeholder="$2b$12$..." />
+        </label>
+        <div style="height:8px;"></div>
+
+        <label>
+          <input id="rp_mustChange" type="checkbox" checked />
+          Må bytte passord ved neste innlogging
+        </label>
+
+        <div style="height:10px;"></div>
+        <button id="resetPwdBtn" class="btn btn-primary" type="button">
+          <span class="btn-text">Nullstill</span>
+        </button>
+      </div>
+
+      <!-- Set role -->
+      <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px; grid-column: 1 / span 2;">
+        <h3>Sett rolle</h3>
+        <p class="muted">Eksempel: Admin, Operator.</p>
+
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          <div style="min-width: 220px; flex:1;">
+            <label>Bruker-ID<br/>
+              <input id="sr_userId" type="number" style="width:100%;" />
+            </label>
+          </div>
+          <div style="min-width: 220px; flex:1;">
+            <label>Rolle<br/>
+              <input id="sr_role" style="width:100%;" placeholder="Operator" />
+            </label>
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="setRoleBtn" class="btn btn-primary" type="button"><span class="btn-text">Oppdater rolle</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/admin_users.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <title>Min konto</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="navbar-container"></div>
+
+  <div class="surface-light" style="max-width: 900px; margin: 18px auto; padding: 0 14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
+      <h2 style="margin: 12px 0;">Min konto</h2>
+      <button id="logoutBtn" class="btn btn-outline" type="button"><span class="btn-text">Logg ut</span></button>
+    </div>
+
+    <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
+      <div id="msg" style="color:#fff; opacity:0.95;"></div>
+    </div>
+
+    <div style="margin-top:14px; display:grid; gap:14px;">
+      <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
+        <h3>Profil</h3>
+        <div id="profileBox" class="muted">Laster…</div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
+        <h3>Bytt passord</h3>
+
+        <label>Nåværende passord<br/>
+          <input id="oldPwd" type="password" style="width:100%;" autocomplete="current-password" />
+        </label>
+        <div style="height:8px;"></div>
+
+        <label>Nytt passord<br/>
+          <input id="newPwd" type="password" style="width:100%;" autocomplete="new-password" />
+        </label>
+        <div style="height:8px;"></div>
+
+        <label>Gjenta nytt passord<br/>
+          <input id="newPwd2" type="password" style="width:100%;" autocomplete="new-password" />
+        </label>
+
+        <div style="height:10px;"></div>
+        <button id="changePwdBtn" class="btn btn-primary" type="button"><span class="btn-text">Bytt passord</span></button>
+
+        <div id="mustChangeBox" class="warn" style="display:none; margin-top: 10px;">
+          Passordet er midlertidig. Du må bytte passord nå.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/account.js"></script>
+</body>
+</html>
