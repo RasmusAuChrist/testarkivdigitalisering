@@ -61,7 +61,9 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
         # Hash plaintext temp password in API
         password_hash = hash_password(payload.temp_password)
 
-        # Correct param mapping (includes DisplayName)
+        # IMPORTANT: Pass RoleName so SQL doesn't fall back to default 'Operator'
+        role_name = payload.role_name or "User"
+
         cur.execute(
             """
             EXEC dbo.usp_admin_create_user
@@ -69,7 +71,8 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
                  @Username=%s,
                  @DisplayName=%s,
                  @PasswordHash=%s,
-                 @MustChangePassword=%s
+                 @MustChangePassword=%s,
+                 @RoleName=%s
             """,
             (
                 me.user_id,
@@ -77,30 +80,14 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
                 payload.display_name,
                 password_hash,
                 int(payload.must_change_password),
+                role_name,
             ),
         )
 
         row = cur.fetchone() or {"ok": True}
-
-        # Optional: set role at creation (IMPORTANT: pass IsEnabled)
-        if payload.role_name:
-            new_user_id = row.get("UserId") or row.get("user_id")
-            if not new_user_id:
-                raise HTTPException(status_code=400, detail="Create user did not return UserId")
-
-            cur.execute(
-                """
-                EXEC dbo.usp_admin_set_user_role
-                     @ActorUserId=%s,
-                     @UserId=%s,
-                     @RoleName=%s,
-                     @IsEnabled=%s
-                """,
-                (me.user_id, int(new_user_id), payload.role_name, 1),
-            )
-
         conn.commit()
         return row
+
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
