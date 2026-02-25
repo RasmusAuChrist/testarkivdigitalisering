@@ -25,7 +25,7 @@
       <!-- Create user -->
       <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
         <h3>Opprett bruker</h3>
-        <p class="muted">Midlertidig passord må legges inn som bcrypt-hash.</p>
+        <p class="muted">Administrator setter et midlertidig passord. Bruker må bytte ved første innlogging.</p>
 
         <label>Brukernavn<br/>
           <input id="cu_username" style="width:100%;" autocomplete="off" />
@@ -36,9 +36,9 @@
           <input id="cu_displayName" style="width:100%;" autocomplete="off" />
         </label>
         <div style="height:8px;"></div>
-
-        <label>Midlertidig passord-hash (bcrypt)<br/>
-          <input id="cu_hash" style="width:100%;" placeholder="$2b$12$..." autocomplete="off" />
+        
+        <label>Midlertidig passord<br/>
+        <input id="cu_tempPassword" type="password" style="width:100%;" autocomplete="new-password" />
         </label>
         <div style="height:8px;"></div>
 
@@ -68,10 +68,11 @@
         </label>
         <div style="height:8px;"></div>
 
-        <label>Midlertidig passord-hash (bcrypt)<br/>
-          <input id="rp_hash" style="width:100%;" placeholder="$2b$12$..." autocomplete="off" />
+        <p class="muted">Setter nytt midlertidig passord.</p>
+
+        <label>Midlertidig passord<br/>
+        <input id="rp_tempPassword" type="password" style="width:100%;" autocomplete="new-password" />
         </label>
-        <div style="height:8px;"></div>
 
         <label>
           <input id="rp_mustChange" type="checkbox" checked />

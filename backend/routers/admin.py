@@ -4,25 +4,29 @@ from typing import Optional
 
 from backend.db import get_connection
 from backend.routers.auth import get_current_user, MeResponse
+from backend.security import hash_password  # <-- NEW: hash plaintext password server-side
 
 router = APIRouter()
+
 
 def require_admin(me: MeResponse):
     if not me.roles or "Admin" not in me.roles:
         raise HTTPException(status_code=403, detail="Ikke tilgang (Admin kreves).")
 
+
 class AdminCreateUserRequest(BaseModel):
     username: str
     display_name: Optional[str] = None
-    temp_password_hash: str  # bcrypt hash string
+    temp_password: str  # <-- CHANGED: plaintext temp password
     must_change_password: bool = True
-    # optional convenience: assign a role immediately
     role_name: Optional[str] = None  # e.g. "Operator" or "Admin"
+
 
 class AdminResetPasswordRequest(BaseModel):
     user_id: int
-    temp_password_hash: str
+    temp_password: str  # <-- CHANGED: plaintext temp password
     must_change_password: bool = True
+
 
 class AdminSetRoleRequest(BaseModel):
     user_id: int
@@ -54,6 +58,9 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
     try:
         cur = conn.cursor(as_dict=True)
 
+        # Hash plaintext temp password in API
+        password_hash = hash_password(payload.temp_password)
+
         # Correct param mapping (includes DisplayName)
         cur.execute(
             """
@@ -68,16 +75,19 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
                 me.user_id,
                 payload.username,
                 payload.display_name,
-                payload.temp_password_hash,
+                password_hash,
                 int(payload.must_change_password),
             ),
         )
 
         row = cur.fetchone() or {"ok": True}
 
-        # Optional: set role at creation (uses your set role proc)
+        # Optional: set role at creation (IMPORTANT: pass IsEnabled)
         if payload.role_name:
-            # If you want "single role only", you might later remove existing roles first.
+            new_user_id = row.get("UserId") or row.get("user_id")
+            if not new_user_id:
+                raise HTTPException(status_code=400, detail="Create user did not return UserId")
+
             cur.execute(
                 """
                 EXEC dbo.usp_admin_set_user_role
@@ -86,7 +96,7 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
                      @RoleName=%s,
                      @IsEnabled=%s
                 """,
-                (me.user_id, row.get("UserId") or row.get("user_id"), payload.role_name, 1),
+                (me.user_id, int(new_user_id), payload.role_name, 1),
             )
 
         conn.commit()
@@ -104,6 +114,10 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
     conn = get_connection(autocommit=False)
     try:
         cur = conn.cursor(as_dict=True)
+
+        # Hash plaintext temp password in API
+        password_hash = hash_password(payload.temp_password)
+
         cur.execute(
             """
             EXEC dbo.usp_admin_reset_password
@@ -112,7 +126,7 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
                  @PasswordHash=%s,
                  @MustChangePassword=%s
             """,
-            (me.user_id, payload.user_id, payload.temp_password_hash, int(payload.must_change_password)),
+            (me.user_id, payload.user_id, password_hash, int(payload.must_change_password)),
         )
         row = cur.fetchone()
         conn.commit()

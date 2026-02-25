@@ -120,59 +120,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Create user
-  document.getElementById("createUserBtn").addEventListener("click", async () => {
-    try {
-      const username = document.getElementById("cu_username").value.trim();
-      const display_name = document.getElementById("cu_displayName").value.trim() || null;
-      const temp_password_hash = document.getElementById("cu_hash").value.trim();
-      const must_change_password = document.getElementById("cu_mustChange").checked;
-      const role_name = document.getElementById("cu_role").value;
+// Create user
+document.getElementById("createUserBtn").addEventListener("click", async () => {
+  try {
+    const username = document.getElementById("cu_username").value.trim();
+    const display_name = document.getElementById("cu_displayName").value.trim() || null;
+    const temp_password = document.getElementById("cu_tempPassword").value;
+    const must_change_password = document.getElementById("cu_mustChange").checked;
+    const role_name = document.getElementById("cu_role").value;
 
-      if (!username || !temp_password_hash) {
-        setMsg("Brukernavn og passord-hash må fylles ut.", true);
-        return;
-      }
-
-      setMsg("Oppretter bruker…");
-      const created = await apiPost("/api/admin/users", {
-        username,
-        display_name,
-        temp_password_hash,
-        must_change_password,
-        role_name, // optional but we send it
-      });
-
-      setMsg(`Bruker opprettet (UserId: ${created.UserId ?? "ukjent"}).`);
-    } catch (e) {
-      setMsg(e.message || "Feil ved oppretting.", true);
+    if (!username || !temp_password) {
+      setMsg("Brukernavn og midlertidig passord må fylles ut.", true);
+      return;
     }
-  });
 
-  // Reset password
-  document.getElementById("resetPwdBtn").addEventListener("click", async () => {
-    try {
-      const user_id = Number(document.getElementById("rp_userId").value);
-      const temp_password_hash = document.getElementById("rp_hash").value.trim();
-      const must_change_password = document.getElementById("rp_mustChange").checked;
+    setMsg("Oppretter bruker…");
 
-      if (!user_id || !temp_password_hash) {
-        setMsg("Bruker-ID og passord-hash må fylles ut.", true);
-        return;
-      }
+    const created = await apiPost("/api/admin/users", {
+      username,
+      display_name,
+      temp_password,
+      must_change_password,
+      role_name
+    });
 
-      setMsg("Nullstiller passord…");
-      await apiPost("/api/admin/users/reset-password", {
-        user_id,
-        temp_password_hash,
-        must_change_password,
-      });
+    setMsg(`Bruker opprettet (UserId: ${created.UserId ?? "ukjent"}).`);
+  } catch (e) {
+    setMsg(e.message || "Feil ved oppretting.", true);
+  }
+});
 
-      setMsg("Passord nullstilt.");
-    } catch (e) {
-      setMsg(e.message || "Feil ved nullstilling.", true);
+// Reset password
+document.getElementById("resetPwdBtn").addEventListener("click", async () => {
+  try {
+    const user_id = Number(document.getElementById("rp_userId").value);
+    const temp_password = document.getElementById("rp_tempPassword").value;
+    const must_change_password = document.getElementById("rp_mustChange").checked;
+
+    if (!user_id || !temp_password) {
+      setMsg("Bruker-ID og midlertidig passord må fylles ut.", true);
+      return;
     }
-  });
+
+    setMsg("Nullstiller passord…");
+
+    await apiPost("/api/admin/users/reset-password", {
+      user_id,
+      temp_password,
+      must_change_password
+    });
+
+    setMsg("Passord nullstilt.");
+  } catch (e) {
+    setMsg(e.message || "Feil ved nullstilling.", true);
+  }
+});
 
   // Set role (enable/disable)
   document.getElementById("setRoleBtn").addEventListener("click", async () => {
