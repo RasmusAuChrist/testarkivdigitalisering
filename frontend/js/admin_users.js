@@ -25,12 +25,14 @@ function setMsg(text, isError = false) {
 
 async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
+
   if (res.status === 401) {
     clearToken();
     const next = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.assign(`/views/login.html?next=${next}`);
     throw new Error("Ikke innlogget.");
   }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || "Ukjent feil");
   return data;
@@ -42,12 +44,14 @@ async function apiPost(path, body) {
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body ?? {}),
   });
+
   if (res.status === 401) {
     clearToken();
     const next = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.assign(`/views/login.html?next=${next}`);
     throw new Error("Ikke innlogget.");
   }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || "Ukjent feil");
   return data;
@@ -68,6 +72,17 @@ async function loadNavbar() {
   }
 }
 
+function fillRoleSelect(selectEl, roles) {
+  // roles: [{RoleId, Name}, ...]
+  selectEl.innerHTML = roles
+    .map(r => `<option value="${r.Name}">${r.Name}</option>`)
+    .join("");
+
+  // default preference
+  const hasOperator = roles.some(r => r.Name === "Operator");
+  if (hasOperator) selectEl.value = "Operator";
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
@@ -78,25 +93,41 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!ensureLoggedIn()) return;
 
-  // Check admin
+  // Must be admin
+  let me;
   try {
     setMsg("Laster…");
-    const me = await apiGet("/api/auth/me");
+    me = await apiGet("/api/auth/me");
     if (!me?.roles?.includes("Admin")) {
       setMsg("Ikke tilgang (Admin kreves).", true);
       return;
     }
-    setMsg("");
   } catch (e) {
     setMsg(e.message || "Feil", true);
     return;
   }
 
+  // Load roles for dropdowns
+  let roles = [];
+  try {
+    const res = await apiGet("/api/admin/roles");
+    roles = res.roles || [];
+    fillRoleSelect(document.getElementById("cu_role"), roles);
+    fillRoleSelect(document.getElementById("sr_role"), roles);
+    setMsg("");
+  } catch (e) {
+    setMsg(e.message || "Kunne ikke hente roller.", true);
+    return;
+  }
+
+  // Create user
   document.getElementById("createUserBtn").addEventListener("click", async () => {
     try {
       const username = document.getElementById("cu_username").value.trim();
+      const display_name = document.getElementById("cu_displayName").value.trim() || null;
       const temp_password_hash = document.getElementById("cu_hash").value.trim();
       const must_change_password = document.getElementById("cu_mustChange").checked;
+      const role_name = document.getElementById("cu_role").value;
 
       if (!username || !temp_password_hash) {
         setMsg("Brukernavn og passord-hash må fylles ut.", true);
@@ -104,13 +135,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       setMsg("Oppretter bruker…");
-      await apiPost("/api/admin/users", { username, temp_password_hash, must_change_password });
-      setMsg("Bruker opprettet.");
+      const created = await apiPost("/api/admin/users", {
+        username,
+        display_name,
+        temp_password_hash,
+        must_change_password,
+        role_name, // optional but we send it
+      });
+
+      setMsg(`Bruker opprettet (UserId: ${created.UserId ?? "ukjent"}).`);
     } catch (e) {
       setMsg(e.message || "Feil ved oppretting.", true);
     }
   });
 
+  // Reset password
   document.getElementById("resetPwdBtn").addEventListener("click", async () => {
     try {
       const user_id = Number(document.getElementById("rp_userId").value);
@@ -123,17 +162,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       setMsg("Nullstiller passord…");
-      await apiPost("/api/admin/users/reset-password", { user_id, temp_password_hash, must_change_password });
+      await apiPost("/api/admin/users/reset-password", {
+        user_id,
+        temp_password_hash,
+        must_change_password,
+      });
+
       setMsg("Passord nullstilt.");
     } catch (e) {
       setMsg(e.message || "Feil ved nullstilling.", true);
     }
   });
 
+  // Set role (enable/disable)
   document.getElementById("setRoleBtn").addEventListener("click", async () => {
     try {
       const user_id = Number(document.getElementById("sr_userId").value);
-      const role_name = document.getElementById("sr_role").value.trim();
+      const role_name = document.getElementById("sr_role").value;
+      const is_enabled = document.getElementById("sr_enabled").checked;
 
       if (!user_id || !role_name) {
         setMsg("Bruker-ID og rolle må fylles ut.", true);
@@ -141,8 +187,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       setMsg("Oppdaterer rolle…");
-      await apiPost("/api/admin/users/set-role", { user_id, role_name });
-      setMsg("Rolle oppdatert.");
+      await apiPost("/api/admin/users/set-role", { user_id, role_name, is_enabled });
+
+      setMsg(is_enabled ? "Rolle aktivert." : "Rolle fjernet.");
     } catch (e) {
       setMsg(e.message || "Feil ved rolleoppdatering.", true);
     }

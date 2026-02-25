@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 
 from backend.db import get_connection
 from backend.routers.auth import get_current_user, MeResponse
@@ -13,8 +13,11 @@ def require_admin(me: MeResponse):
 
 class AdminCreateUserRequest(BaseModel):
     username: str
+    display_name: Optional[str] = None
     temp_password_hash: str  # bcrypt hash string
     must_change_password: bool = True
+    # optional convenience: assign a role immediately
+    role_name: Optional[str] = None  # e.g. "Operator" or "Admin"
 
 class AdminResetPasswordRequest(BaseModel):
     user_id: int
@@ -23,7 +26,26 @@ class AdminResetPasswordRequest(BaseModel):
 
 class AdminSetRoleRequest(BaseModel):
     user_id: int
-    role_name: str  # e.g. "Admin" or "Operator"
+    role_name: str
+    is_enabled: bool = True
+
+
+@router.get("/admin/roles")
+def admin_list_roles(me: MeResponse = Depends(get_current_user)):
+    require_admin(me)
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_admin_list_roles @ActorUserId=%s",
+            (me.user_id,),
+        )
+        return {"roles": cur.fetchall() or []}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
 
 @router.post("/admin/users")
 def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(get_current_user)):
@@ -31,19 +53,50 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
     conn = get_connection(autocommit=False)
     try:
         cur = conn.cursor(as_dict=True)
-        # assumes your proc signature matches these params
+
+        # Correct param mapping (includes DisplayName)
         cur.execute(
-            "EXEC dbo.usp_admin_create_user %s, %s, %s, %s",
-            (me.user_id, payload.username, payload.temp_password_hash, int(payload.must_change_password)),
+            """
+            EXEC dbo.usp_admin_create_user
+                 @ActorUserId=%s,
+                 @Username=%s,
+                 @DisplayName=%s,
+                 @PasswordHash=%s,
+                 @MustChangePassword=%s
+            """,
+            (
+                me.user_id,
+                payload.username,
+                payload.display_name,
+                payload.temp_password_hash,
+                int(payload.must_change_password),
+            ),
         )
-        row = cur.fetchone()
+
+        row = cur.fetchone() or {"ok": True}
+
+        # Optional: set role at creation (uses your set role proc)
+        if payload.role_name:
+            # If you want "single role only", you might later remove existing roles first.
+            cur.execute(
+                """
+                EXEC dbo.usp_admin_set_user_role
+                     @ActorUserId=%s,
+                     @UserId=%s,
+                     @RoleName=%s,
+                     @IsEnabled=%s
+                """,
+                (me.user_id, row.get("UserId") or row.get("user_id"), payload.role_name, 1),
+            )
+
         conn.commit()
-        return row or {"ok": True}
+        return row
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
+
 
 @router.post("/admin/users/reset-password")
 def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = Depends(get_current_user)):
@@ -52,7 +105,13 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
     try:
         cur = conn.cursor(as_dict=True)
         cur.execute(
-            "EXEC dbo.usp_admin_reset_password %s, %s, %s, %s",
+            """
+            EXEC dbo.usp_admin_reset_password
+                 @ActorUserId=%s,
+                 @UserId=%s,
+                 @PasswordHash=%s,
+                 @MustChangePassword=%s
+            """,
             (me.user_id, payload.user_id, payload.temp_password_hash, int(payload.must_change_password)),
         )
         row = cur.fetchone()
@@ -64,6 +123,7 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
     finally:
         conn.close()
 
+
 @router.post("/admin/users/set-role")
 def admin_set_role(payload: AdminSetRoleRequest, me: MeResponse = Depends(get_current_user)):
     require_admin(me)
@@ -71,8 +131,14 @@ def admin_set_role(payload: AdminSetRoleRequest, me: MeResponse = Depends(get_cu
     try:
         cur = conn.cursor(as_dict=True)
         cur.execute(
-            "EXEC dbo.usp_admin_set_user_role %s, %s, %s",
-            (me.user_id, payload.user_id, payload.role_name),
+            """
+            EXEC dbo.usp_admin_set_user_role
+                 @ActorUserId=%s,
+                 @UserId=%s,
+                 @RoleName=%s,
+                 @IsEnabled=%s
+            """,
+            (me.user_id, payload.user_id, payload.role_name, int(payload.is_enabled)),
         )
         row = cur.fetchone()
         conn.commit()
