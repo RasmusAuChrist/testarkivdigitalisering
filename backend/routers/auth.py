@@ -5,12 +5,18 @@ from jose import jwt
 from pydantic import BaseModel
 from typing import List, Optional
 
-from db import get_connection
-from security import verify_password, create_access_token, hash_password, JWT_SECRET, JWT_ISSUER, JWT_AUDIENCE
+from backend.db import get_connection
+from backend.security import (
+    verify_password,
+    create_access_token,
+    hash_password,
+    JWT_SECRET,
+    JWT_ISSUER,
+    JWT_AUDIENCE,
+)
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
 class LoginRequest(BaseModel):
     username: str
     password: str
