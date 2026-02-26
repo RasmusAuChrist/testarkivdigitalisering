@@ -111,9 +111,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         setMsg("Nytt passord matcher ikke.", true);
         return;
       }
-      if (new_password.length < 12) {
-        setMsg("Nytt passord må være minst 12 tegn.", true);
-        return;
+      if (new_password.length < 6) {
+      setMsg("Nytt passord må være minst 6 tegn.", true);
+      return;
       }
 
       setMsg("Bytter passord…");
