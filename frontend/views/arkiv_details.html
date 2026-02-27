@@ -27,7 +27,7 @@
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
         <div>
           <label>Serie</label>
-          <div style="color:#fff;opacity:.9;">Rekvisisjoner per kvartal</div>
+          <div style="color:#fff;opacity:.9;">Rekvisisjoner per måned</div>
         </div>
         <div id="statusLine" style="margin-left:auto;color:#fff;opacity:.9;"></div>
       </div>
@@ -35,6 +35,38 @@
 
     <div class="chart-box" style="margin-top:14px;height:420px;">
       <h3 style="color:#111;margin-bottom:8px;">Rekvisisjonshistorikk</h3>
+
+      <!-- ✅ toggles -->
+      <div
+        style="
+          display:flex;
+          gap:14px;
+          flex-wrap:wrap;
+          align-items:center;
+          margin:8px 0 10px;
+          user-select:none;
+        "
+      >
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="toggleInternal" checked />
+          Intern
+        </label>
+
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="toggleAp" checked />
+          AP
+        </label>
+
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="toggleTotal" checked />
+          Total
+        </label>
+
+        <span style="color:#555;font-size:12px;">
+          (Tips: du kan også klikke på legendeteksten i grafen for å skjule/vise.)
+        </span>
+      </div>
+
       <canvas id="reqChart"></canvas>
     </div>
   </div>
