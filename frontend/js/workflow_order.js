@@ -203,6 +203,14 @@ async function loadOrder() {
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
+  // ✅ Make dropdown work even before /me loads
+  initUserMenu(null);
+
+  // ✅ Populate username + admin item if logged in
+  if (ensureLoggedIn()) {
+    await initMeForMenu();
+  }
+
   const loadBtn = document.getElementById("loadBtn");
   loadBtn?.addEventListener("click", async () => {
     if (!ensureLoggedIn()) return;
