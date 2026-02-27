@@ -16,7 +16,7 @@ JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ISSUER = os.getenv("JWT_ISSUER", "your-api")
 JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "your-web")
 JWT_ALG = "HS256"
-ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "60"))
+ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "720"))
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
