@@ -13,9 +13,73 @@
   <div class="surface-light" style="max-width: 1200px; margin: 18px auto; padding: 0 14px;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
       <h2 style="margin: 12px 0;">Stegkø</h2>
-      <button id="logoutBtn" class="btn btn-outline" type="button">
-        <span class="btn-text">Logg ut</span>
-      </button>
+<div id="userMenu" style="position:relative;">
+  <button
+    id="userMenuBtn"
+    class="btn btn-outline"
+    type="button"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    style="display:inline-flex; align-items:center; gap:8px;"
+  >
+    <span id="userMenuName" class="btn-text">Meny</span>
+    <span aria-hidden="true" style="font-weight:900;">▾</span>
+  </button>
+
+  <div
+    id="userMenuDropdown"
+    role="menu"
+    style="
+      display:none;
+      position:absolute;
+      right:0;
+      top:calc(100% + 8px);
+      min-width:220px;
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      box-shadow:0 12px 30px rgba(0,0,0,0.12);
+      overflow:hidden;
+      z-index:50;
+    "
+  >
+    <a
+      data-action="account"
+      href="/views/account.html"
+      role="menuitem"
+      style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
+      onmouseover="this.style.background='#f3f4f6'"
+      onmouseout="this.style.background='transparent'"
+    >
+      Min konto
+    </a>
+
+    <div id="userMenuAdminItem" style="display:none;">
+      <a
+        href="/views/admin_users.html"
+        role="menuitem"
+        style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
+        onmouseover="this.style.background='#f3f4f6'"
+        onmouseout="this.style.background='transparent'"
+      >
+        Administrer brukere
+      </a>
+    </div>
+
+    <div style="height:1px; background:#e5e7eb;"></div>
+
+    <a
+      id="userMenuLogout"
+      href="#"
+      role="menuitem"
+      style="display:block; padding:10px 12px; color:#b91c1c; text-decoration:none; font-weight:700;"
+      onmouseover="this.style.background='#fef2f2'"
+      onmouseout="this.style.background='transparent'"
+    >
+      Logg ut
+    </a>
+  </div>
+</div>      </button>
     </div>
 
     <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">

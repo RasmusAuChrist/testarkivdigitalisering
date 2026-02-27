@@ -1,4 +1,5 @@
 import { getToken, clearToken } from "./auth.js";
+import { initUserMenu } from "./user_menu.js";
 
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
@@ -29,6 +30,15 @@ async function apiGet(path) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || "Ukjent feil");
   return data;
+}
+
+async function initMeForMenu() {
+  try {
+    const me = await apiGet("/api/auth/me");
+    initUserMenu(me);
+  } catch {
+    // apiGet already redirects on 401
+  }
 }
 
 async function loadNavbar() {
@@ -192,12 +202,6 @@ async function loadOrder() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
-
-  const logoutBtn = document.getElementById("logoutBtn");
-  logoutBtn?.addEventListener("click", () => {
-    clearToken();
-    window.location.assign("/views/login.html");
-  });
 
   const loadBtn = document.getElementById("loadBtn");
   loadBtn?.addEventListener("click", async () => {

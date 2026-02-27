@@ -1,4 +1,5 @@
 import { getToken, clearToken } from "./auth.js";
+import { initUserMenu } from "./user_menu.js";
 
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
@@ -86,10 +87,6 @@ function fillRoleSelect(selectEl, roles) {
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    clearToken();
-    window.location.assign("/views/login.html");
-  });
 
   if (!ensureLoggedIn()) return;
 
@@ -98,6 +95,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     setMsg("Laster…");
     me = await apiGet("/api/auth/me");
+    initUserMenu(me);
     if (!me?.roles?.includes("Admin")) {
       setMsg("Ikke tilgang (Admin kreves).", true);
       return;

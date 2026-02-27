@@ -1,4 +1,5 @@
 import { getToken, clearToken } from "./auth.js";
+import { initUserMenu } from "./user_menu.js";
 
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
@@ -70,11 +71,6 @@ async function loadNavbar() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
-
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    clearToken();
-    window.location.assign("/views/login.html");
-  });
 
   if (!ensureLoggedIn()) return;
 
