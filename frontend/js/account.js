@@ -77,6 +77,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     setMsg("Laster…");
     const me = await apiGet("/api/auth/me");
+    
+    initUserMenu(me);
 
     document.getElementById("profileBox").innerHTML = `
       <div><b>Brukernavn:</b> ${me.username}</div>
