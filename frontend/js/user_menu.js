@@ -1,22 +1,5 @@
-// /js/user_menu.js
 import { clearToken } from "./auth.js";
 
-/**
- * Initializes a simple dropdown user menu.
- *
- * Required HTML IDs:
- * - userMenuBtn
- * - userMenuDropdown
- * - userMenuName (optional)
- * - userMenuAdminItem (optional wrapper for admin link)
- * - userMenuLogout
- *
- * @param {object|null} me  The /api/auth/me response (or null if unknown)
- * @param {object} [opts]
- * @param {string} [opts.loginUrl="/views/login.html"]
- * @param {string} [opts.accountUrl="/views/account.html"]
- * @param {string} [opts.adminUsersUrl="/views/admin_users.html"]
- */
 export function initUserMenu(me, opts = {}) {
   const {
     loginUrl = "/views/login.html",
@@ -32,12 +15,9 @@ export function initUserMenu(me, opts = {}) {
   const adminItem = document.getElementById("userMenuAdminItem");
   const logoutBtn = document.getElementById("userMenuLogout");
 
-  // Fill label
-  if (nameEl && me?.username) {
-    nameEl.textContent = me.username;
-  }
+  // --- Update UI (can run multiple times) ---
+  if (nameEl && me?.username) nameEl.textContent = me.username;
 
-  // Admin item visibility
   const isAdmin = !!me?.roles?.includes("Admin");
   if (adminItem) {
     adminItem.style.display = isAdmin ? "" : "none";
@@ -45,11 +25,13 @@ export function initUserMenu(me, opts = {}) {
     if (a) a.setAttribute("href", adminUsersUrl);
   }
 
-  // Account link
   const accountLink = dd.querySelector('a[data-action="account"]');
   if (accountLink) accountLink.setAttribute("href", accountUrl);
 
-  // Toggle dropdown
+  // --- Bind events only once ---
+  if (btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
+
   function open() {
     dd.style.display = "block";
     btn.setAttribute("aria-expanded", "true");
@@ -65,28 +47,24 @@ export function initUserMenu(me, opts = {}) {
 
   btn.addEventListener("click", (e) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopPropagation(); // critical so document click doesn't instantly close it
     toggle();
   });
 
-  // Close on outside click
   document.addEventListener("click", (e) => {
     if (!dd.contains(e.target) && !btn.contains(e.target)) close();
   });
 
-  // Close on Escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") close();
   });
 
-  // Logout
   logoutBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     clearToken();
     const next = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.assign(`/views/login.html?next=${next}`);
+    window.location.assign(`${loginUrl}?next=${next}`);
   });
 
-  // Default closed
   close();
 }
