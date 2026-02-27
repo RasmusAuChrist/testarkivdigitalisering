@@ -83,7 +83,8 @@ export function initUserMenu(me, opts = {}) {
   logoutBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     clearToken();
-    window.location.assign(loginUrl);
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/views/login.html?next=${next}`);
   });
 
   // Default closed
