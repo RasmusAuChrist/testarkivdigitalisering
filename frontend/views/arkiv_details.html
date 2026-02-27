@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="no">
+  <div id="navbar-container"></div>
+  <link rel="stylesheet" href="/assets/navbar.css" />
+
+<head>
+  <meta charset="UTF-8" />
+  <title>ASK – Arkivdetaljer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+
+<body>
+  <div class="surface-light" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <h2 style="margin-bottom:6px;">Arkivdetaljer</h2>
+        <div id="subTitle" style="color:#555;"></div>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button id="backBtn" type="button">← Tilbake</button>
+      </div>
+    </div>
+
+    <div class="filters-dark" style="margin-top:14px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+        <div>
+          <label>Serie</label>
+          <div style="color:#fff;opacity:.9;">Rekvisisjoner per kvartal</div>
+        </div>
+        <div id="statusLine" style="margin-left:auto;color:#fff;opacity:.9;"></div>
+      </div>
+    </div>
+
+    <div class="chart-box" style="margin-top:14px;height:420px;">
+      <h3 style="color:#111;margin-bottom:8px;">Rekvisisjonshistorikk</h3>
+      <canvas id="reqChart"></canvas>
+    </div>
+  </div>
+
+  <div id="loadingOverlay">
+    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
+  </div>
+
+  <!-- Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script type="module" src="/js/arkiv_details.js"></script>
+
+  <script>
+    fetch("/partials/navbar.html")
+      .then(res => res.text())
+      .then(html => { document.getElementById("navbar-container").innerHTML = html; });
+  </script>
+</body>
+</html>

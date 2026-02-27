@@ -24,6 +24,7 @@ def get_arkiv_overview():
 
         query = """
         SELECT
+            arkiv_sk,
             navn,
             lokasjon,
             identifikator,

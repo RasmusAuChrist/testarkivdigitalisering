@@ -6,6 +6,7 @@ const API_BASE =
   "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
 const SERIE_PAGE = "/views/serie_hierarchy.html";
+const DETAILS_PAGE = "/views/arkiv_details.html";
 
 /** Read query-string param */
 function getUrlParam(name) {
@@ -17,6 +18,16 @@ function getUrlParam(name) {
 function gotoSerieForArkivIdent(arkivIdent) {
   if (!arkivIdent) return;
   const url = `${SERIE_PAGE}?arkiv=${encodeURIComponent(arkivIdent)}`;
+  window.location.assign(url);
+}
+
+/** Navigate to details page for arkiv_sk and preferred line-kind */
+function gotoDetailsForArkivSk(arkivSk, ident, kind) {
+  if (!arkivSk) return;
+  const url =
+    `${DETAILS_PAGE}?arkiv_sk=${encodeURIComponent(arkivSk)}` +
+    `&ident=${encodeURIComponent(ident ?? "")}` +
+    `&kind=${encodeURIComponent(kind ?? "")}`;
   window.location.assign(url);
 }
 
@@ -98,6 +109,34 @@ function pillButtonHtml(text, title) {
   `;
 }
 
+function reqLinkHtml(value, arkivSk, ident, kind) {
+  const n = Math.round(toNum(value));
+  const formatted = n.toLocaleString("no-NO");
+
+  // If we don't know arkiv_sk, just show the number
+  if (!arkivSk) return formatted;
+
+  const safeSk = String(arkivSk).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const safeIdent = String(ident ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const safeKind = String(kind ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  return `
+    <button
+      type="button"
+      class="req-link"
+      data-arkiv-sk="${safeSk}"
+      data-ident="${safeIdent}"
+      data-kind="${safeKind}"
+      title="Vis rekvisisjonshistorikk (${safeKind})"
+      style="
+        background:transparent;border:none;padding:0;margin:0;
+        color:#0f172a;font-weight:700;cursor:pointer;
+        text-decoration:underline;
+      "
+    >${formatted}</button>
+  `;
+}
+
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "lokasjon", label: "Lokasjon" },
@@ -128,8 +167,25 @@ const columns = [
   { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => num(v, 2) },
   { key: "average_views_digark", label: "Gj.snitt DigArk", numeric: true, fmt: v => num(v, 2) },
 
-  { key: "requisitions_internal", label: "Rekvisisjoner (Intern)", numeric: true, fmt: int },
-  { key: "requisitions_ap", label: "Rekvisisjoner (AP)", numeric: true, fmt: int },
+  // ✅ CLICKABLE numbers → details page, with preferred kind
+  {
+    key: "requisitions_internal",
+    label: "Rekvisisjoner (Intern)",
+    numeric: true,
+    render: (row) => ({
+      type: "html",
+      html: reqLinkHtml(row.requisitions_internal, row.arkiv_sk, row.identifikator, "internal")
+    })
+  },
+  {
+    key: "requisitions_ap",
+    label: "Rekvisisjoner (AP)",
+    numeric: true,
+    render: (row) => ({
+      type: "html",
+      html: reqLinkHtml(row.requisitions_ap, row.arkiv_sk, row.identifikator, "ap")
+    })
+  },
 
   { key: "serier", label: "Hovedserier" },
   { key: "tags", label: "Tags" }
@@ -516,15 +572,31 @@ function renderTable() {
         const out = c.render(r);
         if (out && out.type === "html") {
           td.innerHTML = out.html || "";
-          td.style.textAlign = "left";
+          // keep numeric alignment for numeric columns
+          td.style.textAlign = c.numeric ? "right" : "left";
 
-          // click handler for pill navigation
-          const btn = td.querySelector("button.nav-pill");
-          if (btn) {
-            btn.addEventListener("click", (e) => {
+          // click handler for pill navigation (identifikator)
+          const pillBtn = td.querySelector("button.nav-pill");
+          if (pillBtn) {
+            pillBtn.addEventListener("click", (e) => {
               e.preventDefault();
               e.stopPropagation();
               gotoSerieForArkivIdent(r.identifikator);
+            });
+          }
+
+          // click handler for requisition numbers -> details page
+          const reqBtn = td.querySelector("button.req-link");
+          if (reqBtn) {
+            reqBtn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              const sk = reqBtn.dataset.arkivSk;
+              const ident = reqBtn.dataset.ident || "";
+              const kind = reqBtn.dataset.kind || ""; // "internal" | "ap"
+
+              gotoDetailsForArkivSk(sk, ident, kind);
             });
           }
         } else {
