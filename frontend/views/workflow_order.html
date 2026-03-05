@@ -163,6 +163,38 @@
   </div>
 </div>
 
+<!-- Stegdetaljer: dynamisk skjema for aktivt steg + tidligere steg -->
+<div id="stepDetailsCard" class="surface-light" style="margin-top: 14px; display:none;">
+  <details open style="background:#fff; border:1px solid #e5e7eb; border-radius: 10px;">
+    <summary style="list-style:none; cursor:pointer; padding:14px; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <h3 style="margin:0;">Stegdetaljer</h3>
+        <div id="stepDetailsSub" style="color:#6b7280; font-size:12px; margin-top:4px;"></div>
+      </div>
+      <span aria-hidden="true" style="font-weight:900;">▾</span>
+    </summary>
+
+    <div style="padding: 0 14px 14px 14px;">
+      <div id="currentStepFormHost"></div>
+
+      <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+        <button id="currentStepSaveBtn" class="btn btn-primary" type="button">Lagre</button>
+        <div id="currentStepMsg" style="color:#6b7280; font-size:12px;"></div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <details id="priorStepsDetails">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:10px; border:1px solid #e5e7eb; border-radius:10px;">
+            <div style="font-weight:900;">Tidligere steg</div>
+            <span aria-hidden="true" style="font-weight:900;">▾</span>
+          </summary>
+          <div id="priorStepsInlineHost" style="margin-top:10px;"></div>
+        </details>
+      </div>
+    </div>
+  </details>
+</div>
+
 <!-- Header card -->
 <div id="headerCard" class="surface-light" style="margin-top: 14px; display:none;">
   <details style="background:#fff; border:1px solid #e5e7eb; border-radius: 10px;">
