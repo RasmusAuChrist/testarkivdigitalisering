@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
-
+from typing import Optional, Literal, Any, Dict
+import json
+import base64
 from backend.db import get_connection
 from backend.routers.auth import get_current_user, MeResponse
 
@@ -41,6 +42,10 @@ class CompleteStepRequest(BaseModel):
 
 class UnclaimStepRequest(BaseModel):
     comment: Optional[str] = Field(default=None, max_length=400)
+
+class SaveStepFormDataRequest(BaseModel):
+    data: Dict[str, Any]
+    expected_row_ver: Optional[str] = None  # optional, if you support optimistic concurrency
 
 
 # -----------------------------
@@ -258,6 +263,86 @@ def unclaim_step(order_step_id: int, payload: UnclaimStepRequest, me: MeResponse
             "EXEC dbo.usp_wf_unclaim_step %s, %s, %s",
             (me.user_id, order_step_id, payload.comment),
         )
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/wf/steps/def/{step_def_id}/form-schema")
+def get_step_form_schema(step_def_id: int, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_get_step_form_schema %s", (step_def_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Fant ikke skjema for steg")
+        return row
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/wf/steps/{order_step_id}/form-data")
+def get_step_form_data(order_step_id: int, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_get_step_form_data %s", (order_step_id,))
+        row = cur.fetchone()
+        # Return empty response instead of 404 if you prefer
+        return row or {"OrderStepId": order_step_id, "DataJson": None}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/wf/orders/{order_id}/step-form-data")
+def get_order_step_form_data(order_id: int, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_get_order_step_form_data %s", (order_id,))
+        rows = cur.fetchall() or []
+        return {"order_id": order_id, "items": rows}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+def _rowver_from_client(v: Optional[str]) -> Optional[bytes]:
+    """
+    Accept either hex ("0xAABB...") or base64 and return VARBINARY(8) bytes.
+    If you don't use concurrency yet, you can remove all of this.
+    """
+    if not v:
+        return None
+    s = v.strip()
+    if s.lower().startswith("0x"):
+        return bytes.fromhex(s[2:])
+    # base64
+    return base64.b64decode(s)
+
+@router.post("/wf/steps/{order_step_id}/form-data")
+def save_step_form_data(order_step_id: int, payload: SaveStepFormDataRequest, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+
+        data_json = json.dumps(payload.data, ensure_ascii=False)
+        expected_rowver = _rowver_from_client(payload.expected_row_ver)
+
+        cur.execute(
+            "EXEC dbo.usp_wf_upsert_step_form_data %s, %s, %s, %s",
+            (me.user_id, order_step_id, data_json, expected_rowver),
+        )
+
         row = cur.fetchone()
         conn.commit()
         return row or {"ok": True}

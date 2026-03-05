@@ -179,6 +179,94 @@ function renderEvents(events, steps) {
   `).join("");
 }
 
+function workNoteStorageKey(orderHeader) {
+  // stabil nøkkel per ordre. ExternalAmid er fin.
+  const amid = orderHeader?.ExternalAmid || "unknown";
+  return `wf_worknote_${amid}`;
+}
+
+function setWorkNoteMsg(text, isError = false) {
+  const el = document.getElementById("workNoteMsg");
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color = isError ? "#b91c1c" : "#6b7280";
+}
+
+function getWorkNotePayloadFromUi() {
+  return {
+    note: document.getElementById("workNoteText")?.value ?? "",
+    contact: document.getElementById("workNoteContact")?.value ?? "",
+    phone: document.getElementById("workNotePhone")?.value ?? "",
+    checklist: {
+      dokumentasjon: !!document.getElementById("chk1")?.checked,
+      metadata: !!document.getElementById("chk2")?.checked,
+      vedlegg: !!document.getElementById("chk3")?.checked,
+      fagansvarlig: !!document.getElementById("chk4")?.checked,
+      klarNeste: !!document.getElementById("chk5")?.checked,
+      avvik: !!document.getElementById("chk6")?.checked,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function applyWorkNotePayloadToUi(payload) {
+  document.getElementById("workNoteText").value = payload?.note ?? "";
+  document.getElementById("workNoteContact").value = payload?.contact ?? "";
+  document.getElementById("workNotePhone").value = payload?.phone ?? "";
+
+  const c = payload?.checklist || {};
+  document.getElementById("chk1").checked = !!c.dokumentasjon;
+  document.getElementById("chk2").checked = !!c.metadata;
+  document.getElementById("chk3").checked = !!c.vedlegg;
+  document.getElementById("chk4").checked = !!c.fagansvarlig;
+  document.getElementById("chk5").checked = !!c.klarNeste;
+  document.getElementById("chk6").checked = !!c.avvik;
+}
+
+function showWorkNoteCard(show) {
+  const card = document.getElementById("workNoteCard");
+  if (card) card.style.display = show ? "block" : "none";
+}
+
+function loadWorkNoteFromStorage(orderHeader) {
+  try {
+    const key = workNoteStorageKey(orderHeader);
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      applyWorkNotePayloadToUi(null);
+      setWorkNoteMsg("Ingen lagret notat for denne ordren enda.");
+      return;
+    }
+    const payload = JSON.parse(raw);
+    applyWorkNotePayloadToUi(payload);
+    setWorkNoteMsg(payload?.updatedAt ? `Sist lagret: ${fmtDate(payload.updatedAt)}` : "Lastet.");
+  } catch (e) {
+    setWorkNoteMsg("Kunne ikke laste notat (ugyldig data i lokal lagring).", true);
+  }
+}
+
+function saveWorkNoteToStorage(orderHeader) {
+  try {
+    const key = workNoteStorageKey(orderHeader);
+    const payload = getWorkNotePayloadFromUi();
+    localStorage.setItem(key, JSON.stringify(payload));
+    setWorkNoteMsg(`Lagret lokalt: ${fmtDate(payload.updatedAt)}`);
+  } catch (e) {
+    setWorkNoteMsg("Kunne ikke lagre notat lokalt.", true);
+  }
+}
+
+function clearWorkNoteStorage(orderHeader) {
+  try {
+    const key = workNoteStorageKey(orderHeader);
+    localStorage.removeItem(key);
+    applyWorkNotePayloadToUi(null);
+    setWorkNoteMsg("Tømt.");
+  } catch {
+    setWorkNoteMsg("Kunne ikke tømme.", true);
+  }
+}
+
 async function loadOrder() {
   const amidEl = document.getElementById("amidInput");
   const amid = amidEl?.value?.trim();
@@ -190,11 +278,14 @@ async function loadOrder() {
   setMsg("Henter…");
   const data = await apiGet(`/api/wf/orders/by-amid/${encodeURIComponent(amid)}`);
 
-  lastOrder = data;
+lastOrder = data;
 
-  renderHeader(data.header);
-  renderSteps(data.steps);
-  renderEvents(data.events, data.steps);
+showWorkNoteCard(true);
+loadWorkNoteFromStorage(data.header);
+
+renderHeader(data.header);
+renderSteps(data.steps);
+renderEvents(data.events, data.steps);
 
   setMsg("OK");
   return data;
@@ -210,6 +301,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (ensureLoggedIn()) {
     await initMeForMenu();
   }
+
+document.getElementById("workNoteSaveBtn")?.addEventListener("click", () => {
+  if (!lastOrder?.header) return;
+  saveWorkNoteToStorage(lastOrder.header);
+});
+
+document.getElementById("workNoteClearBtn")?.addEventListener("click", () => {
+  if (!lastOrder?.header) return;
+  clearWorkNoteStorage(lastOrder.header);
+});
 
   const loadBtn = document.getElementById("loadBtn");
   loadBtn?.addEventListener("click", async () => {
