@@ -71,7 +71,7 @@ def create_order(payload: CreateOrderRequest, me: MeResponse = Depends(get_curre
 
 
 # -----------------------------
-# Read order by amid (3 result sets)
+# Read order by amid (4 result sets)
 # -----------------------------
 @router.get("/wf/orders/by-amid/{amid}")
 def get_order_by_amid(amid: str, me: MeResponse = Depends(get_current_user)):
@@ -86,19 +86,22 @@ def get_order_by_amid(amid: str, me: MeResponse = Depends(get_current_user)):
 
         steps = []
         events = []
+        step_form_data = []
+
         if cur.nextset():
             steps = cur.fetchall() or []
         if cur.nextset():
             events = cur.fetchall() or []
+        if cur.nextset():
+            step_form_data = cur.fetchall() or []
 
-        return {"header": header, "steps": steps, "events": events}
+        return {"header": header, "steps": steps, "events": events, "step_form_data": step_form_data}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
-
 
 # -----------------------------
 # Queue for a step
