@@ -163,56 +163,74 @@
   </div>
 </div>
 
-    <!-- Header card -->
-    <div id="headerCard" class="surface-light" style="margin-top: 14px; display:none;">
-      <div style="background:#fff; border:1px solid #e5e7eb; border-radius: 10px; padding: 14px;">
-        <h3 style="margin-bottom: 8px;">Oppsummering</h3>
-        <div id="headerGrid" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;"></div>
-      </div>
+<!-- Header card -->
+<div id="headerCard" class="surface-light" style="margin-top: 14px; display:none;">
+  <details style="background:#fff; border:1px solid #e5e7eb; border-radius: 10px;">
+    <summary style="list-style:none; cursor:pointer; padding:14px; display:flex; align-items:center; justify-content:space-between;">
+      <h3 style="margin:0;">Oppsummering</h3>
+      <span aria-hidden="true" style="font-weight:900;">▾</span>
+    </summary>
+    <div style="padding: 0 14px 14px 14px;">
+      <div id="headerGrid" style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;"></div>
+    </div>
+  </details>
+</div>
+
+<!-- Steps -->
+<div style="margin-top: 14px;">
+  <details>
+    <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+      <h3 style="margin:0;">Steg</h3>
+      <span aria-hidden="true" style="font-weight:900;">▾</span>
+    </summary>
+
+    <div class="table-scroll-x" style="margin-top: 8px;">
+      <table class="arkiv-table" style="min-width: 900px;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Steg</th>
+            <th>Status</th>
+            <th>Tildelt</th>
+            <th>Startet</th>
+            <th>Fullført</th>
+            <th>Disposition</th>
+            <th>Merknad</th>
+          </tr>
+        </thead>
+        <tbody id="stepsBody"></tbody>
+      </table>
     </div>
 
-    <!-- Steps -->
-    <div style="margin-top: 14px;">
-      <h3>Steg</h3>
-      <div class="table-scroll-x" style="margin-top: 8px;">
-        <table class="arkiv-table" style="min-width: 1100px;">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Steg</th>
-              <th>Status</th>
-              <th>Tildelt</th>
-              <th>Startet</th>
-              <th>Fullført</th>
-              <th>Disposition</th>
-              <th>Merknad</th>
-            </tr>
-          </thead>
-          <tbody id="stepsBody"></tbody>
-        </table>
-      </div>
+  </details>
+</div>
+
+<!-- Events -->
+<div style="margin-top: 14px;">
+  <details>
+    <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+      <h3 style="margin:0;">Hendelser</h3>
+      <span aria-hidden="true" style="font-weight:900;">▾</span>
+    </summary>
+
+    <div class="table-scroll-x" style="margin-top: 8px;">
+      <table class="arkiv-table" style="min-width: 1000px;">
+        <thead>
+          <tr>
+            <th>Tid</th>
+            <th>Type</th>
+            <th>Steg</th>
+            <th>Årsak</th>
+            <th>Kommentar</th>
+            <th>Bruker</th>
+          </tr>
+        </thead>
+        <tbody id="eventsBody"></tbody>
+      </table>
     </div>
 
-    <!-- Events -->
-    <div style="margin-top: 14px;">
-      <h3>Hendelser</h3>
-      <div class="table-scroll-x" style="margin-top: 8px;">
-        <table class="arkiv-table" style="min-width: 1000px;">
-          <thead>
-            <tr>
-              <th>Tid</th>
-              <th>Type</th>
-              <th>Steg</th>
-              <th>Årsak</th>
-              <th>Kommentar</th>
-              <th>Bruker</th>
-            </tr>
-          </thead>
-          <tbody id="eventsBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  </details>
+</div>
 
   <script type="module" src="/js/workflow_order.js"></script>
 </body>

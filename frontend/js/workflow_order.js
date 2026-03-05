@@ -312,6 +312,13 @@ document.getElementById("workNoteClearBtn")?.addEventListener("click", () => {
   clearWorkNoteStorage(lastOrder.header);
 });
 
+// Prevent buttons inside <summary> from toggling the <details>
+for (const id of ["workNoteClearBtn", "workNoteSaveBtn"]) {
+  document.getElementById(id)?.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+}
+
   const loadBtn = document.getElementById("loadBtn");
   loadBtn?.addEventListener("click", async () => {
     if (!ensureLoggedIn()) return;
