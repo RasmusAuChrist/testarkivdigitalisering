@@ -803,3 +803,47 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .toast.show { display: block; }
 .toast.error { background: #7f1d1d; }
 .toast.success { background: #14532d; }
+
+/* =========================
+   Login Page
+========================= */
+
+.login-card{
+  width:100%;
+  max-width:420px;
+  padding:28px;
+  border-radius:12px;
+  background:var(--light-surface);
+  box-shadow:0 10px 30px rgba(0,0,0,0.25);
+}
+
+.login-card h2{
+  margin-bottom:6px;
+}
+
+.login-subtitle{
+  color:var(--light-text-muted);
+  margin-bottom:18px;
+}
+
+.login-form{
+  display:grid;
+  gap:12px;
+}
+
+.login-form input{
+  width:100%;
+}
+
+.remember-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+}
+
+.login-error{
+  color:#b00020;
+  display:none;
+  font-size:14px;
+}

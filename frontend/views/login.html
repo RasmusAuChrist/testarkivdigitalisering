@@ -7,34 +7,53 @@
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
-  <div class="surface-light" style="padding:20px;max-width:520px;margin:0 auto;">
-    <h2>Logg inn</h2>
-    <p style="color:#555;margin-top:-6px;">
-      Skriv inn brukernavn og passord.
-    </p>
 
-    <div style="display:grid;gap:10px;margin-top:16px;">
-      <label>
-        Brukernavn
-        <input id="username" type="text" autocomplete="username" style="width:100%;" />
-      </label>
+  <div style="
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  ">
 
-      <label>
-        Passord
-        <input id="password" type="password" autocomplete="current-password" style="width:100%;" />
-      </label>
+    <div class="surface-light login-card">
 
-      <label style="display:flex; align-items:center; gap:8px;">
-       <input id="rememberMe" type="checkbox" />
-        Husk meg på denne maskinen
-      </label>      
+      <img src="/assets/logo.png" style="height:60px;margin-bottom:16px;">
 
-      <button id="loginBtn" type="button">Logg inn</button>
+      <h2>Logg inn</h2>
 
-      <div id="err" style="color:#b00020;display:none;"></div>
+      <p class="login-subtitle">
+        Skriv inn brukernavn og passord.
+      </p>
+
+      <div class="login-form">
+
+        <label>
+          Brukernavn
+          <input id="username" type="text" autocomplete="username"/>
+        </label>
+
+        <label>
+          Passord
+          <input id="password" type="password" autocomplete="current-password"/>
+        </label>
+
+        <label class="remember-row">
+          <input id="rememberMe" type="checkbox" />
+          Husk meg på denne maskinen
+        </label>
+
+        <button id="loginBtn" class="btn btn-primary" type="button">
+          Logg inn
+        </button>
+
+        <div id="err" class="login-error"></div>
+
+      </div>
+
     </div>
+
   </div>
 
   <script type="module" src="/js/login.js"></script>
-</body>
-</html>
+</body></html>
