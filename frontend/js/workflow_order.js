@@ -3,7 +3,7 @@ import { initUserMenu } from "./user_menu.js";
 
 const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
-let lastOrder = null; // { header, steps, events }
+let lastOrder = null; // { header, steps, events, step_form_data? }
 let lastMe = null;    // from /api/auth/me
 
 function setMsg(text, isError = false) {
@@ -121,7 +121,7 @@ function ensureLoggedIn() {
 }
 
 /* -----------------------------
-   Render: Header/Steps/Events
+   Render: Header / Steps / Events
 ------------------------------ */
 function renderHeader(header) {
   const card = document.getElementById("headerCard");
@@ -143,27 +143,23 @@ function renderHeader(header) {
     ["På vent (kommentar)", header.HoldComment ?? ""],
     ["På vent (steg)", header.HoldAtOrderStepId ?? ""],
     ["På vent (tid)", fmtDate(header.HoldAtUtc)],
-    ["På vent (bruker)", header.HoldByUserId ?? ""],
 
     ["Stoppet (årsak)", header.ClosedReason ?? ""],
     ["Stoppet (kommentar)", header.ClosedComment ?? ""],
     ["Stoppet (steg)", header.ClosedAtOrderStepId ?? ""],
     ["Stoppet (tid)", fmtDate(header.ClosedAtUtc)],
-    ["Stoppet (bruker)", header.ClosedByUserId ?? ""],
 
     ["Opprettet", fmtDate(header.CreatedAt)],
     ["Opprettet av", header.CreatedByUserId ?? ""],
     ["Sist oppdatert", fmtDate(header.UpdatedAt)],
   ];
 
-  grid.innerHTML = fields
-    .map(([k, v]) => `
-      <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
-        <div style="font-size:12px; color:#6b7280;">${escapeHtml(k)}</div>
-        <div style="font-weight:700;">${escapeHtml(v ?? "")}</div>
-      </div>
-    `)
-    .join("");
+  grid.innerHTML = fields.map(([k, v]) => `
+    <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+      <div style="font-size:12px; color:#6b7280;">${escapeHtml(k)}</div>
+      <div style="font-weight:700;">${escapeHtml(v ?? "")}</div>
+    </div>
+  `).join("");
 }
 
 function renderSteps(steps) {
@@ -186,7 +182,9 @@ function renderSteps(steps) {
 
 function renderEvents(events, steps) {
   const stepNameByOrderStepId = new Map();
-  for (const s of (steps || [])) stepNameByOrderStepId.set(s.OrderStepId, s.StepName);
+  for (const s of (steps || [])) {
+    stepNameByOrderStepId.set(s.OrderStepId, s.StepName);
+  }
 
   const body = document.getElementById("eventsBody");
   if (!body) return;
@@ -216,7 +214,11 @@ function setCurrentStepMsg(text, isError = false) {
 function safeParseJson(maybeJson, fallback) {
   if (!maybeJson) return fallback;
   if (typeof maybeJson === "object") return maybeJson;
-  try { return JSON.parse(maybeJson); } catch { return fallback; }
+  try {
+    return JSON.parse(maybeJson);
+  } catch {
+    return fallback;
+  }
 }
 
 function getCurrentStep(order) {
@@ -227,6 +229,7 @@ function getCurrentStep(order) {
     const byId = steps.find(s => String(s.OrderStepId) === String(currentId));
     if (byId) return byId;
   }
+
   return steps.find(s => s.StepStatus === "Active") || null;
 }
 
@@ -244,7 +247,6 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const label = escapeHtml(f.label || f.key);
     const required = !!f.required;
 
-    // Checklist field
     if (f.type === "checklist") {
       const obj = values?.[f.key] || {};
       const items = (f.items || []).map(it => {
@@ -284,6 +286,7 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
         const sel = String(o) === String(val) ? "selected" : "";
         return `<option ${sel} value="${escapeHtml(o)}">${escapeHtml(o)}</option>`;
       }).join("");
+
       return `
         <div style="margin-bottom:10px;">
           <label style="font-weight:800;">${label}${required ? " *" : ""}</label><br/>
@@ -352,8 +355,9 @@ function renderPriorStepsInline(items, currentSequence) {
   const host = document.getElementById("priorStepsInlineHost");
   if (!host) return;
 
-  const prior = (items || [])
-    .filter(x => Number(x.Sequence) < Number(currentSequence) && x.DataJson);
+  const prior = (items || []).filter(x =>
+    Number(x.Sequence) < Number(currentSequence) && x.DataJson
+  );
 
   if (!prior.length) {
     host.innerHTML = `<div style="color:#6b7280;">Ingen tidligere steg med utfylte detaljer.</div>`;
@@ -366,11 +370,12 @@ function renderPriorStepsInline(items, currentSequence) {
 
     const commentEntries = entries.filter(([k, v]) =>
       typeof v === "string" &&
-      ["merknad", "kommentar", "note", "notat"].some(x => k.toLowerCase().includes(x)) &&
+      ["merknad", "kommentar", "kommentarer", "note", "notat"].some(x => k.toLowerCase().includes(x)) &&
       v.trim() !== ""
     );
 
-    const checklistEntries = entries.filter(([k, v]) => v && typeof v === "object" && !Array.isArray(v) &&
+    const checklistEntries = entries.filter(([k, v]) =>
+      v && typeof v === "object" && !Array.isArray(v) &&
       Object.values(v).every(x => typeof x === "boolean")
     );
 
@@ -398,7 +403,7 @@ function renderPriorStepsInline(items, currentSequence) {
     }).join("");
 
     const fallbackHtml = (!commentEntries.length && !checklistEntries.length)
-      ? `<div style="margin-top:10px; color:#6b7280; font-size:12px;">(Ingen merknad/sjekkliste funnet – viser alle felter)</div>
+      ? `<div style="margin-top:10px; color:#6b7280; font-size:12px;">(Ingen kommentar/sjekkliste funnet – viser alle felter)</div>
          <pre style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:10px; overflow:auto;">${escapeHtml(JSON.stringify(obj, null, 2))}</pre>`
       : "";
 
@@ -424,7 +429,6 @@ async function renderCurrentStepDetails(order) {
   const host = document.getElementById("currentStepFormHost");
   const saveBtn = document.getElementById("currentStepSaveBtn");
 
-  // If you haven't added the HTML panel yet, just do nothing.
   if (!card || !sub || !host || !saveBtn) return;
 
   const step = getCurrentStep(order);
@@ -445,30 +449,25 @@ async function renderCurrentStepDetails(order) {
 
   setCurrentStepMsg("Laster…");
 
-  // Needs StepDefId in the steps payload
   if (!step.StepDefId) {
-    host.innerHTML =
-      `<div style="color:#b91c1c; font-weight:800;">
-         Mangler StepDefId på steget.
-       </div>
-       <div style="color:#6b7280; margin-top:6px;">
-         Legg til <code>os.StepDefId</code> i steps-resultsettet i <code>usp_wf_get_order_by_amid</code>.
-       </div>`;
+    host.innerHTML = `
+      <div style="color:#b91c1c; font-weight:800;">Mangler StepDefId på steget.</div>
+      <div style="color:#6b7280; margin-top:6px;">
+        Legg til <code>os.StepDefId</code> i steps-resultsettet i <code>usp_wf_get_order_by_amid</code>.
+      </div>
+    `;
     setCurrentStepMsg("Kan ikke laste skjema.", true);
     return;
   }
 
-  // 1) schema
   const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
   const schemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
 
-  // 2) current step data
   const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
   const currentValues = safeParseJson(dataRow.DataJson, {});
 
   renderDynamicFormInto(host, schemaObj, currentValues, canEdit);
 
-  // 3) previous steps
   const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
   renderPriorStepsInline(allData.items || [], step.Sequence);
 
@@ -477,7 +476,6 @@ async function renderCurrentStepDetails(order) {
     !canEdit
   );
 
-  // Save
   saveBtn.onclick = async () => {
     try {
       const values = readDynamicFormValuesFrom(host, schemaObj);
@@ -491,114 +489,12 @@ async function renderCurrentStepDetails(order) {
       await apiPost(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`, { data: values });
       setCurrentStepMsg("Lagret ✔️");
 
-      // refresh previous steps view
       const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
       renderPriorStepsInline(allData2.items || [], step.Sequence);
     } catch (e) {
       setCurrentStepMsg(e.message || "Feil ved lagring.", true);
     }
   };
-}
-
-/* -----------------------------
-   WorkNote (localStorage)
------------------------------- */
-function workNoteStorageKey(orderHeader) {
-  const amid = orderHeader?.ExternalAmid || "unknown";
-  return `wf_worknote_${amid}`;
-}
-
-function setWorkNoteMsg(text, isError = false) {
-  const el = document.getElementById("workNoteMsg");
-  if (!el) return;
-  el.textContent = text || "";
-  el.style.color = isError ? "#b91c1c" : "#6b7280";
-}
-
-function getWorkNotePayloadFromUi() {
-  return {
-    note: document.getElementById("workNoteText")?.value ?? "",
-    contact: document.getElementById("workNoteContact")?.value ?? "",
-    phone: document.getElementById("workNotePhone")?.value ?? "",
-    checklist: {
-      dokumentasjon: !!document.getElementById("chk1")?.checked,
-      metadata: !!document.getElementById("chk2")?.checked,
-      vedlegg: !!document.getElementById("chk3")?.checked,
-      fagansvarlig: !!document.getElementById("chk4")?.checked,
-      klarNeste: !!document.getElementById("chk5")?.checked,
-      avvik: !!document.getElementById("chk6")?.checked,
-    },
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function applyWorkNotePayloadToUi(payload) {
-  const t = document.getElementById("workNoteText");
-  const c = document.getElementById("workNoteContact");
-  const p = document.getElementById("workNotePhone");
-
-  if (t) t.value = payload?.note ?? "";
-  if (c) c.value = payload?.contact ?? "";
-  if (p) p.value = payload?.phone ?? "";
-
-  const chk = payload?.checklist || {};
-  const ids = [
-    ["chk1", "dokumentasjon"],
-    ["chk2", "metadata"],
-    ["chk3", "vedlegg"],
-    ["chk4", "fagansvarlig"],
-    ["chk5", "klarNeste"],
-    ["chk6", "avvik"],
-  ];
-
-  for (const [id, key] of ids) {
-    const el = document.getElementById(id);
-    if (el) el.checked = !!chk[key];
-  }
-}
-
-function showWorkNoteCard(show) {
-  const card = document.getElementById("workNoteCard");
-  if (card) card.style.display = show ? "block" : "none";
-}
-
-function loadWorkNoteFromStorage(orderHeader) {
-  try {
-    const key = workNoteStorageKey(orderHeader);
-    const raw = localStorage.getItem(key);
-    if (!raw) {
-      applyWorkNotePayloadToUi(null);
-      setWorkNoteMsg("Ingen lagret notat for denne ordren enda.");
-      return;
-    }
-    const payload = JSON.parse(raw);
-    applyWorkNotePayloadToUi(payload);
-    setWorkNoteMsg(payload?.updatedAt ? `Sist lagret: ${fmtDate(payload.updatedAt)}` : "Lastet.");
-  } catch {
-    setWorkNoteMsg("Kunne ikke laste notat (ugyldig data i lokal lagring).", true);
-  }
-}
-
-function saveWorkNoteToStorage(orderHeader) {
-  try {
-    const key = workNoteStorageKey(orderHeader);
-    const payload = getWorkNotePayloadFromUi();
-    localStorage.setItem(key, JSON.stringify(payload));
-    setWorkNoteMsg(`Lagret lokalt: ${fmtDate(payload.updatedAt)}`);
-  } catch {
-    setWorkNoteMsg("Kunne ikke lagre notat lokalt.", true);
-  }
-}
-
-function clearWorkNoteStorage(orderHeader) {
-  try {
-    const key = workNoteStorageKey(orderHeader);
-    localStorage.removeItem(key);
-    applyWorkNotePayloadToUi(null);
-    setWorkNoteMsg("Tømt.");
-  } catch {
-    setWorkNoteMsg("Kunne ikke tømme.", true);
-  }
 }
 
 /* -----------------------------
@@ -614,23 +510,19 @@ async function loadOrder() {
 
   setMsg("Henter…");
   const data = await apiGet(`/api/wf/orders/by-amid/${encodeURIComponent(amid)}`);
-
   lastOrder = data;
 
-  // WorkNote
-  showWorkNoteCard(true);
-  loadWorkNoteFromStorage(data.header);
+  // Hide old local-only notes block
+  const workNoteCard = document.getElementById("workNoteCard");
+  if (workNoteCard) workNoteCard.style.display = "none";
 
-  // Core render
   renderHeader(data.header);
   renderSteps(data.steps);
   renderEvents(data.events, data.steps);
 
-  // Dynamic current-step form + previous steps panel
   try {
     await renderCurrentStepDetails(data);
   } catch (e) {
-    // Don't break the page if dynamic form fails
     setCurrentStepMsg(e.message || "Feil ved lasting av stegdetaljer.", true);
   }
 
@@ -644,30 +536,12 @@ async function loadOrder() {
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
-  // dropdown usable before /me loads
   initUserMenu(null);
 
   if (ensureLoggedIn()) {
     await initMeForMenu();
   }
 
-  // WorkNote buttons
-  document.getElementById("workNoteSaveBtn")?.addEventListener("click", () => {
-    if (!lastOrder?.header) return;
-    saveWorkNoteToStorage(lastOrder.header);
-  });
-
-  document.getElementById("workNoteClearBtn")?.addEventListener("click", () => {
-    if (!lastOrder?.header) return;
-    clearWorkNoteStorage(lastOrder.header);
-  });
-
-  // Prevent buttons inside <summary> from toggling <details>
-  for (const id of ["workNoteClearBtn", "workNoteSaveBtn"]) {
-    document.getElementById(id)?.addEventListener("click", (e) => e.stopPropagation());
-  }
-
-  // Load button
   const loadBtn = document.getElementById("loadBtn");
   loadBtn?.addEventListener("click", async () => {
     if (!ensureLoggedIn()) return;
@@ -678,14 +552,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Auto-load if amid in querystring (?amid=...)
   const amidFromQs = new URLSearchParams(window.location.search).get("amid");
   if (amidFromQs) {
     const amidInput = document.getElementById("amidInput");
     if (amidInput) amidInput.value = amidFromQs;
 
     if (ensureLoggedIn()) {
-      try { await loadOrder(); } catch { /* already handled */ }
+      try {
+        await loadOrder();
+      } catch {
+        // already handled
+      }
     }
   }
 });
