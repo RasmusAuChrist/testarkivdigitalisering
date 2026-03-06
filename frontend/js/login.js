@@ -45,8 +45,8 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
 
   try {
     const data = await login(username, password);
-    setToken(data.access_token);
-    window.location.assign(getNextUrl());
+    const remember = document.getElementById("rememberMe").checked;
+    setToken(data.access_token, remember);    window.location.assign(getNextUrl());
   } catch (e) {
     showError(e.message || "Innlogging feilet.");
   }
