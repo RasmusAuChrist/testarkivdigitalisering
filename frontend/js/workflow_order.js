@@ -272,6 +272,41 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const val = values?.[f.key];
     const common = `data-field="${key}" ${required ? "data-required='1'" : ""} ${dis}`;
 
+  if (f.type === "slider") {
+    const min = Number(f.min ?? 1);
+    const max = Number(f.max ?? 10);
+    const step = Number(f.step ?? 1);
+    const current = Number(val ?? min);
+
+    return `
+      <div style="margin-bottom:12px;">
+        <label style="font-weight:800;">${label}${required ? " *" : ""}</label>
+        <div style="display:grid; grid-template-columns: 1fr 70px; gap:10px; align-items:center; margin-top:6px;">
+          <input
+            ${common}
+            type="range"
+            min="${min}"
+            max="${max}"
+            step="${step}"
+            value="${current}"
+            oninput="this.nextElementSibling.value=this.value"
+            style="width:100%;"
+          />
+          <input
+            type="number"
+            min="${min}"
+            max="${max}"
+            step="${step}"
+            value="${current}"
+            ${dis}
+            oninput="this.previousElementSibling.value=this.value"
+            style="width:70px; height:38px;"
+          />
+        </div>
+      </div>
+    `;
+  }
+    
     if (f.type === "textarea") {
       return `
         <div style="margin-bottom:10px;">
@@ -334,8 +369,13 @@ function readDynamicFormValuesFrom(hostEl, schemaObj) {
     const el = hostEl.querySelector(`[data-field="${CSS.escape(f.key)}"]`);
     if (!el) continue;
 
-    if (f.type === "checkbox") out[f.key] = !!el.checked;
-    else out[f.key] = (el.value ?? "").trim();
+    if (f.type === "checkbox") {
+      out[f.key] = !!el.checked;
+    } else if (f.type === "number" || f.type === "slider") {
+      out[f.key] = el.value === "" ? null : Number(el.value);
+    } else {
+      out[f.key] = (el.value ?? "").trim();
+    }
   }
 
   return out;
@@ -343,11 +383,17 @@ function readDynamicFormValuesFrom(hostEl, schemaObj) {
 
 function validateDynamicForm(schemaObj, values) {
   const fields = schemaObj?.fields || [];
-  const missing = fields.filter(f => f.required && (
-    f.type === "checklist"
-      ? !Object.values(values?.[f.key] || {}).some(Boolean)
-      : !String(values?.[f.key] ?? "").trim()
-  ));
+  const missing = fields.filter(f => {
+    if (!f.required) return false;
+
+    if (f.type === "checklist") {
+      return !Object.values(values?.[f.key] || {}).some(Boolean);
+    }
+
+    const v = values?.[f.key];
+    return v === null || v === undefined || v === "";
+  });
+
   return missing.map(m => m.label || m.key);
 }
 
