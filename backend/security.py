@@ -24,12 +24,17 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
-def create_access_token(subject: str, extra_claims: Optional[Dict[str, Any]] = None) -> str:
+def create_access_token(
+    subject: str,
+    extra_claims: Optional[Dict[str, Any]] = None,
+    expires_minutes: Optional[int] = None
+) -> str:
     if not JWT_SECRET:
         raise RuntimeError("JWT_SECRET is not set")
 
     now = datetime.now(timezone.utc)
-    exp = now + timedelta(minutes=ACCESS_TOKEN_MINUTES)
+    minutes = expires_minutes or ACCESS_TOKEN_MINUTES
+    exp = now + timedelta(minutes=minutes)
 
     payload: Dict[str, Any] = {
         "sub": subject,

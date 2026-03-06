@@ -20,6 +20,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 class LoginRequest(BaseModel):
     username: str
     password: str
+    remember: bool = False
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -85,8 +86,13 @@ def login(payload: LoginRequest):
 
         must_change = bool(user.get("MustChangePassword", False))
 
+        token_minutes = 43200 if payload.remember else 720
+        # 43200 = 30 days
+        # 720 = 12 hours
+
         token = create_access_token(
             subject=str(user["UserId"]),
+            expires_minutes=token_minutes,
             extra_claims={
                 "username": user["Username"],
                 "roles": roles,

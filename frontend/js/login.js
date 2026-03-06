@@ -14,10 +14,17 @@ function showError(msg) {
 }
 
 async function login(username, password) {
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
+
+  const remember = document.getElementById("rememberMe").checked;
+  
+   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({
+      username,
+      password,
+      remember
+    })
   });
 
   const data = await res.json().catch(() => ({}));
