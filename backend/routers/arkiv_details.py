@@ -107,3 +107,103 @@ def requisition_history(
     finally:
         if conn:
             conn.close()
+
+# routers/arkiv_details.py (add this)
+
+DASTATS_TABLE = "dbo.gold_fact_dastats_views_monthly_per_arkiv"
+
+@router.get("/arkiv/{arkiv_sk}/dastats-views-history")
+def dastats_views_history(
+    arkiv_sk: int,
+    from_yyyymmdd: int | None = Query(default=None),
+    to_yyyymmdd: int | None = Query(default=None),
+):
+    """
+    Monthly series for DAstats views, missing months filled with zeros.
+    Default end is last complete month (current month start - 1 month).
+    """
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor(as_dict=True)
+
+        # Find first month with any data for this arkiv (views > 0)
+        cur.execute(
+            f"""
+            SELECT MIN(month_key) AS start_month_key
+            FROM {DASTATS_TABLE}
+            WHERE arkiv_sk = %s
+              AND (views_media > 0 OR views_digark > 0);
+            """,
+            (arkiv_sk,),
+        )
+        start_row = cur.fetchone() or {}
+        start_key = start_row.get("start_month_key")
+
+        if start_key is None:
+            return {"arkiv_sk": arkiv_sk, "points": []}
+
+        # Default date window:
+        # start = first month with data
+        # end   = last complete month (month before current month)
+        start_date = first_of_month(yyyymmdd_to_date(int(start_key)))
+
+        today = date.today()
+        current_month_start = first_of_month(today)
+        end_date = next_month_start(current_month_start)  # exclusive current month start + 1? we'll clamp below
+        # We want last complete month, so exclusive end should be current_month_start
+        end_exclusive = current_month_start
+
+        # Apply optional filters
+        if from_yyyymmdd is not None:
+            start_date = max(start_date, first_of_month(yyyymmdd_to_date(from_yyyymmdd)))
+
+        if to_yyyymmdd is not None:
+            # inclusive -> make exclusive by going to next month start of provided month
+            to_date = first_of_month(yyyymmdd_to_date(to_yyyymmdd))
+            end_exclusive = min(end_exclusive, next_month_start(to_date))
+
+        # Pull rows for this arkiv in the window [start_date, end_exclusive)
+        where = ["arkiv_sk = %s", "month_key >= %s", "month_key < %s"]
+        params = [
+            arkiv_sk,
+            date_to_yyyymmdd(start_date),
+            date_to_yyyymmdd(end_exclusive),
+        ]
+
+        sql = f"""
+            SELECT arkiv_sk, month_key, views_media, views_digark
+            FROM {DASTATS_TABLE}
+            WHERE {" AND ".join(where)}
+            ORDER BY month_key ASC;
+        """
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+
+        # Map rows by month_key (YYYYMM01)
+        by_key: dict[int, dict] = {}
+        for r in rows:
+            mk = date_to_yyyymmdd(first_of_month(yyyymmdd_to_date(int(r["month_key"]))))
+            by_key[mk] = {
+                "date": yyyymmdd_to_date(mk).isoformat(),
+                "media": int(r.get("views_media") or 0),
+                "digark": int(r.get("views_digark") or 0),
+            }
+
+        # Fill missing months with zeros
+        points = []
+        d = start_date
+        last_month = first_of_month(end_exclusive)
+        # iterate while d < end_exclusive
+        while d < end_exclusive:
+            mk = date_to_yyyymmdd(d)
+            points.append(by_key.get(mk, {"date": d.isoformat(), "media": 0, "digark": 0}))
+            d = next_month_start(d)
+
+        return {"arkiv_sk": arkiv_sk, "points": points}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        if conn:
+            conn.close()

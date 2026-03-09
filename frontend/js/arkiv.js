@@ -82,6 +82,17 @@ function hideLoading() {
   if (loadingOverlay) loadingOverlay.style.display = "none";
 }
 
+const DASTATS_DETAILS_PAGE = "/views/arkiv_dastats_details.html";
+
+function gotoDastatsDetailsForArkivSk(arkivSk, ident, kind) {
+  if (!arkivSk) return;
+  const url =
+    `${DASTATS_DETAILS_PAGE}?arkiv_sk=${encodeURIComponent(arkivSk)}` +
+    `&ident=${encodeURIComponent(ident ?? "")}` +
+    `&kind=${encodeURIComponent(kind ?? "")}`;
+  window.location.assign(url);
+}
+
 /* =========================================================
    TABLE COLUMNS
 ========================================================= */
@@ -137,6 +148,32 @@ function reqLinkHtml(value, arkivSk, ident, kind) {
   `;
 }
 
+function viewsLinkHtml(value, arkivSk, ident, kind) {
+  const n = Math.round(toNum(value));
+  const formatted = n.toLocaleString("no-NO");
+  if (!arkivSk) return formatted;
+
+  const safeSk = String(arkivSk).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const safeIdent = String(ident ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const safeKind = String(kind ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  return `
+    <button
+      type="button"
+      class="views-link"
+      data-arkiv-sk="${safeSk}"
+      data-ident="${safeIdent}"
+      data-kind="${safeKind}"
+      title="Vis DAstats historikk (${safeKind})"
+      style="
+        background:transparent;border:none;padding:0;margin:0;
+        color:#0f172a;font-weight:700;cursor:pointer;
+        text-decoration:underline;
+      "
+    >${formatted}</button>
+  `;
+}
+
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "lokasjon", label: "Lokasjon" },
@@ -159,8 +196,24 @@ const columns = [
 
   { key: "stykke_count", label: "Stykke", numeric: true, fmt: int },
   { key: "views_internal", label: "Visninger (Intern)", numeric: true, fmt: int },
-  { key: "views_media", label: "Visninger (Media)", numeric: true, fmt: int },
-  { key: "views_digark", label: "Visninger (DigArk)", numeric: true, fmt: int },
+  {
+    key: "views_media",
+    label: "Visninger (Media)",
+    numeric: true,
+    render: (row) => ({
+      type: "html",
+      html: viewsLinkHtml(row.views_media, row.arkiv_sk, row.identifikator, "media")
+    })
+  },
+  {
+    key: "views_digark",
+    label: "Visninger (DigArk)",
+    numeric: true,
+    render: (row) => ({
+      type: "html",
+      html: viewsLinkHtml(row.views_digark, row.arkiv_sk, row.identifikator, "digark")
+    })
+  },
 
   { key: "topdesk_references", label: "Topdesk refs", numeric: true, fmt: int },
 
@@ -598,6 +651,20 @@ function renderTable() {
 
               gotoDetailsForArkivSk(sk, ident, kind);
             });
+
+            // click handler for views numbers -> dastats details page
+          const viewsBtn = td.querySelector("button.views-link");
+          if (viewsBtn) {
+            viewsBtn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              const sk = viewsBtn.dataset.arkivSk;
+              const ident = viewsBtn.dataset.ident || "";
+              const kind = viewsBtn.dataset.kind || ""; // "media" | "digark"
+              gotoDastatsDetailsForArkivSk(sk, ident, kind);
+            });
+          }
           }
         } else {
           td.textContent = out ?? "";
