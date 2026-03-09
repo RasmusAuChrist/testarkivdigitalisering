@@ -53,6 +53,12 @@ const state = {
   highlightArkiv: ""
 };
 
+const columnVisibility = {};
+
+columns.forEach(c => {
+  columnVisibility[c.key] = true;
+});
+
 /* =========================================================
    ELEMENTS
 ========================================================= */
@@ -96,6 +102,40 @@ function gotoDastatsDetailsForArkivSk(arkivSk, ident, kind) {
 /* =========================================================
    TABLE COLUMNS
 ========================================================= */
+
+function buildColumnMenu() {
+  const menu = document.getElementById("columnMenu");
+  const btn = document.getElementById("columnMenuBtn");
+
+  menu.innerHTML = "";
+
+  columns.forEach(col => {
+    const row = document.createElement("label");
+    row.style.display = "block";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = columnVisibility[col.key];
+
+    cb.addEventListener("change", () => {
+      columnVisibility[col.key] = cb.checked;
+      render();
+    });
+
+    row.append(cb, " ", col.label);
+    menu.appendChild(row);
+  });
+
+  btn.addEventListener("click", () => {
+    menu.style.display = menu.style.display === "none" ? "block" : "none";
+  });
+
+  document.addEventListener("click", e => {
+    if (!btn.contains(e.target) && !menu.contains(e.target)) {
+      menu.style.display = "none";
+    }
+  });
+}
 
 function pillButtonHtml(text, title) {
   const safe = String(text ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -254,6 +294,7 @@ async function init() {
   try {
     // If we came from serie page: /views/arkiv.html?arkiv=SAT-A-1353
     state.highlightArkiv = getUrlParam("arkiv");
+    buildColumnMenu();
 
     buildTableHeader();
 
@@ -553,6 +594,7 @@ function toggleSort(key, numeric) {
 function buildTableHeader() {
   headEl.innerHTML = "";
   for (const c of columns) {
+  if (!columnVisibility[c.key]) continue;
     const th = document.createElement("th");
     th.style.padding = "10px";
     th.style.cursor = "pointer";
@@ -617,6 +659,7 @@ function renderTable() {
     }
 
     for (const c of columns) {
+     if (!columnVisibility[c.key]) continue;
       const td = document.createElement("td");
       td.style.padding = "10px";
       td.style.textAlign = c.numeric ? "right" : "left";
