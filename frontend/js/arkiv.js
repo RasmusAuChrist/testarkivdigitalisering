@@ -53,12 +53,6 @@ const state = {
   highlightArkiv: ""
 };
 
-const columnVisibility = {};
-
-columns.forEach(c => {
-  columnVisibility[c.key] = true;
-});
-
 /* =========================================================
    ELEMENTS
 ========================================================= */
@@ -214,11 +208,11 @@ function viewsLinkHtml(value, arkivSk, ident, kind) {
   `;
 }
 
+const columnVisibility = {};
+
 const columns = [
   { key: "navn", label: "Navn" },
   { key: "lokasjon", label: "Lokasjon" },
-
-  // ✅ clickable pill on identifikator → go to serie page filtered by arkiv
   {
     key: "identifikator",
     label: "Identifikator",
@@ -231,9 +225,7 @@ const columns = [
       };
     }
   },
-
   { key: "_digPct", label: "Digitalisert (%)", numeric: true, fmt: v => v.toFixed(2) },
-
   { key: "stykke_count", label: "Stykke", numeric: true, fmt: int },
   { key: "views_internal", label: "Visninger (Intern)", numeric: true, fmt: int },
   {
@@ -254,13 +246,9 @@ const columns = [
       html: viewsLinkHtml(row.views_digark, row.arkiv_sk, row.identifikator, "digark")
     })
   },
-
   { key: "topdesk_references", label: "Topdesk refs", numeric: true, fmt: int },
-
   { key: "average_views_media", label: "Gj.snitt Media", numeric: true, fmt: v => num(v, 2) },
   { key: "average_views_digark", label: "Gj.snitt DigArk", numeric: true, fmt: v => num(v, 2) },
-
-  // ✅ CLICKABLE numbers → details page, with preferred kind
   {
     key: "requisitions_internal",
     label: "Rekvisisjoner (Intern)",
@@ -279,10 +267,14 @@ const columns = [
       html: reqLinkHtml(row.requisitions_ap, row.arkiv_sk, row.identifikator, "ap")
     })
   },
-
   { key: "serier", label: "Hovedserier" },
   { key: "tags", label: "Tags" }
 ];
+
+columns.forEach(c => {
+  columnVisibility[c.key] = true;
+});
+
 
 /* =========================================================
    INIT
