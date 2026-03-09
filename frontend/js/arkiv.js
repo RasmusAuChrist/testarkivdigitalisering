@@ -608,6 +608,7 @@ function updateHeaderIndicators() {
 }
 
 function render() {
+  buildTableHeader();
   renderStats();
   renderTable();
   renderPagination();
@@ -628,7 +629,7 @@ function renderTable() {
   if (!pageRows.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = columns.length;
+    td.colSpan = columns.filter(c => columnVisibility[c.key]).length;
     td.style.padding = "14px";
     td.style.color = "#777";
     td.textContent = "Ingen treff.";
