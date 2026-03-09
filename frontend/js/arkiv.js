@@ -623,6 +623,7 @@ function renderTable() {
 
       if (typeof c.render === "function") {
         const out = c.render(r);
+
         if (out && out.type === "html") {
           td.innerHTML = out.html || "";
           // keep numeric alignment for numeric columns
@@ -651,8 +652,9 @@ function renderTable() {
 
               gotoDetailsForArkivSk(sk, ident, kind);
             });
+          }
 
-            // click handler for views numbers -> dastats details page
+          // ✅ click handler for views numbers -> dastats details page
           const viewsBtn = td.querySelector("button.views-link");
           if (viewsBtn) {
             viewsBtn.addEventListener("click", (e) => {
@@ -662,10 +664,11 @@ function renderTable() {
               const sk = viewsBtn.dataset.arkivSk;
               const ident = viewsBtn.dataset.ident || "";
               const kind = viewsBtn.dataset.kind || ""; // "media" | "digark"
+
               gotoDastatsDetailsForArkivSk(sk, ident, kind);
             });
           }
-          }
+
         } else {
           td.textContent = out ?? "";
         }
