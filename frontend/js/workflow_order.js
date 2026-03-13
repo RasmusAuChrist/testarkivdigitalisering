@@ -476,10 +476,113 @@ function clearCurrentStepHosts() {
   if (formHost) formHost.innerHTML = "";
 }
 
-function formatExternalChecklistValue(v) {
-  if (v === null || v === undefined || v === "") return "";
-  if (typeof v === "boolean") return v ? "Ja" : "Nei";
-  return String(v);
+function normalizeBoolLike(v) {
+  if (v === true || v === false) return v;
+  if (v == null) return null;
+
+  const s = String(v).trim().toLowerCase();
+  if (["1", "true", "ja", "yes", "checked"].includes(s)) return true;
+  if (["0", "false", "nei", "no", "unchecked"].includes(s)) return false;
+  return null;
+}
+
+function boolIcon(v) {
+  const b = normalizeBoolLike(v);
+  if (b === true) return "☑";
+  if (b === false) return "☐";
+  return "•";
+}
+
+function renderKeyValueGrid(items) {
+  if (!items?.length) {
+    return `<div style="color:#6b7280;">Ingen data tilgjengelig.</div>`;
+  }
+
+  return `
+    <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px;">
+      ${items.map(item => `
+        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+          <div style="font-size:12px; color:#6b7280;">${escapeHtml(item.label)}</div>
+          <div style="font-weight:700; white-space:pre-wrap;">${escapeHtml(item.value ?? "")}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function buildSerieSummaryItems(serie) {
+  const pairs = [
+    ["Arkiv", serie?.Arkiv_identifikator],
+    ["Serie", serie?.serie_identifikator],
+    ["Kommentar", serie?.Kommentar],
+    ["Sjekkliste", serie?.Sjekkliste],
+    ["Valgt status", serie?.ValgtStatusSerie],
+    ["Fremdrift", serie?.Progress],
+    ["Valgte drivere", serie?.ValgtDrivere],
+    ["Valgt vurdering", serie?.ValgtVurdering],
+    ["Valgt kvalitet", serie?.ValgtKvalitet],
+    ["Score", serie?.Score],
+    ["Sist endret av", serie?.EndretAV],
+    ["Sist endret", fmtDate(serie?.EndretNår || serie?.LastChanged)],
+    ["Fullført", fmtDate(serie?.FullførtNår)],
+    ["Godkjent av", serie?.GodkjentAv],
+  ];
+
+  return pairs
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([label, value]) => ({ label, value }));
+}
+
+function renderChecklistRows(rows) {
+  if (!rows?.length) {
+    return `<div style="color:#6b7280; padding:10px;">Ingen sjekkpunkter funnet.</div>`;
+  }
+
+  return `
+    <div style="display:grid; gap:6px;">
+      ${rows.map(row => `
+        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px; display:grid; grid-template-columns: 28px 1fr auto; gap:10px; align-items:start;">
+          <div style="font-size:20px; line-height:1;">${boolIcon(row.checked ?? row.Status)}</div>
+          <div>
+            <div style="font-weight:700;">${escapeHtml(row.tekst ?? row.EgenskapNavn ?? "")}</div>
+            ${row.kommentar || row.Kommentar ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;">${escapeHtml(row.kommentar ?? row.Kommentar ?? "")}</div>` : ""}
+          </div>
+          <div style="font-size:12px; color:#6b7280;">${escapeHtml(row.nivå ?? row.Nivå ?? "")}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderEgenskaperTable(rows) {
+  if (!rows?.length) {
+    return `<div style="color:#6b7280; padding:10px;">Ingen egenskaper funnet.</div>`;
+  }
+
+  return `
+    <div class="table-scroll-x">
+      <table class="arkiv-table" style="min-width: 900px;">
+        <thead>
+          <tr>
+            <th>Egenskap</th>
+            <th>Status</th>
+            <th>Nivå</th>
+            <th>Kommentar</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>${escapeHtml(row.navn ?? row.EgenskapNavn ?? "")}</td>
+              <td>${escapeHtml(row.status ?? row.Status ?? "")}</td>
+              <td>${escapeHtml(row.nivå ?? row.Nivå ?? "")}</td>
+              <td style="white-space:pre-wrap;">${escapeHtml(row.kommentar ?? row.Kommentar ?? "")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderStep3ExternalData(externalData) {
@@ -487,86 +590,62 @@ function renderStep3ExternalData(externalData) {
   if (!host) return;
 
   const serie = externalData?.serie || {};
+  const metadata = externalData?.metadata || [];
+  const sjekkliste = externalData?.sjekkliste || [];
   const egenskaper = externalData?.egenskaper || [];
 
-  const serieFields = [
-    ["Arkiv", serie.Arkiv_identifikator],
-    ["Serie", serie.serie_identifikator],
-    ["Kommentar", serie.Kommentar],
-    ["Sjekkliste", serie.Sjekkliste],
-    ["Valgt status", serie.ValgtStatusSerie],
-    ["Viktighet", serie.Viktighet],
-    ["Kritikalitet", serie.Kritikalitet],
-    ["Tid", serie.Tid],
-    ["Modenhet", serie.Modenhet],
-    ["Hastighet", serie.Hastighet],
-    ["Påvirkning", serie.Påvirkning],
-    ["Score", serie.Score],
-    ["Valgte drivere", serie.ValgtDrivere],
-    ["Valgt vurdering", serie.ValgtVurdering],
-    ["Valgt kvalitet", serie.ValgtKvalitet],
-    ["Grad", serie.Grad],
-    ["Fremdrift", serie.Progress],
-    ["Egenskaper", serie.Egenskaper],
-    ["Sist endret av", serie.EndretAV],
-    ["Sist endret", fmtDate(serie.EndretNår || serie.LastChanged)],
-    ["Fullført", fmtDate(serie.FullførtNår)],
-    ["Godkjent av", serie.GodkjentAv],
-    ["Journalført", formatExternalChecklistValue(serie.Journalført)],
-    ["Restriksjon", serie.Restriksjon],
-  ].filter(([, v]) => v !== null && v !== undefined && v !== "");
+  const tabsId = `exttabs_${Math.random().toString(36).slice(2, 8)}`;
 
-  const serieHtml = `
-    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin-bottom:12px;">
-      <div style="font-weight:900; margin-bottom:10px;">Eksterne seriedata</div>
-      ${
-        serieFields.length
-          ? `<div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px;">
-              ${serieFields.map(([k, v]) => `
-                <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
-                  <div style="font-size:12px; color:#6b7280;">${escapeHtml(k)}</div>
-                  <div style="font-weight:700; white-space:pre-wrap;">${escapeHtml(v)}</div>
-                </div>
-              `).join("")}
-             </div>`
-          : `<div style="color:#6b7280;">Ingen seriedata funnet.</div>`
-      }
+  host.innerHTML = `
+    <div style="display:grid; gap:12px;">
+      <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+        <div style="font-weight:900; margin-bottom:10px;">Seriedata</div>
+        ${renderKeyValueGrid(buildSerieSummaryItems(serie))}
+      </div>
+
+      <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+        <div style="font-weight:900; margin-bottom:10px;">Metadata</div>
+        ${renderKeyValueGrid(metadata)}
+      </div>
+
+      <div style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
+        <div style="display:flex; gap:8px; padding:10px 12px; background:#f8fafc; border-bottom:1px solid #e5e7eb;">
+          <button type="button" class="btn btn-outline" data-tab-group="${tabsId}" data-tab-target="sjekkliste">Sjekkliste</button>
+          <button type="button" class="btn btn-outline" data-tab-group="${tabsId}" data-tab-target="egenskaper">Egenskaper</button>
+        </div>
+
+        <div data-tab-panel-group="${tabsId}">
+          <div data-tab-panel="sjekkliste" style="padding:12px;">
+            ${renderChecklistRows(sjekkliste)}
+          </div>
+          <div data-tab-panel="egenskaper" style="padding:12px; display:none;">
+            ${renderEgenskaperTable(egenskaper)}
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
-  const egenskaperHtml = `
-    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-      <div style="font-weight:900; margin-bottom:10px;">Egenskaper / sjekkpunkter</div>
-      ${
-        egenskaper.length
-          ? `<div class="table-scroll-x">
-              <table class="arkiv-table" style="min-width: 900px;">
-                <thead>
-                  <tr>
-                    <th>Egenskap</th>
-                    <th>Status</th>
-                    <th>Nivå</th>
-                    <th>Kommentar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${egenskaper.map(row => `
-                    <tr>
-                      <td>${escapeHtml(row.EgenskapNavn ?? "")}</td>
-                      <td>${escapeHtml(row.Status ?? "")}</td>
-                      <td>${escapeHtml(row.Nivå ?? "")}</td>
-                      <td style="white-space:pre-wrap;">${escapeHtml(row.Kommentar ?? "")}</td>
-                    </tr>
-                  `).join("")}
-                </tbody>
-              </table>
-             </div>`
-          : `<div style="color:#6b7280;">Ingen egenskaper funnet.</div>`
-      }
-    </div>
-  `;
+  const tabButtons = host.querySelectorAll(`[data-tab-group="${tabsId}"]`);
+  const tabPanels = host.querySelectorAll(`[data-tab-panel-group="${tabsId}"] [data-tab-panel]`);
 
-  host.innerHTML = serieHtml + egenskaperHtml;
+  function activateTab(target) {
+    tabPanels.forEach(panel => {
+      panel.style.display = panel.getAttribute("data-tab-panel") === target ? "block" : "none";
+    });
+    tabButtons.forEach(btn => {
+      const active = btn.getAttribute("data-tab-target") === target;
+      btn.style.background = active ? "#475569" : "";
+      btn.style.color = active ? "#fff" : "";
+      btn.style.borderColor = active ? "#475569" : "";
+    });
+  }
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => activateTab(btn.getAttribute("data-tab-target")));
+  });
+
+  activateTab("sjekkliste");
 }
 
 async function renderCurrentStepDetails(order) {
