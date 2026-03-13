@@ -469,13 +469,114 @@ function renderPriorStepsInline(items, currentSequence) {
   }).join("");
 }
 
+function clearCurrentStepHosts() {
+  const externalHost = document.getElementById("currentStepExternalHost");
+  const formHost = document.getElementById("currentStepFormHost");
+  if (externalHost) externalHost.innerHTML = "";
+  if (formHost) formHost.innerHTML = "";
+}
+
+function formatExternalChecklistValue(v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (typeof v === "boolean") return v ? "Ja" : "Nei";
+  return String(v);
+}
+
+function renderStep3ExternalData(externalData) {
+  const host = document.getElementById("currentStepExternalHost");
+  if (!host) return;
+
+  const serie = externalData?.serie || {};
+  const egenskaper = externalData?.egenskaper || [];
+
+  const serieFields = [
+    ["Arkiv", serie.Arkiv_identifikator],
+    ["Serie", serie.serie_identifikator],
+    ["Kommentar", serie.Kommentar],
+    ["Sjekkliste", serie.Sjekkliste],
+    ["Valgt status", serie.ValgtStatusSerie],
+    ["Viktighet", serie.Viktighet],
+    ["Kritikalitet", serie.Kritikalitet],
+    ["Tid", serie.Tid],
+    ["Modenhet", serie.Modenhet],
+    ["Hastighet", serie.Hastighet],
+    ["Påvirkning", serie.Påvirkning],
+    ["Score", serie.Score],
+    ["Valgte drivere", serie.ValgtDrivere],
+    ["Valgt vurdering", serie.ValgtVurdering],
+    ["Valgt kvalitet", serie.ValgtKvalitet],
+    ["Grad", serie.Grad],
+    ["Fremdrift", serie.Progress],
+    ["Egenskaper", serie.Egenskaper],
+    ["Sist endret av", serie.EndretAV],
+    ["Sist endret", fmtDate(serie.EndretNår || serie.LastChanged)],
+    ["Fullført", fmtDate(serie.FullførtNår)],
+    ["Godkjent av", serie.GodkjentAv],
+    ["Journalført", formatExternalChecklistValue(serie.Journalført)],
+    ["Restriksjon", serie.Restriksjon],
+  ].filter(([, v]) => v !== null && v !== undefined && v !== "");
+
+  const serieHtml = `
+    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin-bottom:12px;">
+      <div style="font-weight:900; margin-bottom:10px;">Eksterne seriedata</div>
+      ${
+        serieFields.length
+          ? `<div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px;">
+              ${serieFields.map(([k, v]) => `
+                <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px;">
+                  <div style="font-size:12px; color:#6b7280;">${escapeHtml(k)}</div>
+                  <div style="font-weight:700; white-space:pre-wrap;">${escapeHtml(v)}</div>
+                </div>
+              `).join("")}
+             </div>`
+          : `<div style="color:#6b7280;">Ingen seriedata funnet.</div>`
+      }
+    </div>
+  `;
+
+  const egenskaperHtml = `
+    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+      <div style="font-weight:900; margin-bottom:10px;">Egenskaper / sjekkpunkter</div>
+      ${
+        egenskaper.length
+          ? `<div class="table-scroll-x">
+              <table class="arkiv-table" style="min-width: 900px;">
+                <thead>
+                  <tr>
+                    <th>Egenskap</th>
+                    <th>Status</th>
+                    <th>Nivå</th>
+                    <th>Kommentar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${egenskaper.map(row => `
+                    <tr>
+                      <td>${escapeHtml(row.EgenskapNavn ?? "")}</td>
+                      <td>${escapeHtml(row.Status ?? "")}</td>
+                      <td>${escapeHtml(row.Nivå ?? "")}</td>
+                      <td style="white-space:pre-wrap;">${escapeHtml(row.Kommentar ?? "")}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+             </div>`
+          : `<div style="color:#6b7280;">Ingen egenskaper funnet.</div>`
+      }
+    </div>
+  `;
+
+  host.innerHTML = serieHtml + egenskaperHtml;
+}
+
 async function renderCurrentStepDetails(order) {
   const card = document.getElementById("stepDetailsCard");
   const sub = document.getElementById("stepDetailsSub");
-  const host = document.getElementById("currentStepFormHost");
+  const externalHost = document.getElementById("currentStepExternalHost");
+  const formHost = document.getElementById("currentStepFormHost");
   const saveBtn = document.getElementById("currentStepSaveBtn");
 
-  if (!card || !sub || !host || !saveBtn) return;
+  if (!card || !sub || !formHost || !saveBtn) return;
 
   const step = getCurrentStep(order);
   if (!step) {
@@ -484,6 +585,8 @@ async function renderCurrentStepDetails(order) {
   }
 
   card.style.display = "block";
+  clearCurrentStepHosts();
+
   sub.textContent = `Aktivt steg: ${step.Sequence} – ${step.StepName} (OrderStepId: ${step.OrderStepId})`;
 
   const canEdit =
@@ -491,17 +594,16 @@ async function renderCurrentStepDetails(order) {
     lastMe?.user_id != null &&
     String(step.AssignedToUserId) === String(lastMe.user_id);
 
-  saveBtn.style.display = canEdit ? "inline-flex" : "none";
-
   setCurrentStepMsg("Laster…");
 
   if (!step.StepDefId) {
-    host.innerHTML = `
+    formHost.innerHTML = `
       <div style="color:#b91c1c; font-weight:800;">Mangler StepDefId på steget.</div>
       <div style="color:#6b7280; margin-top:6px;">
         Legg til <code>os.StepDefId</code> i steps-resultsettet i <code>usp_wf_get_order_by_amid</code>.
       </div>
     `;
+    saveBtn.style.display = "none";
     setCurrentStepMsg("Kan ikke laste skjema.", true);
     return;
   }
@@ -509,10 +611,27 @@ async function renderCurrentStepDetails(order) {
   const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
   const schemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
 
+  // STEP 3 / external read-only mode
+  if (schemaObj?.readOnly === true && schemaObj?.source === "external") {
+    saveBtn.style.display = "none";
+
+    const externalData = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/external-data`);
+    renderStep3ExternalData(externalData);
+
+    const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
+    renderPriorStepsInline(allData.items || [], step.Sequence);
+
+    setCurrentStepMsg("Dette steget viser data fra et eksternt system og kan ikke redigeres.");
+    return;
+  }
+
+  // Normal editable workflow form
+  saveBtn.style.display = canEdit ? "inline-flex" : "none";
+
   const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
   const currentValues = safeParseJson(dataRow.DataJson, {});
 
-  renderDynamicFormInto(host, schemaObj, currentValues, canEdit);
+  renderDynamicFormInto(formHost, schemaObj, currentValues, canEdit);
 
   const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
   renderPriorStepsInline(allData.items || [], step.Sequence);
@@ -524,7 +643,7 @@ async function renderCurrentStepDetails(order) {
 
   saveBtn.onclick = async () => {
     try {
-      const values = readDynamicFormValuesFrom(host, schemaObj);
+      const values = readDynamicFormValuesFrom(formHost, schemaObj);
       const missing = validateDynamicForm(schemaObj, values);
       if (missing.length) {
         setCurrentStepMsg(`Mangler: ${missing.join(", ")}`, true);
@@ -542,7 +661,6 @@ async function renderCurrentStepDetails(order) {
     }
   };
 }
-
 /* -----------------------------
    Load order
 ------------------------------ */

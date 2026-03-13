@@ -354,3 +354,44 @@ def save_step_form_data(order_step_id: int, payload: SaveStepFormDataRequest, me
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
+
+@router.get("/wf/steps/{order_step_id}/external-data")
+def get_step_external_data(order_step_id: int, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+
+        # Resolve workflow order's ExternalAmid from OrderStepId
+        cur.execute("""
+            SELECT o.ExternalAmid
+            FROM dbo.WfOrderSteps os
+            JOIN dbo.WfOrders o ON o.OrderId = os.OrderId
+            WHERE os.OrderStepId = %s
+        """, (order_step_id,))
+        row = cur.fetchone()
+
+        if not row or not row.get("ExternalAmid"):
+            raise HTTPException(status_code=404, detail="Fant ikke ExternalAmid for steg")
+
+        amid = row["ExternalAmid"]
+
+        # Fetch external data
+        cur.execute("EXEC dbo.usp_wf_get_step3_external_data %s", (amid,))
+
+        serie = cur.fetchone()
+        egenskaper = []
+        if cur.nextset():
+            egenskaper = cur.fetchall() or []
+
+        return {
+            "amid": amid,
+            "serie": serie,
+            "egenskaper": egenskaper,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
