@@ -541,13 +541,12 @@ function renderChecklistRows(rows) {
   return `
     <div style="display:grid; gap:6px;">
       ${rows.map(row => `
-        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px; display:grid; grid-template-columns: 28px 1fr auto; gap:10px; align-items:start;">
+        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px; display:grid; grid-template-columns: 28px 1fr; gap:10px; align-items:start;">
           <div style="font-size:20px; line-height:1;">${boolIcon(row.checked ?? row.Status)}</div>
           <div>
             <div style="font-weight:700;">${escapeHtml(row.tekst ?? row.EgenskapNavn ?? "")}</div>
             ${row.kommentar || row.Kommentar ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;">${escapeHtml(row.kommentar ?? row.Kommentar ?? "")}</div>` : ""}
           </div>
-          <div style="font-size:12px; color:#6b7280;">${escapeHtml(row.nivå ?? row.Nivå ?? "")}</div>
         </div>
       `).join("")}
     </div>
@@ -560,27 +559,16 @@ function renderEgenskaperTable(rows) {
   }
 
   return `
-    <div class="table-scroll-x">
-      <table class="arkiv-table" style="min-width: 900px;">
-        <thead>
-          <tr>
-            <th>Egenskap</th>
-            <th>Status</th>
-            <th>Nivå</th>
-            <th>Kommentar</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(row => `
-            <tr>
-              <td>${escapeHtml(row.navn ?? row.EgenskapNavn ?? "")}</td>
-              <td>${escapeHtml(row.status ?? row.Status ?? "")}</td>
-              <td>${escapeHtml(row.nivå ?? row.Nivå ?? "")}</td>
-              <td style="white-space:pre-wrap;">${escapeHtml(row.kommentar ?? row.Kommentar ?? "")}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+    <div style="display:grid; gap:6px;">
+      ${rows.map(row => `
+        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:10px; display:grid; grid-template-columns: 28px 1fr; gap:10px; align-items:start;">
+          <div style="font-size:20px; line-height:1;">${boolIcon(row.status ?? row.Status)}</div>
+          <div>
+            <div style="font-weight:700;">${escapeHtml(row.navn ?? row.EgenskapNavn ?? "")}</div>
+            ${row.kommentar || row.Kommentar ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;">${escapeHtml(row.kommentar ?? row.Kommentar ?? "")}</div>` : ""}
+          </div>
+        </div>
+      `).join("")}
     </div>
   `;
 }
