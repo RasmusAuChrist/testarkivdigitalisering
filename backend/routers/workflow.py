@@ -361,7 +361,6 @@ def get_step_external_data(order_step_id: int, me: MeResponse = Depends(get_curr
     try:
         cur = conn.cursor(as_dict=True)
 
-        # Resolve workflow order's ExternalAmid from OrderStepId
         cur.execute("""
             SELECT o.ExternalAmid
             FROM dbo.WfOrderSteps os
@@ -375,17 +374,21 @@ def get_step_external_data(order_step_id: int, me: MeResponse = Depends(get_curr
 
         amid = row["ExternalAmid"]
 
-        # Fetch external data
         cur.execute("EXEC dbo.usp_wf_get_step3_external_data %s", (amid,))
 
         serie = cur.fetchone()
+        sjekkliste = []
         egenskaper = []
+
+        if cur.nextset():
+            sjekkliste = cur.fetchall() or []
         if cur.nextset():
             egenskaper = cur.fetchall() or []
 
         return {
             "amid": amid,
             "serie": serie,
+            "sjekkliste": sjekkliste,
             "egenskaper": egenskaper,
         }
 
