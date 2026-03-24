@@ -255,6 +255,7 @@ function buildTopMediaChart(rows) {
           beginAtZero: true
         },
         y: {
+          reverse: true,
           ticks: { color: "#e5eefc" },
           grid: { display: false }
         }
