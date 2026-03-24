@@ -201,13 +201,11 @@ function buildTopMediaChart(rows) {
     .sort((a, b) => b.views_media - a.views_media)
     .slice(0, 10);
 
-  const labels = sorted
-    .map(r => shortLabel(r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`, 32))
-    .reverse();
+  const labels = sorted.map(
+    r => shortLabel(r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`, 32)
+  );
 
-  const values = sorted
-    .map(r => r.views_media)
-    .reverse();
+  const values = sorted.map(r => r.views_media);
 
   destroyChart(state.charts.topMedia);
 
@@ -221,22 +219,21 @@ function buildTopMediaChart(rows) {
           data: values,
           borderRadius: 8,
           backgroundColor: [
-            "#fae6a6",
-            "#f8df95",
-            "#f5d885",
-            "#f2d175",
-            "#eecb68",
-            "#e8c45d",
-            "#e2bd52",
-            "#dbb447",
+            "#cda434",
             "#d4ac3d",
-            "#cda434"
-          ],
+            "#dbb447",
+            "#e2bd52",
+            "#e8c45d",
+            "#eecb68",
+            "#f2d175",
+            "#f5d885",
+            "#f8df95",
+            "#fae6a6"
+          ]
         }
       ]
     },
     options: {
-      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
       animation: { duration: 600 },
@@ -244,19 +241,23 @@ function buildTopMediaChart(rows) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => ` ${int(ctx.raw)} visninger`,
+            label: ctx => ` ${int(ctx.raw)} visninger`
           }
         }
       },
       scales: {
         x: {
-          ticks: { color: "#c8d4ea" },
-          grid: { color: "rgba(255,255,255,0.08)" },
-          beginAtZero: true,
+          ticks: {
+            color: "#e5eefc",
+            maxRotation: 0,
+            minRotation: 0
+          },
+          grid: { display: false }
         },
         y: {
-          ticks: { color: "#e5eefc" },
-          grid: { display: false },
+          beginAtZero: true,
+          ticks: { color: "#c8d4ea" },
+          grid: { color: "rgba(255,255,255,0.08)" }
         }
       }
     }
