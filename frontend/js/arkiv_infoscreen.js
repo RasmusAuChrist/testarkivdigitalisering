@@ -3,7 +3,7 @@ const API_BASE =
 
 const REFRESH_MS = 5 * 60 * 1000;
 const ROTATE_MS = 12 * 1000;
-const SPOTLIGHT_POOL_SIZE = 12;
+const SPOTLIGHT_POOL_SIZE = 50;
 
 const el = {
   clockPill: document.getElementById("clockPill"),
