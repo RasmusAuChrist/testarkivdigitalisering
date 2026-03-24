@@ -5,6 +5,10 @@ const REFRESH_MS = 5 * 60 * 1000;
 const ROTATE_MS = 12 * 1000;
 const SPOTLIGHT_POOL_SIZE = 50;
 
+const TOP_REQUISITION_COUNT = 50;
+const TOP_REQUISITION_VISIBLE = 7;
+const TOP_REQUISITION_SCROLL_MS = 5000;
+
 const el = {
   clockPill: document.getElementById("clockPill"),
   refreshPill: document.getElementById("refreshPill"),
@@ -39,6 +43,8 @@ const state = {
   rows: [],
   spotlightPool: [],
   spotlightIndex: 0,
+  topRequisitionRows: [],
+  topRequisitionOffset: 0,
   charts: {
     topMedia: null,
     location: null,
@@ -49,6 +55,7 @@ const state = {
     clock: null,
     refresh: null,
     rotate: null,
+    requisitionScroll: null,
   },
 };
 
@@ -201,7 +208,6 @@ function buildTopMediaChart(rows) {
     .sort((a, b) => b.views_media - a.views_media)
     .slice(0, 10);
 
-  // Reverse so the largest appears at the TOP visually
   const labels = sorted
     .map(r => shortLabel(r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`, 32))
     .reverse();
@@ -237,7 +243,7 @@ function buildTopMediaChart(rows) {
       ]
     },
     options: {
-      indexAxis: "y", // keep horizontal
+      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
@@ -397,20 +403,70 @@ function buildDigitizationBucketChart(rows) {
 }
 
 function buildTopRequisitionTicker(rows) {
-  const top = [...rows]
+  state.topRequisitionRows = [...rows]
     .sort((a, b) => b.total_requisitions - a.total_requisitions)
-    .slice(0, 7);
+    .slice(0, TOP_REQUISITION_COUNT);
 
-  el.topRequisitionTicker.innerHTML = top.map((row, idx) => {
-    const name = shortLabel(row.navn || row.identifikator || `arkiv ${row.arkiv_sk}`, 30);
+  state.topRequisitionOffset = 0;
+  renderTopRequisitionTickerWindow();
+}
+
+function renderTopRequisitionTickerWindow() {
+  const allRows = state.topRequisitionRows;
+  const visibleCount = Math.min(TOP_REQUISITION_VISIBLE, allRows.length);
+
+  if (!allRows.length) {
+    el.topRequisitionTicker.innerHTML = `
+      <div class="ticker-row">
+        <div class="ticker-name">Ingen data</div>
+      </div>
+    `;
+    return;
+  }
+
+  const visibleRows = [];
+  for (let i = 0; i < visibleCount; i += 1) {
+    const idx = (state.topRequisitionOffset + i) % allRows.length;
+    visibleRows.push({
+      row: allRows[idx],
+      rank: idx + 1,
+    });
+  }
+
+  el.topRequisitionTicker.innerHTML = visibleRows.map(({ row, rank }) => {
+    const displayName = shortLabel(
+      row.navn || row.identifikator || `arkiv ${row.arkiv_sk}`,
+      30
+    );
+
     return `
       <div class="ticker-row">
-        <div class="ticker-rank">${idx + 1}</div>
-        <div class="ticker-name" title="${escapeHtml(row.navn)}">${escapeHtml(name)}</div>
+        <div class="ticker-rank">${rank}</div>
+        <div class="ticker-name" title="${escapeHtml(row.navn || row.identifikator || "")}">
+          ${escapeHtml(displayName)}
+        </div>
         <div class="ticker-value">${int(row.total_requisitions)}</div>
       </div>
     `;
   }).join("");
+}
+
+function startTopRequisitionScroll() {
+  if (state.timers.requisitionScroll) {
+    clearInterval(state.timers.requisitionScroll);
+    state.timers.requisitionScroll = null;
+  }
+
+  if (state.topRequisitionRows.length <= TOP_REQUISITION_VISIBLE) {
+    return;
+  }
+
+  state.timers.requisitionScroll = setInterval(() => {
+    state.topRequisitionOffset =
+      (state.topRequisitionOffset + 1) % state.topRequisitionRows.length;
+
+    renderTopRequisitionTickerWindow();
+  }, TOP_REQUISITION_SCROLL_MS);
 }
 
 function escapeHtml(value) {
@@ -568,6 +624,8 @@ function startTimers() {
     state.spotlightIndex = (state.spotlightIndex + 1) % state.spotlightPool.length;
     await renderSpotlightAt(state.spotlightIndex);
   }, ROTATE_MS);
+
+  startTopRequisitionScroll();
 }
 
 async function loadDashboard() {
