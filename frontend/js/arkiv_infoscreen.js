@@ -1,9 +1,9 @@
 const API_BASE =
   "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
-const REFRESH_MS = 5 * 60 * 1000;   // refresh data every 5 min
-const ROTATE_MS = 12 * 1000;        // rotate spotlight every 12 sec
-const SPOTLIGHT_POOL_SIZE = 12;     // choose top 12 archives for rotation
+const REFRESH_MS = 5 * 60 * 1000;
+const ROTATE_MS = 12 * 1000;
+const SPOTLIGHT_POOL_SIZE = 12;
 
 const el = {
   clockPill: document.getElementById("clockPill"),
@@ -120,9 +120,9 @@ async function fetchOverview() {
   return data.map(normalizeRow);
 }
 
-async function fetchRequisitionHistory(arkivSk) {
+async function fetchViewsHistory(arkivSk) {
   const res = await fetch(
-    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/requisition-history`,
+    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/dastats-views-history`,
     { cache: "no-store" }
   );
   const data = await res.json().catch(() => ({}));
@@ -197,9 +197,16 @@ function destroyChart(chart) {
 }
 
 function buildTopMediaChart(rows) {
-  const top = [...rows]
+  const sorted = [...rows]
     .sort((a, b) => b.views_media - a.views_media)
-    .slice(0, 10)
+    .slice(0, 10);
+
+  const labels = sorted
+    .map(r => shortLabel(r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`, 32))
+    .reverse();
+
+  const values = sorted
+    .map(r => r.views_media)
     .reverse();
 
   destroyChart(state.charts.topMedia);
@@ -207,15 +214,23 @@ function buildTopMediaChart(rows) {
   state.charts.topMedia = new Chart(el.topMediaChart, {
     type: "bar",
     data: {
-      labels: top.map(r => shortLabel(r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`, 32)),
+      labels,
       datasets: [
         {
           label: "Media-visninger",
-          data: top.map(r => r.views_media),
+          data: values,
           borderRadius: 8,
           backgroundColor: [
-            "#cda434", "#d4ac3d", "#dbb447", "#e2bd52", "#e8c45d",
-            "#eecb68", "#f2d175", "#f5d885", "#f8df95", "#fae6a6"
+            "#fae6a6",
+            "#f8df95",
+            "#f5d885",
+            "#f2d175",
+            "#eecb68",
+            "#e8c45d",
+            "#e2bd52",
+            "#dbb447",
+            "#d4ac3d",
+            "#cda434"
           ],
         }
       ]
@@ -409,8 +424,8 @@ function escapeHtml(value) {
 function buildSpotlightPool(rows) {
   state.spotlightPool = [...rows]
     .sort((a, b) => {
-      const scoreA = a.views_media * 0.55 + a.views_digark * 0.2 + a.total_requisitions * 3;
-      const scoreB = b.views_media * 0.55 + b.views_digark * 0.2 + b.total_requisitions * 3;
+      const scoreA = a.views_media * 0.7 + a.views_digark * 0.25 + a.total_requisitions * 2;
+      const scoreB = b.views_media * 0.7 + b.views_digark * 0.25 + b.total_requisitions * 2;
       return scoreB - scoreA;
     })
     .slice(0, SPOTLIGHT_POOL_SIZE);
@@ -442,19 +457,18 @@ async function renderSpotlightAt(index) {
   el.spotProgressBar.style.width = `${Math.max(0, Math.min(100, row.percentage_digitized))}%`;
 
   try {
-    const points = await fetchRequisitionHistory(row.arkiv_sk);
+    const points = await fetchViewsHistory(row.arkiv_sk);
     buildSpotlightTrendChart(points, row);
   } catch (err) {
-    console.error("Kunne ikke hente spotlight-historikk:", err);
+    console.error("Kunne ikke hente spotlight-visningshistorikk:", err);
     buildSpotlightTrendChart([], row);
   }
 }
 
 function buildSpotlightTrendChart(points, row) {
   const labels = points.map(p => formatMonthLabel(p.date));
-  const internal = points.map(p => toNum(p.internal));
-  const ap = points.map(p => toNum(p.ap));
-  const total = points.map((p, i) => internal[i] + ap[i]);
+  const media = points.map(p => toNum(p.media));
+  const digark = points.map(p => toNum(p.digark));
 
   destroyChart(state.charts.spotlightTrend);
 
@@ -464,8 +478,8 @@ function buildSpotlightTrendChart(points, row) {
       labels: labels.length ? labels : ["Ingen data"],
       datasets: [
         {
-          label: "Intern",
-          data: labels.length ? internal : [0],
+          label: "Media",
+          data: labels.length ? media : [0],
           borderColor: "#4cc9f0",
           backgroundColor: "rgba(76, 201, 240, 0.18)",
           tension: 0.25,
@@ -473,23 +487,13 @@ function buildSpotlightTrendChart(points, row) {
           pointRadius: 2,
         },
         {
-          label: "AP",
-          data: labels.length ? ap : [0],
+          label: "Digark",
+          data: labels.length ? digark : [0],
           borderColor: "#f5c542",
           backgroundColor: "rgba(245, 197, 66, 0.18)",
           tension: 0.25,
           fill: false,
           pointRadius: 2,
-        },
-        {
-          label: "Total",
-          data: labels.length ? total : [0],
-          borderColor: "#22c55e",
-          backgroundColor: "rgba(34, 197, 94, 0.16)",
-          tension: 0.25,
-          fill: false,
-          pointRadius: 2,
-          borderDash: [6, 5],
         }
       ]
     },
@@ -497,16 +501,22 @@ function buildSpotlightTrendChart(points, row) {
       responsive: true,
       maintainAspectRatio: false,
       animation: { duration: 500 },
+      interaction: { mode: "index", intersect: false },
       plugins: {
         title: {
           display: true,
-          text: `Rekvisisjonsutvikling – ${row.identifikator || row.arkiv_sk}`,
+          text: `Visningsutvikling – ${row.identifikator || row.arkiv_sk}`,
           color: "#e5eefc",
           font: { size: 14, weight: "700" },
           padding: { bottom: 10 }
         },
         legend: {
           labels: { color: "#e5eefc" }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: ${int(ctx.raw)}`
+          }
         }
       },
       scales: {
@@ -546,7 +556,7 @@ function startTimers() {
   clearIntervals();
 
   updateClock();
-  state.timers.clock = setInterval(updateClock, 1000 * 30);
+  state.timers.clock = setInterval(updateClock, 30 * 1000);
 
   state.timers.refresh = setInterval(async () => {
     await loadDashboard();

@@ -58,10 +58,29 @@
       gap: 16px;
     }
 
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      padding: 8px;
+      flex: 0 0 auto;
+    }
+
     .brand {
       display: flex;
       flex-direction: column;
       gap: 6px;
+      min-width: 0;
     }
 
     .brand h1 {
@@ -365,9 +384,19 @@
 <body>
   <div class="screen">
     <div class="topbar">
-      <div class="brand">
-        <h1>ASK Arkiv – Infoskjerm</h1>
-        <div class="sub">Automatisk oppdatert oversikt over digitalisering, visninger og rekvisisjoner</div>
+      <div class="brand-wrap">
+        <!-- Replace src with your real logo if you have one -->
+        <img
+          src="/assets/ask-logo.png"
+          alt="ASK logo"
+          class="brand-logo"
+          onerror="this.onerror=null;this.src='/assets/favicon-32x32.png';"
+        />
+
+        <div class="brand">
+          <h1>ASK Arkiv – Infoskjerm</h1>
+          <div class="sub">Automatisk oppdatert oversikt over digitalisering, visninger og rekvisisjoner</div>
+        </div>
       </div>
 
       <div class="meta">
