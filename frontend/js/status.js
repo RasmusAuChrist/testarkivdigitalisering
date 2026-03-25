@@ -36,7 +36,9 @@ function renderStatus(rows) {
   rows.forEach(row => {
     const tr = document.createElement("tr");
 
-    const lastLoaded = new Date(row.LastLoaded);
+    const utcString = row.LastLoaded.replace(" ", "T") + "Z";
+    const lastLoaded = new Date(utcString);
+
     const ageHours = (now - lastLoaded) / (1000 * 60 * 60);
 
     let color;
