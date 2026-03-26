@@ -3,7 +3,6 @@ const API_BASE =
 
 const REFRESH_MS = 5 * 60 * 1000;
 const ROTATE_MS = 12 * 1000;
-const SPOTLIGHT_POOL_SIZE = 50;
 
 const TOP_REQUISITION_COUNT = 50;
 const TOP_REQUISITION_VISIBLE = 7;
@@ -41,8 +40,8 @@ const el = {
 
 const state = {
   rows: [],
-  spotlightPool: [],
   spotlightIndex: 0,
+  currentSpotlightArkivSk: null,
   topRequisitionRows: [],
   topRequisitionOffset: 0,
   charts: {
@@ -56,6 +55,10 @@ const state = {
     refresh: null,
     rotate: null,
     requisitionScroll: null,
+  },
+  cache: {
+    viewsHistory: new Map(),
+    requisitionHistory: new Map(),
   },
 };
 
@@ -128,6 +131,10 @@ async function fetchOverview() {
 }
 
 async function fetchViewsHistory(arkivSk) {
+  if (state.cache.viewsHistory.has(arkivSk)) {
+    return state.cache.viewsHistory.get(arkivSk);
+  }
+
   const res = await fetch(
     `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/dastats-views-history`,
     { cache: "no-store" }
@@ -138,7 +145,29 @@ async function fetchViewsHistory(arkivSk) {
     throw new Error(data?.detail || data?.error || `API error ${res.status}`);
   }
 
-  return Array.isArray(data?.points) ? data.points : [];
+  const points = Array.isArray(data?.points) ? data.points : [];
+  state.cache.viewsHistory.set(arkivSk, points);
+  return points;
+}
+
+async function fetchRequisitionHistory(arkivSk) {
+  if (state.cache.requisitionHistory.has(arkivSk)) {
+    return state.cache.requisitionHistory.get(arkivSk);
+  }
+
+  const res = await fetch(
+    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/requisition-history`,
+    { cache: "no-store" }
+  );
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.detail || data?.error || `API error ${res.status}`);
+  }
+
+  const points = Array.isArray(data?.points) ? data.points : [];
+  state.cache.requisitionHistory.set(arkivSk, points);
+  return points;
 }
 
 function normalizeRow(row) {
@@ -478,18 +507,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function buildSpotlightPool(rows) {
-  state.spotlightPool = [...rows]
-    .sort((a, b) => {
-      const scoreA = a.views_media * 0.7 + a.views_digark * 0.25 + a.total_requisitions * 2;
-      const scoreB = b.views_media * 0.7 + b.views_digark * 0.25 + b.total_requisitions * 2;
-      return scoreB - scoreA;
-    })
-    .slice(0, SPOTLIGHT_POOL_SIZE);
-
-  state.spotlightIndex = 0;
-}
-
 function formatSpotlightMeta(row) {
   const parts = [];
   if (row.lokasjon) parts.push(row.lokasjon);
@@ -498,31 +515,38 @@ function formatSpotlightMeta(row) {
   return parts.join(" • ");
 }
 
-async function renderSpotlightAt(index) {
-  if (!state.spotlightPool.length) return;
-
-  const row = state.spotlightPool[index % state.spotlightPool.length];
-
-  el.spotlightIdent.textContent = row.identifikator || `arkiv_sk=${row.arkiv_sk}`;
-  el.spotlightName.textContent = row.navn || "Uten navn";
-  el.spotlightMeta.textContent = formatSpotlightMeta(row) || "Ingen ekstra metadata";
-  el.spotMedia.textContent = int(row.views_media);
-  el.spotDigark.textContent = int(row.views_digark);
-  el.spotReqInternal.textContent = int(row.requisitions_internal);
-  el.spotReqAp.textContent = int(row.requisitions_ap);
-  el.spotDigitized.textContent = pct(row.percentage_digitized, 1);
-  el.spotProgressBar.style.width = `${Math.max(0, Math.min(100, row.percentage_digitized))}%`;
-
-  try {
-    const points = await fetchViewsHistory(row.arkiv_sk);
-    buildSpotlightTrendChart(points, row);
-  } catch (err) {
-    console.error("Kunne ikke hente spotlight-visningshistorikk:", err);
-    buildSpotlightTrendChart([], row);
-  }
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
 }
 
-function buildSpotlightTrendChart(points, row) {
+function getRandomArrayItem(items) {
+  if (!items.length) return null;
+  return items[getRandomInt(items.length)];
+}
+
+function pickRandomSpotlightRow() {
+  if (!state.rows.length) return null;
+  if (state.rows.length === 1) return state.rows[0];
+
+  let candidate = null;
+  let attempts = 0;
+
+  while (attempts < 10) {
+    candidate = getRandomArrayItem(state.rows);
+    if (candidate && candidate.arkiv_sk !== state.currentSpotlightArkivSk) {
+      return candidate;
+    }
+    attempts += 1;
+  }
+
+  return candidate || state.rows[0];
+}
+
+function pickRandomSpotlightMode() {
+  return Math.random() < 0.5 ? "views" : "orders";
+}
+
+function buildSpotlightViewsChart(points, row) {
   const labels = points.map(p => formatMonthLabel(p.date));
   const media = points.map(p => toNum(p.media));
   const digark = points.map(p => toNum(p.digark));
@@ -596,6 +620,127 @@ function buildSpotlightTrendChart(points, row) {
   });
 }
 
+function buildSpotlightOrdersChart(points, row) {
+  const labels = points.map(p => formatMonthLabel(p.date));
+  const internal = points.map(p => toNum(p.internal));
+  const ap = points.map(p => toNum(p.ap));
+  const total = points.map((_, index) => internal[index] + ap[index]);
+
+  destroyChart(state.charts.spotlightTrend);
+
+  state.charts.spotlightTrend = new Chart(el.spotlightTrendChart, {
+    type: "line",
+    data: {
+      labels: labels.length ? labels : ["Ingen data"],
+      datasets: [
+        {
+          label: "Intern",
+          data: labels.length ? internal : [0],
+          borderColor: "#4cc9f0",
+          backgroundColor: "rgba(76, 201, 240, 0.18)",
+          tension: 0.25,
+          fill: false,
+          pointRadius: 2,
+        },
+        {
+          label: "AP",
+          data: labels.length ? ap : [0],
+          borderColor: "#f5c542",
+          backgroundColor: "rgba(245, 197, 66, 0.18)",
+          tension: 0.25,
+          fill: false,
+          pointRadius: 2,
+        },
+        {
+          label: "Total",
+          data: labels.length ? total : [0],
+          borderColor: "#22c55e",
+          backgroundColor: "rgba(34, 197, 94, 0.16)",
+          tension: 0.25,
+          fill: false,
+          pointRadius: 2,
+          borderDash: [6, 5],
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500 },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        title: {
+          display: true,
+          text: `Rekvisisjonsutvikling – ${row.identifikator || row.arkiv_sk}`,
+          color: "#e5eefc",
+          font: { size: 14, weight: "700" },
+          padding: { bottom: 10 }
+        },
+        legend: {
+          labels: { color: "#e5eefc" }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: ${int(ctx.raw)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#c8d4ea",
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 8
+          },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: "#c8d4ea", precision: 0 },
+          grid: { color: "rgba(255,255,255,0.08)" }
+        }
+      }
+    }
+  });
+}
+
+async function renderRandomSpotlight() {
+  const row = pickRandomSpotlightRow();
+  if (!row) return;
+
+  state.currentSpotlightArkivSk = row.arkiv_sk;
+
+  el.spotlightIdent.textContent = row.identifikator || `arkiv_sk=${row.arkiv_sk}`;
+  el.spotlightName.textContent = row.navn || "Uten navn";
+  el.spotlightMeta.textContent = formatSpotlightMeta(row) || "Ingen ekstra metadata";
+  el.spotMedia.textContent = int(row.views_media);
+  el.spotDigark.textContent = int(row.views_digark);
+  el.spotReqInternal.textContent = int(row.requisitions_internal);
+  el.spotReqAp.textContent = int(row.requisitions_ap);
+  el.spotDigitized.textContent = pct(row.percentage_digitized, 1);
+  el.spotProgressBar.style.width = `${Math.max(0, Math.min(100, row.percentage_digitized))}%`;
+
+  const mode = pickRandomSpotlightMode();
+
+  try {
+    if (mode === "orders") {
+      const points = await fetchRequisitionHistory(row.arkiv_sk);
+      buildSpotlightOrdersChart(points, row);
+    } else {
+      const points = await fetchViewsHistory(row.arkiv_sk);
+      buildSpotlightViewsChart(points, row);
+    }
+  } catch (err) {
+    console.error("Kunne ikke hente spotlight-historikk:", err);
+    if (mode === "orders") {
+      buildSpotlightOrdersChart([], row);
+    } else {
+      buildSpotlightViewsChart([], row);
+    }
+  }
+}
+
 function formatMonthLabel(isoDate) {
   const d = new Date(`${isoDate}T00:00:00`);
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -620,9 +765,7 @@ function startTimers() {
   }, REFRESH_MS);
 
   state.timers.rotate = setInterval(async () => {
-    if (!state.spotlightPool.length) return;
-    state.spotlightIndex = (state.spotlightIndex + 1) % state.spotlightPool.length;
-    await renderSpotlightAt(state.spotlightIndex);
+    await renderRandomSpotlight();
   }, ROTATE_MS);
 
   startTopRequisitionScroll();
@@ -642,8 +785,7 @@ async function loadDashboard() {
     buildDigitizationBucketChart(rows);
     buildTopRequisitionTicker(rows);
 
-    buildSpotlightPool(rows);
-    await renderSpotlightAt(state.spotlightIndex);
+    await renderRandomSpotlight();
 
     setRefreshLabel(`Sist oppdatert ${formatTime(new Date())}`);
   } catch (err) {
