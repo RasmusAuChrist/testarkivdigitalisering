@@ -546,10 +546,10 @@ function pickRandomSpotlightMode() {
   return Math.random() < 0.5 ? "views" : "orders";
 }
 
-function buildSpotlightOrdersChart(points, row) {
+function buildSpotlightViewsChart(points, row) {
   const labels = points.map(p => formatMonthLabel(p.date));
-  const internal = points.map(p => toNum(p.internal));
-  const ap = points.map(p => toNum(p.ap));
+  const media = points.map(p => toNum(p.media));
+  const digark = points.map(p => toNum(p.digark));
 
   destroyChart(state.charts.spotlightTrend);
 
@@ -559,8 +559,8 @@ function buildSpotlightOrdersChart(points, row) {
       labels: labels.length ? labels : ["Ingen data"],
       datasets: [
         {
-          label: "Intern",
-          data: labels.length ? internal : [0],
+          label: "Media",
+          data: labels.length ? media : [0],
           borderColor: "#4cc9f0",
           backgroundColor: "rgba(76, 201, 240, 0.18)",
           tension: 0.25,
@@ -568,8 +568,8 @@ function buildSpotlightOrdersChart(points, row) {
           pointRadius: 2,
         },
         {
-          label: "AP",
-          data: labels.length ? ap : [0],
+          label: "Digark",
+          data: labels.length ? digark : [0],
           borderColor: "#f5c542",
           backgroundColor: "rgba(245, 197, 66, 0.18)",
           tension: 0.25,
@@ -586,7 +586,7 @@ function buildSpotlightOrdersChart(points, row) {
       plugins: {
         title: {
           display: true,
-          text: `Rekvisisjonsutvikling – ${row.identifikator || row.arkiv_sk}`,
+          text: `Visningsutvikling – ${row.identifikator || row.arkiv_sk}`,
           color: "#e5eefc",
           font: { size: 14, weight: "700" },
           padding: { bottom: 10 }
@@ -624,7 +624,6 @@ function buildSpotlightOrdersChart(points, row) {
   const labels = points.map(p => formatMonthLabel(p.date));
   const internal = points.map(p => toNum(p.internal));
   const ap = points.map(p => toNum(p.ap));
-  const total = points.map((_, index) => internal[index] + ap[index]);
 
   destroyChart(state.charts.spotlightTrend);
 
@@ -650,16 +649,6 @@ function buildSpotlightOrdersChart(points, row) {
           tension: 0.25,
           fill: false,
           pointRadius: 2,
-        },
-        {
-          label: "Total",
-          data: labels.length ? total : [0],
-          borderColor: "#22c55e",
-          backgroundColor: "rgba(34, 197, 94, 0.16)",
-          tension: 0.25,
-          fill: false,
-          pointRadius: 2,
-          borderDash: [6, 5],
         }
       ]
     },
