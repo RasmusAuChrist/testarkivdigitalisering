@@ -1,7 +1,7 @@
 const API_BASE =
   "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
-const REFRESH_MS = 5 * 60 * 1000;
+const REFRESH_MS = 15 * 60 * 1000;
 const ROTATE_MS = 12 * 1000;
 
 const TOP_REQUISITION_COUNT = 50;
