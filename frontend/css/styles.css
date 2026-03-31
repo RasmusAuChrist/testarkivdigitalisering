@@ -847,3 +847,71 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   display:none;
   font-size:14px;
 }
+
+/* =========================
+   Step 3 read-only / edit toggle
+========================= */
+.step3-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  font-weight: 700;
+}
+
+.step3-toggle.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.step3-toggle:not(.is-disabled) {
+  cursor: pointer;
+}
+
+.step3-toggle-label {
+  font-size: 12px;
+  color: var(--light-text);
+}
+
+.step3-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.step3-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.step3-switch-track {
+  position: absolute;
+  inset: 0;
+  background: #cbd5e1;
+  border-radius: 999px;
+  transition: background 0.18s ease;
+}
+
+.step3-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: left 0.18s ease;
+}
+
+.step3-switch input:checked + .step3-switch-track {
+  background: #2563eb;
+}
+
+.step3-switch input:checked + .step3-switch-track + .step3-switch-thumb {
+  left: 23px;
+}

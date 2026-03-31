@@ -709,10 +709,36 @@ function renderStep3FormInto(hostEl, payload, canEdit, isEditMode) {
   const sjekklisteField = fields.find(f => f.key === "sjekkliste");
   const egenskaperField = fields.find(f => f.key === "egenskaper");
 
+  const toggleId = `step3EditToggle_${Math.random().toString(36).slice(2, 8)}`;
+  const toggleClass = canEdit ? "step3-toggle" : "step3-toggle is-disabled";
+  const toggleChecked = isEditMode ? "checked" : "";
+  const toggleDisabled = canEdit ? "" : "disabled";
+
   hostEl.innerHTML = `
     <div style="display:grid; gap:12px;">
       <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-        <div style="font-weight:900; margin-bottom:10px;">Sjekkliste</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap;">
+          <div style="font-weight:900;">Sjekkliste</div>
+
+          <label for="${toggleId}" class="${toggleClass}">
+            <span class="step3-toggle-label">
+              ${isEditMode ? "Redigering på" : "Lesemodus"}
+            </span>
+
+            <span class="step3-switch">
+              <input
+                id="${toggleId}"
+                type="checkbox"
+                ${toggleChecked}
+                ${toggleDisabled}
+                data-step3-edit-toggle="1"
+              />
+              <span class="step3-switch-track"></span>
+              <span class="step3-switch-thumb"></span>
+            </span>
+          </label>
+        </div>
+
         ${renderStatusCommentListRows(
           sjekklisteField?.items || [],
           "sjekkliste",
@@ -848,18 +874,20 @@ if (isStep3External) {
 
     if (externalHost) externalHost.innerHTML = "";
 
-    if (editToggleWrap) editToggleWrap.style.display = "inline-flex";
-    if (editToggle) {
-      editToggle.disabled = !canEdit;
-      editToggle.checked = false;
-      editToggle.onchange = () => {
-        isEditMode = !!editToggle.checked;
-        rerenderStep3();
-      };
-    }
-
     rerenderStep3();
 
+    const bindStep3Toggle = () => {
+      const toggle = formHost.querySelector("[data-step3-edit-toggle='1']");
+      if (!toggle) return;
+
+    toggle.addEventListener("change", () => {
+      isEditMode = !!toggle.checked;
+      rerenderStep3();
+      bindStep3Toggle();
+    });
+  };
+
+bindStep3Toggle();
     const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
     renderPriorStepsInline(allData.items || [], step.Sequence);
 
@@ -879,7 +907,6 @@ if (isStep3External) {
         step3Payload.rowVer = freshPayload.rowVer;
 
         isEditMode = false;
-        if (editToggle) editToggle.checked = false;
 
         rerenderStep3();
 
