@@ -18,6 +18,14 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+async function apiGetStep3Form(orderStepId) {
+  return apiGet(`/api/wf/steps/${encodeURIComponent(orderStepId)}/step3-form`);
+}
+
+async function apiPostStep3Form(orderStepId, body) {
+  return apiPost(`/api/wf/steps/${encodeURIComponent(orderStepId)}/step3-form`, body);
+}
+
 async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
 
@@ -636,6 +644,132 @@ function renderStep3ExternalData(externalData) {
   activateTab("sjekkliste");
 }
 
+function renderStatusCommentListRows(items, groupKey, values, canEdit, isEditMode) {
+  const editable = canEdit && isEditMode;
+
+  if (!items?.length) {
+    return `<div style="color:#6b7280; padding:10px;">Ingen elementer funnet.</div>`;
+  }
+
+  return `
+    <div style="display:grid; gap:8px;">
+      ${items.map(item => {
+        const itemKey = String(item.key);
+        const current = values?.[itemKey] || {};
+        const checked = current.status ? "checked" : "";
+        const disabled = editable ? "" : "disabled";
+
+        return `
+          <div
+            style="
+              border:1px solid #e5e7eb;
+              border-radius:10px;
+              padding:12px;
+              display:grid;
+              gap:8px;
+              background:${editable ? "#fff" : "#f8fafc"};
+            "
+          >
+            <label style="display:flex; gap:10px; align-items:flex-start; cursor:${editable ? "pointer" : "default"};">
+              <input
+                type="checkbox"
+                data-step3-group="${escapeHtml(groupKey)}"
+                data-step3-key="${escapeHtml(itemKey)}"
+                data-step3-role="status"
+                ${checked}
+                ${disabled}
+                style="margin-top:3px;"
+              />
+              <span style="font-weight:700;">${escapeHtml(item.label || item.key)}</span>
+            </label>
+
+            <div>
+              <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Kommentar</div>
+              <textarea
+                data-step3-group="${escapeHtml(groupKey)}"
+                data-step3-key="${escapeHtml(itemKey)}"
+                data-step3-role="kommentar"
+                ${disabled}
+                style="width:100%; min-height:70px;"
+                placeholder="Kommentar"
+              >${escapeHtml(current.kommentar || "")}</textarea>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderStep3FormInto(hostEl, payload, canEdit, isEditMode) {
+  const schema = payload?.schema || {};
+  const data = payload?.data || {};
+  const fields = schema?.fields || [];
+
+  const sjekklisteField = fields.find(f => f.key === "sjekkliste");
+  const egenskaperField = fields.find(f => f.key === "egenskaper");
+
+  hostEl.innerHTML = `
+    <div style="display:grid; gap:12px;">
+      <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+        <div style="font-weight:900; margin-bottom:10px;">Sjekkliste</div>
+        ${renderStatusCommentListRows(
+          sjekklisteField?.items || [],
+          "sjekkliste",
+          data?.sjekkliste || {},
+          canEdit,
+          isEditMode
+        )}
+      </div>
+
+      <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+        <div style="font-weight:900; margin-bottom:10px;">Egenskaper</div>
+        ${renderStatusCommentListRows(
+          egenskaperField?.items || [],
+          "egenskaper",
+          data?.egenskaper || {},
+          canEdit,
+          isEditMode
+        )}
+      </div>
+    </div>
+  `;
+}
+
+function readStep3FormValuesFrom(hostEl, originalPayload) {
+  const out = {
+    external: { ...(originalPayload?.data?.external || {}) },
+    sjekkliste: {},
+    egenskaper: {},
+  };
+
+  const nodes = hostEl.querySelectorAll("[data-step3-group][data-step3-key][data-step3-role]");
+
+  const touched = new Map();
+
+  nodes.forEach(node => {
+    const group = node.getAttribute("data-step3-group");
+    const key = node.getAttribute("data-step3-key");
+    const role = node.getAttribute("data-step3-role");
+
+    if (!touched.has(`${group}:${key}`)) {
+      touched.set(`${group}:${key}`, { group, key });
+    }
+
+    if (!out[group][key]) {
+      out[group][key] = { status: false, kommentar: "" };
+    }
+
+    if (role === "status") {
+      out[group][key].status = !!node.checked;
+    } else if (role === "kommentar") {
+      out[group][key].kommentar = (node.value || "").trim();
+    }
+  });
+
+  return out;
+}
+
 async function renderCurrentStepDetails(order) {
   const card = document.getElementById("stepDetailsCard");
   const sub = document.getElementById("stepDetailsSub");
@@ -678,17 +812,82 @@ async function renderCurrentStepDetails(order) {
   const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
   const schemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
 
-  // STEP 3 / external read-only mode
-  if (schemaObj?.readOnly === true && schemaObj?.source === "external") {
-    saveBtn.style.display = "none";
+  const editToggleWrap = document.getElementById("currentStepEditToggleWrap");
+  const editToggle = document.getElementById("currentStepEditToggle");
 
-    const externalData = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/external-data`);
-    renderStep3ExternalData(externalData);
+  if (editToggleWrap) editToggleWrap.style.display = "none";
+  if (editToggle) {
+    editToggle.checked = false;
+    editToggle.disabled = true;
+  }
+
+  // STEP 3 / external form with read-only default + toggle to edit
+  if (schemaObj?.source === "external" && schemaObj?.editor === "step3") {
+    const step3Payload = await apiGetStep3Form(step.OrderStepId);
+
+    let isEditMode = false;
+
+    const rerenderStep3 = () => {
+      renderStep3FormInto(formHost, step3Payload, canEdit, isEditMode);
+
+      if (saveBtn) {
+        saveBtn.style.display = canEdit && isEditMode ? "inline-flex" : "none";
+      }
+
+      setCurrentStepMsg(
+        canEdit
+          ? (isEditMode ? "Redigeringsmodus er aktiv." : "Visningsmodus. Slå på Rediger for å gjøre endringer.")
+          : "Kun aktivt steg tildelt deg kan redigeres.",
+        false
+      );
+    };
+
+    if (externalHost) externalHost.innerHTML = "";
+
+    if (editToggleWrap) editToggleWrap.style.display = "inline-flex";
+    if (editToggle) {
+      editToggle.disabled = !canEdit;
+      editToggle.checked = false;
+      editToggle.onchange = () => {
+        isEditMode = !!editToggle.checked;
+        rerenderStep3();
+      };
+    }
+
+    rerenderStep3();
 
     const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
     renderPriorStepsInline(allData.items || [], step.Sequence);
 
-    setCurrentStepMsg("Dette steget viser data fra et eksternt system og kan ikke redigeres.");
+    saveBtn.onclick = async () => {
+      try {
+        const values = readStep3FormValuesFrom(formHost, step3Payload);
+
+        setCurrentStepMsg("Lagrer…");
+        await apiPostStep3Form(step.OrderStepId, {
+          data: values,
+          expected_row_ver: step3Payload.rowVer || null,
+        });
+
+        const freshPayload = await apiGetStep3Form(step.OrderStepId);
+        step3Payload.schema = freshPayload.schema;
+        step3Payload.data = freshPayload.data;
+        step3Payload.rowVer = freshPayload.rowVer;
+
+        isEditMode = false;
+        if (editToggle) editToggle.checked = false;
+
+        rerenderStep3();
+
+        const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
+        renderPriorStepsInline(allData2.items || [], step.Sequence);
+
+        setCurrentStepMsg("Lagret ✔️");
+      } catch (e) {
+        setCurrentStepMsg(e.message || "Feil ved lagring.", true);
+      }
+    };
+
     return;
   }
 
