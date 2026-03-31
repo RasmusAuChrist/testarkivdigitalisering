@@ -652,7 +652,7 @@ function renderStatusCommentListRows(items, groupKey, values, canEdit, isEditMod
   }
 
   return `
-    <div style="display:grid; gap:8px;">
+    <div>
       ${items.map(item => {
         const itemKey = String(item.key);
         const current = values?.[itemKey] || {};
@@ -709,14 +709,9 @@ function renderStatusCommentListRows(items, groupKey, values, canEdit, isEditMod
                   ${checked}
                   ${disabled}
                 />
-                <span class="step3-check-visual">✓</span>
               </label>
 
               <div class="step3-title">${escapeHtml(item.label || item.key)}</div>
-
-              <div class="step3-state-badge ${isChecked ? "is-checked" : ""}">
-                ${isChecked ? "Avkrysset" : "Ikke avkrysset"}
-              </div>
             </div>
 
             ${commentHtml}
