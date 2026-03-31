@@ -656,44 +656,78 @@ function renderStatusCommentListRows(items, groupKey, values, canEdit, isEditMod
       ${items.map(item => {
         const itemKey = String(item.key);
         const current = values?.[itemKey] || {};
+
         const checked = current.status ? "checked" : "";
         const disabled = editable ? "" : "disabled";
 
+        const hasComment = (current.kommentar || "").trim().length > 0;
+
+        // 💡 SHOW COMMENT ONLY WHEN NEEDED
+        const showComment =
+          editable ||                // editing → always visible
+          hasComment ||              // already has content → visible
+          current.status === true;   // checked → visible
+
         return `
-          <div
-            style="
-              border:1px solid #e5e7eb;
-              border-radius:10px;
-              padding:12px;
-              display:grid;
-              gap:8px;
-              background:${editable ? "#fff" : "#f8fafc"};
-            "
-          >
+<div
+  style="
+    border:1px solid ${current.status ? "#93c5fd" : "#e5e7eb"};
+    border-radius:10px;
+    padding:10px;
+    display:grid;
+    gap:6px;
+    background:${current.status ? "#eff6ff" : (editable ? "#fff" : "#f8fafc")};
+    box-shadow:${current.status ? "inset 0 0 0 1px #bfdbfe" : "none"};
+  "
+>
             <label style="display:flex; gap:10px; align-items:flex-start; cursor:${editable ? "pointer" : "default"};">
-              <input
-                type="checkbox"
-                data-step3-group="${escapeHtml(groupKey)}"
-                data-step3-key="${escapeHtml(itemKey)}"
-                data-step3-role="status"
-                ${checked}
-                ${disabled}
-                style="margin-top:3px;"
-              />
+<input
+  type="checkbox"
+  data-step3-group="${escapeHtml(groupKey)}"
+  data-step3-key="${escapeHtml(itemKey)}"
+  data-step3-role="status"
+  ${checked}
+  ${disabled}
+  style="
+    margin-top:2px;
+    width:18px;
+    height:18px;
+    accent-color:#2563eb;
+    cursor:${editable ? "pointer" : "default"};
+    opacity:1;
+    flex:0 0 auto;
+  "
+/>
               <span style="font-weight:700;">${escapeHtml(item.label || item.key)}</span>
             </label>
 
-            <div>
-              <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Kommentar</div>
-              <textarea
-                data-step3-group="${escapeHtml(groupKey)}"
-                data-step3-key="${escapeHtml(itemKey)}"
-                data-step3-role="kommentar"
-                ${disabled}
-                style="width:100%; min-height:70px;"
-                placeholder="Kommentar"
-              >${escapeHtml(current.kommentar || "")}</textarea>
-            </div>
+            ${
+              showComment
+                ? `
+              <div>
+                <div style="font-size:12px; color:#9ca3af; margin-bottom:4px;">
+                  Kommentar
+                </div>
+                <textarea
+                  data-step3-group="${escapeHtml(groupKey)}"
+                  data-step3-key="${escapeHtml(itemKey)}"
+                  data-step3-role="kommentar"
+                  ${disabled}
+                  style="
+                    width:100%;
+                    min-height:${editable ? "60px" : "48px"};
+                    opacity:${editable ? "1" : "0.85"};
+                  "
+                  placeholder="Kommentar"
+                >${escapeHtml(current.kommentar || "")}</textarea>
+              </div>
+            `
+                : `
+              <div style="font-size:12px; color:#9ca3af; font-style:italic;">
+                (Ingen kommentar)
+              </div>
+            `
+            }
           </div>
         `;
       }).join("")}
