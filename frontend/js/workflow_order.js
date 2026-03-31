@@ -699,18 +699,18 @@ function renderStatusCommentListRows(items, groupKey, values, canEdit, isEditMod
         return `
           <div class="${rowClasses}">
             <div class="step3-head">
-              <label class="step3-check-wrap">
-                <input
-                  class="step3-check"
-                  type="checkbox"
-                  data-step3-group="${escapeHtml(groupKey)}"
-                  data-step3-key="${escapeHtml(itemKey)}"
-                  data-step3-role="status"
-                  ${checked}
-                  ${disabled}
-                />
-              </label>
-
+            <label class="step3-check-wrap">
+              <input
+                class="step3-check"
+                type="checkbox"
+                data-step3-group="${escapeHtml(groupKey)}"
+                data-step3-key="${escapeHtml(itemKey)}"
+                data-step3-role="status"
+                ${checked}
+                ${disabled}
+              />
+              <span class="step3-check-visual">✓</span>
+            </label>
               <div class="step3-title">${escapeHtml(item.label || item.key)}</div>
             </div>
 
