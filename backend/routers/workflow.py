@@ -484,6 +484,14 @@ def get_step_external_data(order_step_id: int, me: MeResponse = Depends(get_curr
     finally:
         conn.close()
 
+def _rowver_to_client(v: Any) -> Optional[str]:
+    if v is None:
+        return None
+    if isinstance(v, (bytes, bytearray)):
+        return "0x" + bytes(v).hex().upper()
+    return str(v)
+
+
 @router.get("/wf/steps/{order_step_id}/step3-form")
 def get_step3_form(order_step_id: int, me: MeResponse = Depends(get_current_user)):
     conn = get_connection(autocommit=False)
@@ -526,7 +534,7 @@ def get_step3_form(order_step_id: int, me: MeResponse = Depends(get_current_user
         payload = _build_step3_payload(amid, serie, sjekkliste, egenskaper)
 
         cur.execute("""
-            SELECT CONVERT(VARCHAR(34), RowVer, 1) AS RowVerHex
+            SELECT RowVer
             FROM dbo.WfOrderStepFormData
             WHERE OrderStepId = %s
         """, (order_step_id,))
@@ -534,7 +542,7 @@ def get_step3_form(order_step_id: int, me: MeResponse = Depends(get_current_user
 
         return {
             "orderStepId": order_step_id,
-            "rowVer": rv["RowVerHex"] if rv and rv.get("RowVerHex") else None,
+            "rowVer": _rowver_to_client(rv["RowVer"]) if rv and rv.get("RowVer") is not None else None,
             "readOnly": True,
             **payload,
         }
@@ -545,7 +553,6 @@ def get_step3_form(order_step_id: int, me: MeResponse = Depends(get_current_user
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
-
 
 @router.post("/wf/steps/{order_step_id}/step3-form")
 def save_step3_form_data(order_step_id: int, payload: SaveStep3FormDataRequest, me: MeResponse = Depends(get_current_user)):
