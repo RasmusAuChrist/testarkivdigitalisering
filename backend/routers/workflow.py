@@ -12,7 +12,7 @@ router = APIRouter()
 # Models
 # -----------------------------
 class CreateOrderRequest(BaseModel):
-    external_amid: str  # GUID string
+    external_amid: str
     batch_no: Optional[int] = None
     title: Optional[str] = None
     priority: int = 3
@@ -43,10 +43,95 @@ class CompleteStepRequest(BaseModel):
 class UnclaimStepRequest(BaseModel):
     comment: Optional[str] = Field(default=None, max_length=400)
 
+
 class SaveStepFormDataRequest(BaseModel):
     data: Dict[str, Any]
-    expected_row_ver: Optional[str] = None  # optional, if you support optimistic concurrency
+    expected_row_ver: Optional[str] = None
 
+
+class SaveStep3FormDataRequest(BaseModel):
+    data: Dict[str, Any]
+    expected_row_ver: Optional[str] = None
+
+
+def _rowver_from_client(v: Optional[str]) -> Optional[bytes]:
+    if not v:
+        return None
+    s = v.strip()
+    if s.lower().startswith("0x"):
+        return bytes.fromhex(s[2:])
+    return base64.b64decode(s)
+
+
+def _build_step3_payload(amid: str, serie: Optional[dict], sjekkliste: list[dict], egenskaper: list[dict]):
+    serie_id = serie.get("MyID") if serie else None
+
+    schema = {
+        "source": "external",
+        "editor": "step3",
+        "readOnly": True,
+        "fields": [
+            {
+                "key": "sjekkliste",
+                "label": "Sjekkliste",
+                "type": "status_comment_list",
+                "items": [],
+            },
+            {
+                "key": "egenskaper",
+                "label": "Egenskaper",
+                "type": "status_comment_list",
+                "items": [],
+            },
+        ],
+    }
+
+    data = {
+        "external": {
+            "amid": str(amid),
+            "serieId": serie_id,
+        },
+        "sjekkliste": {},
+        "egenskaper": {},
+    }
+
+    for row in sjekkliste or []:
+        item_id = str(row["id"])
+        schema["fields"][0]["items"].append(
+            {
+                "key": item_id,
+                "label": row.get("tekst") or f"#{item_id}",
+                "level": row.get("nivå"),
+                "sort": row.get("Sort", row.get("sort")),
+            }
+        )
+        data["sjekkliste"][item_id] = {
+            "status": bool(row.get("checked")),
+            "kommentar": row.get("kommentar") or "",
+        }
+
+    for row in egenskaper or []:
+        item_id = str(row["id"])
+        schema["fields"][1]["items"].append(
+            {
+                "key": item_id,
+                "label": row.get("navn") or f"#{item_id}",
+                "level": row.get("nivå"),
+                "sort": row.get("Sort", row.get("sort")),
+            }
+        )
+        data["egenskaper"][item_id] = {
+            "status": bool(row.get("status")),
+            "kommentar": row.get("kommentar") or "",
+        }
+
+    for field in schema["fields"]:
+        field["items"] = sorted(field["items"], key=lambda x: ((x.get("sort") or 0), x["key"]))
+
+    return {
+        "schema": schema,
+        "data": data,
+    }
 
 # -----------------------------
 # Create order
@@ -395,6 +480,94 @@ def get_step_external_data(order_step_id: int, me: MeResponse = Depends(get_curr
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/wf/steps/{order_step_id}/step3-form")
+def get_step3_form(order_step_id: int, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+
+        cur.execute("""
+            SELECT
+                os.OrderStepId,
+                os.StepDefId,
+                os.Status AS StepStatus,
+                os.AssignedToUserId,
+                o.OrderId,
+                o.ExternalAmid
+            FROM dbo.WfOrderSteps os
+            INNER JOIN dbo.WfOrders o
+                ON o.OrderId = os.OrderId
+            WHERE os.OrderStepId = %s
+        """, (order_step_id,))
+        row = cur.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Fant ikke steg")
+
+        amid = row.get("ExternalAmid")
+        if not amid:
+            raise HTTPException(status_code=404, detail="Fant ikke ExternalAmid for steg")
+
+        cur.execute("EXEC dbo.usp_wf_get_step3_external_data %s", (amid,))
+
+        serie = cur.fetchone()
+        sjekkliste = []
+        egenskaper = []
+
+        if cur.nextset():
+            sjekkliste = cur.fetchall() or []
+        if cur.nextset():
+            egenskaper = cur.fetchall() or []
+
+        payload = _build_step3_payload(amid, serie, sjekkliste, egenskaper)
+
+        cur.execute("""
+            SELECT CONVERT(VARCHAR(34), RowVer, 1) AS RowVerHex
+            FROM dbo.WfOrderStepFormData
+            WHERE OrderStepId = %s
+        """, (order_step_id,))
+        rv = cur.fetchone()
+
+        return {
+            "orderStepId": order_step_id,
+            "rowVer": rv["RowVerHex"] if rv and rv.get("RowVerHex") else None,
+            "readOnly": True,
+            **payload,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.post("/wf/steps/{order_step_id}/step3-form")
+def save_step3_form_data(order_step_id: int, payload: SaveStep3FormDataRequest, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+
+        data_json = json.dumps(payload.data, ensure_ascii=False)
+        expected_rowver = _rowver_from_client(payload.expected_row_ver)
+
+        cur.execute(
+            "EXEC dbo.usp_wf_save_step3_form_data %s, %s, %s, %s",
+            (me.user_id, order_step_id, data_json, expected_rowver),
+        )
+
+        row = cur.fetchone()
+        conn.commit()
+
+        return row or {"ok": True}
+
+    except Exception as e:
+        conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
