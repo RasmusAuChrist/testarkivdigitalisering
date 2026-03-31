@@ -822,7 +822,11 @@ async function renderCurrentStepDetails(order) {
   }
 
   // STEP 3 / external form with read-only default + toggle to edit
-  if (schemaObj?.source === "external" && schemaObj?.editor === "step3") {
+const isStep3External =
+  schemaObj?.source === "external" &&
+  (schemaObj?.editor === "step3" || schemaObj?.layout === "step3_external");
+
+if (isStep3External) {
     const step3Payload = await apiGetStep3Form(step.OrderStepId);
 
     let isEditMode = false;
