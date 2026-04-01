@@ -869,9 +869,29 @@ async function renderCurrentStepDetails(order) {
   }
 
   // STEP 3 / external form with read-only default + toggle to edit
-const isStep3External =
-  schemaObj?.source === "external" &&
-  (schemaObj?.editor === "step3" || schemaObj?.layout === "step3_external");
+  const isStep3External =
+    schemaObj?.source === "external" &&
+    (schemaObj?.editor === "step3" || schemaObj?.layout === "step3_external");
+
+  if (isStep3External) {
+    const step3Payload = await apiGetStep3Form(step.OrderStepId);
+
+    let isEditMode = false;
+
+    const rerenderStep3 = () => {
+      renderStep3FormInto(formHost, step3Payload, canEdit, isEditMode);
+
+      if (saveBtn) {
+        saveBtn.style.display = canEdit && isEditMode ? "inline-flex" : "none";
+      }
+
+      setCurrentStepMsg(
+        canEdit
+          ? (isEditMode ? "Redigeringsmodus er aktiv." : "Visningsmodus. Slå på Rediger for å gjøre endringer.")
+          : "Kun aktivt steg tildelt deg kan redigeres.",
+        false
+      );
+    };
 
     if (externalHost) externalHost.innerHTML = "";
 
@@ -891,6 +911,39 @@ const isStep3External =
     };
 
     renderAndBindStep3();
+
+    const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
+    renderPriorStepsInline(allData.items || [], step.Sequence);
+
+    saveBtn.onclick = async () => {
+      try {
+        const values = readStep3FormValuesFrom(formHost, step3Payload);
+
+        setCurrentStepMsg("Lagrer…");
+        await apiPostStep3Form(step.OrderStepId, {
+          data: values,
+          expected_row_ver: step3Payload.rowVer || null,
+        });
+
+        const freshPayload = await apiGetStep3Form(step.OrderStepId);
+        step3Payload.schema = freshPayload.schema;
+        step3Payload.data = freshPayload.data;
+        step3Payload.rowVer = freshPayload.rowVer;
+
+        isEditMode = false;
+        renderAndBindStep3();
+
+        const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
+        renderPriorStepsInline(allData2.items || [], step.Sequence);
+
+        setCurrentStepMsg("Lagret ✔️");
+      } catch (e) {
+        setCurrentStepMsg(e.message || "Feil ved lagring.", true);
+      }
+    };
+
+    return;
+  }
   // Normal editable workflow form
   saveBtn.style.display = canEdit ? "inline-flex" : "none";
 
