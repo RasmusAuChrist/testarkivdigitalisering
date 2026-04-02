@@ -1069,3 +1069,7 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
     transform: scale(1);
   }
 }
+
+.surface-light .queue-table thead th {
+  top: 0;
+}
