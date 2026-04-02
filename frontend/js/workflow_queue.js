@@ -394,7 +394,6 @@ function render(itemsAll) {
     return `
       <tr>
         <td>${statusBadge(dispStatus)}</td>
-        <td>${escapeHtml(it.BatchNo ?? "")}</td>
         <td>
           <div style="display:flex; flex-direction:column; gap:2px;">
             <div style="font-weight:700;">${escapeHtml(it.Title ?? "")}</div>
