@@ -81,6 +81,40 @@ function statusBadge(status) {
   return `<span style="display:inline-flex; padding:2px 8px; border-radius:999px; background:${color}; color:#fff; font-weight:700; font-size:12px;">${escapeHtml(status)}</span>`;
 }
 
+function stringToColor(str) {
+  let hash = 0;
+
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  // Generate HSL color (nice consistent palette)
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 45%)`;
+}
+
+function userPill(username) {
+  if (!username) return "";
+
+  const bg = stringToColor(username);
+
+  return `
+    <span style="
+      display:inline-flex;
+      align-items:center;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:600;
+      background:${bg};
+      color:#fff;
+      white-space:nowrap;
+    ">
+      ${escapeHtml(username)}
+    </span>
+  `;
+}
+
 async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
 
@@ -369,7 +403,7 @@ function render(itemsAll) {
             </div>
           </div>
         </td>
-        <td>${escapeHtml(it.AssignedToUserName ?? "")}</td>
+        <td>${userPill(it.AssignedToUserName)}</td>
         <td>
           <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
             Åpne
