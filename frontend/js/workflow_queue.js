@@ -369,7 +369,7 @@ function render(itemsAll) {
             </div>
           </div>
         </td>
-        <td>${escapeHtml(it.AssignedToUserId ?? "")}</td>
+        <td>${escapeHtml(it.AssignedToUserName ?? "")}</td>
         <td>
           <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
             Åpne
