@@ -7,7 +7,9 @@ load_dotenv()
 
 router = APIRouter()
 
-# Utility: Get DB connection
+# -----------------------------
+# DB Connection
+# -----------------------------
 def get_connection():
     return pymssql.connect(
         server=os.getenv("AZURE_SERVER"),
@@ -24,16 +26,20 @@ def get_depots():
     try:
         conn = get_connection()
         cursor = conn.cursor()
+
         query = """
             SELECT DISTINCT
                 LEFT(path, CHARINDEX('/', path) - 1) AS depot
             FROM tbl_bronze_asta_shelf
             WHERE path LIKE '%/%/%/%/%'
         """
+
         cursor.execute(query)
         rows = cursor.fetchall()
         conn.close()
+
         return [row[0] for row in rows if row[0] is not None]
+
     except Exception as e:
         return {"error": str(e)}
 
@@ -45,6 +51,7 @@ def get_available_rooms(depot: str = "OSL1"):
     try:
         conn = get_connection()
         cursor = conn.cursor()
+
         query = """
             SELECT DISTINCT
                 SUBSTRING(path, CHARINDEX('/', path) + 1,
@@ -53,10 +60,13 @@ def get_available_rooms(depot: str = "OSL1"):
             FROM tbl_bronze_asta_shelf
             WHERE path LIKE %s
         """
+
         cursor.execute(query, (f"{depot}/%/%/%/%",))
         rows = cursor.fetchall()
         conn.close()
+
         return [row[0] for row in rows if row[0] is not None]
+
     except Exception as e:
         return {"error": str(e)}
 
@@ -68,35 +78,41 @@ def get_shelves(depot: str = "OSL1", room: str = "1A"):
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
+
         query = """
             SELECT name, path, total_space
             FROM tbl_bronze_asta_shelf
             WHERE path LIKE %s
         """
+
         cursor.execute(query, (f"{depot}/{room}/%",))
         shelves = cursor.fetchall()
         conn.close()
+
         return shelves
+
     except Exception as e:
         return {"error": str(e)}
 
 # -----------------------------
-# GET /api/items
+# GET /api/items (LOCATION VIEW)
 # -----------------------------
 @router.get("/items")
 def get_items(depot: str = "OSL1", room: str = "1A"):
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
+
         query = """
             SELECT
                 stykke_identifikator AS item_id,
                 arkiv_identifikator AS arkiv,
                 hylleplassering AS shelf_path,
                 asta_sti AS item_path
-            FROM consolidated_stykke_hierarchy
+            FROM tbl_gold_stykke_hierarchy
             WHERE hylleplassering LIKE %s
         """
+
         cursor.execute(query, (f"{depot}/{room}/%",))
         items = cursor.fetchall()
         conn.close()
@@ -111,39 +127,46 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
                 item["aisle"] = item["bay"] = item["shelf"] = None
 
         return items
+
     except Exception as e:
         return {"error": str(e)}
+
+# =========================================================
+# SAH ENDPOINTS (UPDATED TO tbl_gold_stykke_hierarchy)
+# =========================================================
 
 # -----------------------------
 # GET /api/sah-arkiv-navn
 # -----------------------------
 @router.get("/sah-arkiv-navn")
 def get_sah_arkiv_navn():
-    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
         query = """
             SELECT DISTINCT arkiv_navn
-            FROM consolidated_stykke_hierarchy
-            WHERE (hylleplassering LIKE 'SAH%' OR asta_sti LIKE 'SAH%')
-              AND arkiv_navn IS NOT NULL
-              AND LTRIM(RTRIM(arkiv_navn)) <> ''
+            FROM tbl_gold_stykke_hierarchy
+            WHERE (
+                hylleplassering LIKE 'SAH%'
+                OR asta_sti LIKE 'SAH%'
+            )
+            AND arkiv_navn IS NOT NULL
+            AND LTRIM(RTRIM(arkiv_navn)) <> ''
             ORDER BY arkiv_navn
         """
+
         cursor.execute(query)
         rows = cursor.fetchall()
+        conn.close()
+
         return [row[0] for row in rows if row[0] is not None]
 
     except Exception as e:
         return {"error": str(e)}
-    finally:
-        if conn:
-            conn.close()
 
 # -----------------------------
-# GET /api/sah-items
+# GET /api/sah-items (PAGINATED)
 # -----------------------------
 @router.get("/sah-items")
 def get_sah_items(
@@ -180,24 +203,27 @@ def get_sah_items(
         where_clause = " AND ".join(filters)
         offset = (page - 1) * page_size
 
+        # COUNT
         count_query = f"""
             SELECT COUNT(*) AS total
-            FROM consolidated_stykke_hierarchy
+            FROM tbl_gold_stykke_hierarchy
             WHERE {where_clause}
         """
         cursor.execute(count_query, tuple(params))
         total = cursor.fetchone()["total"]
 
+        # DATA
         data_query = f"""
             SELECT
                 arkiv_identifikator,
                 arkiv_navn,
                 asta_sti
-            FROM consolidated_stykke_hierarchy
+            FROM tbl_gold_stykke_hierarchy
             WHERE {where_clause}
             ORDER BY arkiv_navn, arkiv_identifikator, asta_sti
             OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
         """
+
         cursor.execute(data_query, tuple(params + [offset, page_size]))
         rows = cursor.fetchall()
 
@@ -211,6 +237,7 @@ def get_sah_items(
 
     except Exception as e:
         return {"error": str(e)}
+
     finally:
         if conn:
             conn.close()
