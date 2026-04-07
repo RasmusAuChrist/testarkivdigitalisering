@@ -119,6 +119,7 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
 # -----------------------------
 @router.get("/sah-arkiv-navn")
 def get_sah_arkiv_navn():
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -126,66 +127,90 @@ def get_sah_arkiv_navn():
         query = """
             SELECT DISTINCT arkiv_navn
             FROM consolidated_stykke_hierarchy
-            WHERE (
-                hylleplassering LIKE 'SAH%'
-                OR asta_sti LIKE 'SAH%'
-            )
-            AND arkiv_navn IS NOT NULL
-            AND LTRIM(RTRIM(arkiv_navn)) <> ''
+            WHERE (hylleplassering LIKE 'SAH%' OR asta_sti LIKE 'SAH%')
+              AND arkiv_navn IS NOT NULL
+              AND LTRIM(RTRIM(arkiv_navn)) <> ''
             ORDER BY arkiv_navn
         """
-
         cursor.execute(query)
         rows = cursor.fetchall()
-        conn.close()
-
         return [row[0] for row in rows if row[0] is not None]
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
+
 # -----------------------------
 # GET /api/sah-items
 # -----------------------------
 @router.get("/sah-items")
-@router.get("/sah-items")
-def get_sah_items(arkiv_navn: str | None = Query(default=None)):
+def get_sah_items(
+    arkiv_navn: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500),
+):
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
 
-        if arkiv_navn and arkiv_navn.strip():
-            query = """
-                SELECT
-                    arkiv_identifikator,
-                    arkiv_navn,
-                    asta_sti
-                FROM consolidated_stykke_hierarchy
-                WHERE (
-                    hylleplassering LIKE 'SAH%'
-                    OR asta_sti LIKE 'SAH%'
-                )
-                AND arkiv_navn = %s
-                ORDER BY arkiv_navn, arkiv_identifikator, asta_sti
-            """
-            cursor.execute(query, (arkiv_navn.strip(),))
-        else:
-            query = """
-                SELECT
-                    arkiv_identifikator,
-                    arkiv_navn,
-                    asta_sti
-                FROM consolidated_stykke_hierarchy
-                WHERE (
-                    hylleplassering LIKE 'SAH%'
-                    OR asta_sti LIKE 'SAH%'
-                )
-                ORDER BY arkiv_navn, arkiv_identifikator, asta_sti
-            """
-            cursor.execute(query)
+        filters = [
+            "(hylleplassering LIKE 'SAH%' OR asta_sti LIKE 'SAH%')"
+        ]
+        params = []
 
+        if arkiv_navn and arkiv_navn.strip():
+            filters.append("arkiv_navn = %s")
+            params.append(arkiv_navn.strip())
+
+        if search and search.strip():
+            filters.append("""
+                (
+                    arkiv_identifikator LIKE %s
+                    OR arkiv_navn LIKE %s
+                    OR asta_sti LIKE %s
+                )
+            """)
+            like_value = f"%{search.strip()}%"
+            params.extend([like_value, like_value, like_value])
+
+        where_clause = " AND ".join(filters)
+        offset = (page - 1) * page_size
+
+        count_query = f"""
+            SELECT COUNT(*) AS total
+            FROM consolidated_stykke_hierarchy
+            WHERE {where_clause}
+        """
+        cursor.execute(count_query, tuple(params))
+        total = cursor.fetchone()["total"]
+
+        data_query = f"""
+            SELECT
+                arkiv_identifikator,
+                arkiv_navn,
+                asta_sti
+            FROM consolidated_stykke_hierarchy
+            WHERE {where_clause}
+            ORDER BY arkiv_navn, arkiv_identifikator, asta_sti
+            OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
+        """
+        cursor.execute(data_query, tuple(params + [offset, page_size]))
         rows = cursor.fetchall()
-        conn.close()
-        return rows
+
+        return {
+            "items": rows,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size
+        }
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()

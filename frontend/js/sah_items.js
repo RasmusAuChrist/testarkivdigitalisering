@@ -6,7 +6,10 @@ const summary = document.getElementById("summary");
 const content = document.getElementById("content");
 const loadingOverlay = document.getElementById("loadingOverlay");
 
-let allItems = [];
+let currentPage = 1;
+let pageSize = 100;
+let currentTotalPages = 1;
+let currentItems = [];
 
 function showLoading() {
   loadingOverlay.style.display = "flex";
@@ -52,7 +55,6 @@ async function fetchJson(url) {
 
 async function loadArkivNavnOptions() {
   const names = await fetchJson(`${API_BASE}/api/sah-arkiv-navn`);
-
   arkivFilter.innerHTML = `<option value="">Alle</option>`;
 
   names.forEach(name => {
@@ -63,60 +65,42 @@ async function loadArkivNavnOptions() {
   });
 }
 
-async function loadItems() {
-  const selectedArkivNavn = arkivFilter.value.trim();
+async function loadItems(page = 1) {
   const params = new URLSearchParams();
+  const selectedArkivNavn = arkivFilter.value.trim();
+  const search = searchInput.value.trim();
+
+  params.set("page", page);
+  params.set("page_size", pageSize);
 
   if (selectedArkivNavn) {
     params.set("arkiv_navn", selectedArkivNavn);
   }
 
-  const url = params.toString()
-    ? `${API_BASE}/api/sah-items?${params.toString()}`
-    : `${API_BASE}/api/sah-items`;
-
-  allItems = await fetchJson(url);
-  renderTable();
-}
-
-function getFilteredItems() {
-  const searchTerm = searchInput.value.trim().toLowerCase();
-
-  if (!searchTerm) {
-    return allItems;
+  if (search) {
+    params.set("search", search);
   }
 
-  return allItems.filter(item => {
-    const arkivIdentifikator = (item.arkiv_identifikator || "").toLowerCase();
-    const arkivNavn = (item.arkiv_navn || "").toLowerCase();
-    const astaSti = (item.asta_sti || "").toLowerCase();
+  const result = await fetchJson(`${API_BASE}/api/sah-items?${params.toString()}`);
 
-    return (
-      arkivIdentifikator.includes(searchTerm) ||
-      arkivNavn.includes(searchTerm) ||
-      astaSti.includes(searchTerm)
-    );
-  });
+  currentPage = result.page;
+  currentTotalPages = result.total_pages;
+  currentItems = result.items;
+
+  renderTable(result.total, result.page, result.page_size, result.total_pages);
 }
 
-function renderTable() {
-  const filteredItems = getFilteredItems();
-  const selectedName = arkivFilter.value.trim();
+function renderTable(total, page, pageSize, totalPages) {
+  summary.textContent = `Viser side ${page} av ${totalPages} — ${total} treff totalt`;
 
-  summary.textContent = selectedName
-    ? `Viser ${filteredItems.length} rader for arkiv_navn: ${selectedName}`
-    : `Viser ${filteredItems.length} rader for alle SAH-poster`;
-
-  if (!filteredItems.length) {
+  if (!currentItems.length) {
     content.innerHTML = `
-      <div class="empty-state">
-        Ingen treff funnet.
-      </div>
+      <div class="empty-state">Ingen treff funnet.</div>
     `;
     return;
   }
 
-  const rowsHtml = filteredItems.map(item => {
+  const rowsHtml = currentItems.map(item => {
     const arkivIdentifikator = escapeHtml(item.arkiv_identifikator || "");
     const arkivNavn = escapeHtml(item.arkiv_navn || "");
     const astaStiRaw = item.asta_sti || "";
@@ -135,6 +119,9 @@ function renderTable() {
     `;
   }).join("");
 
+  const prevDisabled = page <= 1 ? "disabled" : "";
+  const nextDisabled = page >= totalPages ? "disabled" : "";
+
   content.innerHTML = `
     <div class="table-wrapper">
       <table>
@@ -150,19 +137,52 @@ function renderTable() {
         </tbody>
       </table>
     </div>
+
+    <div class="pagination" style="display:flex; gap:12px; align-items:center; margin-top:16px;">
+      <button id="prevPage" ${prevDisabled}>Forrige</button>
+      <span>Side ${page} / ${totalPages}</span>
+      <button id="nextPage" ${nextDisabled}>Neste</button>
+    </div>
   `;
+
+  const prevBtn = document.getElementById("prevPage");
+  const nextBtn = document.getElementById("nextPage");
+
+  if (prevBtn) {
+    prevBtn.addEventListener("click", async () => {
+      if (currentPage > 1) {
+        try {
+          showLoading();
+          await loadItems(currentPage - 1);
+        } finally {
+          hideLoading();
+        }
+      }
+    });
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener("click", async () => {
+      if (currentPage < currentTotalPages) {
+        try {
+          showLoading();
+          await loadItems(currentPage + 1);
+        } finally {
+          hideLoading();
+        }
+      }
+    });
+  }
 }
 
 function renderError(message) {
   summary.textContent = "Feil ved lasting";
   content.innerHTML = `
-    <div class="error-state">
-      ${escapeHtml(message)}
-    </div>
+    <div class="error-state">${escapeHtml(message)}</div>
   `;
 }
 
-function debounce(fn, delay = 200) {
+function debounce(fn, delay = 300) {
   let timeoutId;
   return (...args) => {
     clearTimeout(timeoutId);
@@ -170,27 +190,26 @@ function debounce(fn, delay = 200) {
   };
 }
 
-const debouncedRender = debounce(renderTable, 150);
+const debouncedReload = debounce(async () => {
+  try {
+    showLoading();
+    await loadItems(1);
+  } catch (error) {
+    console.error(error);
+    renderError(error.message || "Ukjent feil");
+  } finally {
+    hideLoading();
+  }
+}, 300);
 
 async function init() {
   try {
     showLoading();
     await loadArkivNavnOptions();
-    await loadItems();
+    await loadItems(1);
 
-    arkivFilter.addEventListener("change", async () => {
-      try {
-        showLoading();
-        await loadItems();
-      } catch (error) {
-        console.error("Error loading SAH items:", error);
-        renderError(error.message || "Ukjent feil");
-      } finally {
-        hideLoading();
-      }
-    });
-
-    searchInput.addEventListener("input", debouncedRender);
+    arkivFilter.addEventListener("change", debouncedReload);
+    searchInput.addEventListener("input", debouncedReload);
   } catch (error) {
     console.error("Error initializing SAH page:", error);
     renderError(error.message || "Ukjent feil");
