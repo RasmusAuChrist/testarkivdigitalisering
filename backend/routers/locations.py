@@ -118,7 +118,7 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
         conn.close()
 
         for item in items:
-            parts = item["shelf_path"].split("/")
+            parts = item["shelf_path"].split("/") if item["shelf_path"] else []
             if len(parts) >= 5:
                 item["aisle"] = int(parts[2])
                 item["bay"] = int(parts[3])
@@ -132,7 +132,7 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
         return {"error": str(e)}
 
 # =========================================================
-# SAH ENDPOINTS (UPDATED TO tbl_gold_stykke_hierarchy)
+# SAH MOVEMENT TRACKING
 # =========================================================
 
 # -----------------------------
@@ -140,6 +140,7 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
 # -----------------------------
 @router.get("/sah-arkiv-navn")
 def get_sah_arkiv_navn():
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -147,31 +148,31 @@ def get_sah_arkiv_navn():
         query = """
             SELECT DISTINCT arkiv_navn
             FROM tbl_gold_stykke_hierarchy
-            WHERE (
-                hylleplassering LIKE 'SAH%'
-                OR asta_sti LIKE 'SAH%'
-            )
-            AND arkiv_navn IS NOT NULL
-            AND LTRIM(RTRIM(arkiv_navn)) <> ''
+            WHERE lokasjon = 'SAH'
+              AND arkiv_navn IS NOT NULL
+              AND LTRIM(RTRIM(arkiv_navn)) <> ''
             ORDER BY arkiv_navn
         """
 
         cursor.execute(query)
         rows = cursor.fetchall()
-        conn.close()
 
         return [row[0] for row in rows if row[0] is not None]
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
 
 # -----------------------------
-# GET /api/sah-items (PAGINATED)
+# GET /api/sah-items
 # -----------------------------
 @router.get("/sah-items")
 def get_sah_items(
     arkiv_navn: str | None = Query(default=None),
     search: str | None = Query(default=None),
+    status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=500),
 ):
@@ -180,64 +181,121 @@ def get_sah_items(
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
 
-        filters = [
-            "(hylleplassering LIKE 'SAH%' OR asta_sti LIKE 'SAH%')"
-        ]
-        params = []
+        filters = ["lokasjon = %s"]
+        params = ["SAH"]
 
         if arkiv_navn and arkiv_navn.strip():
             filters.append("arkiv_navn = %s")
             params.append(arkiv_navn.strip())
 
-        if search and search.strip():
+        if status == "ikke_flyttet":
+            filters.append("(hylleplassering IS NULL OR hylleplassering LIKE 'SAH%')")
+        elif status == "flyttet":
+            filters.append("hylleplassering LIKE 'Hamar%'")
+        elif status == "avvik":
             filters.append("""
-                (
-                    arkiv_identifikator LIKE %s
-                    OR arkiv_navn LIKE %s
-                    OR asta_sti LIKE %s
+                NOT (
+                    hylleplassering IS NULL
+                    OR hylleplassering LIKE 'SAH%'
+                    OR hylleplassering LIKE 'Hamar%'
                 )
             """)
+
+        if search and search.strip():
             like_value = f"%{search.strip()}%"
-            params.extend([like_value, like_value, like_value])
+            filters.append("""
+                (
+                    stykke_identifikator LIKE %s
+                    OR arkiv_identifikator LIKE %s
+                    OR arkiv_navn LIKE %s
+                    OR asta_sti LIKE %s
+                    OR hylleplassering LIKE %s
+                )
+            """)
+            params.extend([like_value, like_value, like_value, like_value, like_value])
 
         where_clause = " AND ".join(filters)
         offset = (page - 1) * page_size
 
-        # COUNT
         count_query = f"""
-            SELECT COUNT(*) AS total
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE
+                    WHEN hylleplassering IS NULL OR hylleplassering LIKE 'SAH%' THEN 1
+                    ELSE 0
+                END) AS not_moved_total,
+                SUM(CASE
+                    WHEN hylleplassering LIKE 'Hamar%' THEN 1
+                    ELSE 0
+                END) AS moved_total,
+                SUM(CASE
+                    WHEN NOT (
+                        hylleplassering IS NULL
+                        OR hylleplassering LIKE 'SAH%'
+                        OR hylleplassering LIKE 'Hamar%'
+                    ) THEN 1
+                    ELSE 0
+                END) AS deviation_total
             FROM tbl_gold_stykke_hierarchy
             WHERE {where_clause}
         """
         cursor.execute(count_query, tuple(params))
-        total = cursor.fetchone()["total"]
+        totals = cursor.fetchone() or {}
 
-        # DATA
         data_query = f"""
             SELECT
+                stykke_identifikator,
                 arkiv_identifikator,
                 arkiv_navn,
-                asta_sti
+                lokasjon,
+                hylleplassering,
+                asta_sti,
+                CASE
+                    WHEN hylleplassering IS NULL OR hylleplassering LIKE 'SAH%' THEN 'ikke_flyttet'
+                    WHEN hylleplassering LIKE 'Hamar%' THEN 'flyttet'
+                    ELSE 'avvik'
+                END AS movement_status
             FROM tbl_gold_stykke_hierarchy
             WHERE {where_clause}
-            ORDER BY arkiv_navn, arkiv_identifikator, asta_sti
+            ORDER BY
+                CASE
+                    WHEN hylleplassering LIKE 'Hamar%' THEN 1
+                    WHEN hylleplassering IS NULL OR hylleplassering LIKE 'SAH%' THEN 2
+                    ELSE 3
+                END,
+                arkiv_navn,
+                arkiv_identifikator,
+                stykke_identifikator
             OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
         """
 
         cursor.execute(data_query, tuple(params + [offset, page_size]))
         rows = cursor.fetchall()
 
+        total = totals.get("total") or 0
+        moved_total = totals.get("moved_total") or 0
+        not_moved_total = totals.get("not_moved_total") or 0
+        deviation_total = totals.get("deviation_total") or 0
+        total_pages = (total + page_size - 1) // page_size if total else 0
+        progress_percent = round((moved_total / total) * 100, 2) if total else 0
+
         return {
             "items": rows,
             "total": total,
             "page": page,
             "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size
+            "total_pages": total_pages,
+            "summary": {
+                "total_items": total,
+                "not_moved": not_moved_total,
+                "moved_correctly": moved_total,
+                "deviations": deviation_total,
+                "progress_percent": progress_percent
+            }
         }
 
     except Exception as e:
         return {"error": str(e)}
-
     finally:
         if conn:
             conn.close()
