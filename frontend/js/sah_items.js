@@ -7,7 +7,7 @@ const content = document.getElementById("content");
 const loadingOverlay = document.getElementById("loadingOverlay");
 
 let currentPage = 1;
-let pageSize = 100;
+let pageSize = 250;
 let currentTotalPages = 1;
 let currentItems = [];
 
