@@ -23,6 +23,7 @@ def get_connection():
 # -----------------------------
 @router.get("/depots")
 def get_depots():
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -36,18 +37,21 @@ def get_depots():
 
         cursor.execute(query)
         rows = cursor.fetchall()
-        conn.close()
 
         return [row[0] for row in rows if row[0] is not None]
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
 
 # -----------------------------
 # GET /api/rooms
 # -----------------------------
 @router.get("/rooms")
 def get_available_rooms(depot: str = "OSL1"):
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -63,18 +67,21 @@ def get_available_rooms(depot: str = "OSL1"):
 
         cursor.execute(query, (f"{depot}/%/%/%/%",))
         rows = cursor.fetchall()
-        conn.close()
 
         return [row[0] for row in rows if row[0] is not None]
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
 
 # -----------------------------
 # GET /api/shelves
 # -----------------------------
 @router.get("/shelves")
 def get_shelves(depot: str = "OSL1", room: str = "1A"):
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
@@ -87,18 +94,21 @@ def get_shelves(depot: str = "OSL1", room: str = "1A"):
 
         cursor.execute(query, (f"{depot}/{room}/%",))
         shelves = cursor.fetchall()
-        conn.close()
 
         return shelves
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
 
 # -----------------------------
 # GET /api/items (LOCATION VIEW)
 # -----------------------------
 @router.get("/items")
 def get_items(depot: str = "OSL1", room: str = "1A"):
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
@@ -115,7 +125,6 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
 
         cursor.execute(query, (f"{depot}/{room}/%",))
         items = cursor.fetchall()
-        conn.close()
 
         for item in items:
             parts = item["shelf_path"].split("/") if item["shelf_path"] else []
@@ -124,12 +133,17 @@ def get_items(depot: str = "OSL1", room: str = "1A"):
                 item["bay"] = int(parts[3])
                 item["shelf"] = int(parts[4])
             else:
-                item["aisle"] = item["bay"] = item["shelf"] = None
+                item["aisle"] = None
+                item["bay"] = None
+                item["shelf"] = None
 
         return items
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
 
 # =========================================================
 # SAH MOVEMENT TRACKING
@@ -258,12 +272,8 @@ def get_sah_items(
             FROM tbl_gold_stykke_hierarchy
             WHERE {where_clause}
             ORDER BY
-                CASE
-                    WHEN hylleplassering LIKE 'Hamar%' THEN 1
-                    WHEN hylleplassering IS NULL OR hylleplassering LIKE 'SAH%' THEN 2
-                    ELSE 3
-                END,
-                arkiv_navn,
+                CASE WHEN asta_sti IS NULL OR LTRIM(RTRIM(asta_sti)) = '' THEN 1 ELSE 0 END,
+                asta_sti,
                 arkiv_identifikator,
                 stykke_identifikator
             OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
