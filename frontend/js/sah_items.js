@@ -19,6 +19,7 @@ let pageSize = 250;
 let currentTotalPages = 1;
 let currentItems = [];
 let currentStatus = "";
+let sortDirection = "asc";
 
 function showLoading() {
   loadingOverlay.style.display = "flex";
@@ -84,6 +85,20 @@ function renderSummaryCards(summaryData) {
   deviationItemsValue.textContent = formatNumber(deviations);
   progressFill.style.width = `${Math.max(0, Math.min(progressPercent, 100))}%`;
   progressLabel.textContent = `${String(progressPercent).replace(".", ",")}%`;
+}
+
+function sortItemsByAstaSti(items) {
+  return [...items].sort((a, b) => {
+    const aValue = (a.asta_sti || "").trim();
+    const bValue = (b.asta_sti || "").trim();
+
+    const result = aValue.localeCompare(bValue, "no", {
+      numeric: true,
+      sensitivity: "base"
+    });
+
+    return sortDirection === "asc" ? result : -result;
+  });
 }
 
 async function fetchJson(url) {
@@ -154,7 +169,9 @@ function renderTable(total, page, pageSize, totalPages) {
     return;
   }
 
-  const rowsHtml = currentItems.map(item => {
+  const sortedItems = sortItemsByAstaSti(currentItems);
+
+  const rowsHtml = sortedItems.map(item => {
     const stykkeIdentifikator = escapeHtml(item.stykke_identifikator || "");
     const arkivIdentifikator = escapeHtml(item.arkiv_identifikator || "");
     const arkivNavn = escapeHtml(item.arkiv_navn || "");
@@ -183,6 +200,7 @@ function renderTable(total, page, pageSize, totalPages) {
 
   const prevDisabled = page <= 1 ? "disabled" : "";
   const nextDisabled = page >= totalPages ? "disabled" : "";
+  const sortArrow = sortDirection === "asc" ? "▲" : "▼";
 
   content.innerHTML = `
     <div class="table-wrapper">
@@ -195,7 +213,7 @@ function renderTable(total, page, pageSize, totalPages) {
             <th>arkiv_navn</th>
             <th>lokasjon</th>
             <th>hylleplassering</th>
-            <th>asta_sti</th>
+            <th id="astaSortHeader" class="sortable-header">asta_sti ${sortArrow}</th>
           </tr>
         </thead>
         <tbody>
@@ -213,6 +231,7 @@ function renderTable(total, page, pageSize, totalPages) {
 
   const prevBtn = document.getElementById("prevPage");
   const nextBtn = document.getElementById("nextPage");
+  const sortHeader = document.getElementById("astaSortHeader");
 
   if (prevBtn) {
     prevBtn.addEventListener("click", async () => {
@@ -243,6 +262,13 @@ function renderTable(total, page, pageSize, totalPages) {
           hideLoading();
         }
       }
+    });
+  }
+
+  if (sortHeader) {
+    sortHeader.addEventListener("click", () => {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+      renderTable(total, page, pageSize, totalPages);
     });
   }
 }
