@@ -219,7 +219,7 @@ function renderKpis(rows) {
   const s = computeSummary(rows);
 
   el.kpiArkiver.textContent = int(s.count);
-  el.kpiDigitized.textContent = pct(s.avgDigitized, 1);
+  el.kpiDigitized.textContent = pct(s.avgDigitized, 2);
   el.kpiMedia.textContent = int(s.totalMedia);
   el.kpiDigark.textContent = int(s.totalDigark);
   el.kpiReqInternal.textContent = int(s.totalReqInternal);
