@@ -395,10 +395,19 @@ function render(itemsAll) {
       <tr>
         <td>${statusBadge(dispStatus)}</td>
         <td>
-          <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
             <div style="font-weight:700;">${escapeHtml(it.Title ?? "")}</div>
+
             <div style="font-size:12px; color:#6b7280;">
-              OrdreId: ${escapeHtml(it.OrderId)} · Steg: ${escapeHtml(it.Sequence)} · _amid: <code>${escapeHtml(it.ExternalAmid)}</code>
+              <strong>Identifikator:</strong> ${escapeHtml(it.Identifikator ?? "")}
+            </div>
+
+            <div style="font-size:12px; color:#6b7280;">
+              <strong>Hyllemeter:</strong> ${it.Hyllemeter == null ? "Ikke registrert" : escapeHtml(it.Hyllemeter)}
+            </div>
+
+            <div style="font-size:12px; color:#6b7280;">
+              <strong>Restriksjoner:</strong> ${escapeHtml(it.Restriksjoner ?? "")}
             </div>
           </div>
         </td>
