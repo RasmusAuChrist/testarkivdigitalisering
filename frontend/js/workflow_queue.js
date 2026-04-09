@@ -165,6 +165,20 @@ async function loadNavbar() {
   }
 }
 
+function sumHyllemeter(items) {
+  return (items || []).reduce((sum, it) => {
+    const value = it?.Hyllemeter;
+
+    if (value == null || value === "") return sum;
+
+    const num = typeof value === "number"
+      ? value
+      : Number(String(value).replace(",", "."));
+
+    return Number.isFinite(num) ? sum + num : sum;
+  }, 0);
+}
+
 /* ---------------------------
    Rule-based "Stegstatus"
    --------------------------- */
@@ -379,35 +393,18 @@ function controlsCell(it) {
   return `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${parts.join("")}</div>`;
 }
 
-function sumHyllemeter(items) {
-  return (items || []).reduce((sum, it) => {
-    const value = it?.Hyllemeter;
-
-    if (value == null || value === "") return sum;
-
-    const num = typeof value === "number"
-      ? value
-      : Number(String(value).replace(",", "."));
-
-    return Number.isFinite(num) ? sum + num : sum;
-  }, 0);
-}
-
 function render(itemsAll) {
   const items = applyFilters(itemsAll);
 
   const tbody = document.getElementById("tbody");
   const countBox = document.getElementById("countBox");
-
+if (countBox) {
   const totalHyllemeter = sumHyllemeter(items);
 
-  if (countBox) {
-    countBox.innerHTML = `
-      <div>Antall: ${items.length} / ${itemsAll.length}</div>
-      <div>Bekreftet hyllemeter: ${totalHyllemeter.toLocaleString("no-NO")}</div>
-    `;
-  }
-
+  countBox.textContent =
+    `Antall: ${items.length} / ${itemsAll.length}\n` +
+    `Bekreftet hyllemeter: ${totalHyllemeter.toLocaleString("no-NO")}`;
+}
   if (!tbody) return;
 
   tbody.innerHTML = items.map(it => {
