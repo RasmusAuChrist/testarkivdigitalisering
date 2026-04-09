@@ -68,6 +68,53 @@ function escapeHtml(v) {
     .replaceAll("'", "&#039;");
 }
 
+const ASTA_GUI_BASE = "https://av.stiftelsen-asta.no/gui/";
+
+function buildAstaSeriesUrl(item) {
+  const amid = item?.ExternalAmid;
+  if (!amid) return "#";
+
+  const historyLabel = item?.Identifikator
+    ? `${item.Identifikator} - ${item.Title ?? ""}`.trim()
+    : (item?.Title ?? "Åpne i ASTA");
+
+  const payload = {
+    c: "c",
+    h: historyLabel,
+    cid: amid,
+    aid: "isadg",
+    enm: "SERIE"
+  };
+
+  const params = new URLSearchParams({
+    userHistoryLoaded: "true",
+    ta: "1",
+    t_1: JSON.stringify(payload)
+  });
+
+  return `${ASTA_GUI_BASE}?${params.toString()}`;
+}
+
+function astaButton(item) {
+  const amid = item?.ExternalAmid;
+  if (!amid) return "";
+
+  return `
+    <div style="margin-top:8px;">
+      <a
+        class="btn btn-outline"
+        href="${buildAstaSeriesUrl(item)}"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Åpne i baseinformasjonssystemet"
+        style="padding:6px 10px; font-size:12px;"
+      >
+        Åpne i ASTA
+      </a>
+    </div>
+  `;
+}
+
 function statusBadge(status) {
   const color =
     status === "Active" ? "#16a34a" :
@@ -398,13 +445,13 @@ function render(itemsAll) {
 
   const tbody = document.getElementById("tbody");
   const countBox = document.getElementById("countBox");
-if (countBox) {
-  const totalHyllemeter = sumHyllemeter(items);
+  if (countBox) {
+    const totalHyllemeter = sumHyllemeter(items);
 
-  countBox.textContent =
-    `Antall: ${items.length} / ${itemsAll.length}\n` +
-    `Bekreftet hyllemeter: ${totalHyllemeter.toLocaleString("no-NO")}`;
-}
+    countBox.textContent =
+      `Antall: ${items.length} / ${itemsAll.length}\n` +
+      `Bekreftet hyllemeter: ${totalHyllemeter.toLocaleString("no-NO")}`;
+  }
   if (!tbody) return;
 
   tbody.innerHTML = items.map(it => {
@@ -431,6 +478,8 @@ if (countBox) {
             <div style="font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word; white-space:normal;">
               <strong>Restriksjoner:</strong> ${escapeHtml(it.Restriksjoner ?? "")}
             </div>
+
+            ${astaButton(it)}
           </div>
         </td>
 
