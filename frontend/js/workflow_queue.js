@@ -393,31 +393,37 @@ function render(itemsAll) {
 
     return `
       <tr>
-        <td>${statusBadge(dispStatus)}</td>
-        <td>
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <div style="font-weight:700;">${escapeHtml(it.Title ?? "")}</div>
+        <td style="vertical-align:top;">${statusBadge(dispStatus)}</td>
 
-            <div style="font-size:12px; color:#6b7280;">
+        <td style="vertical-align:top;">
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
+            <div style="font-weight:700; overflow-wrap:anywhere; word-break:break-word;">
+              ${escapeHtml(it.Title ?? "")}
+            </div>
+
+            <div style="font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word;">
               <strong>Identifikator:</strong> ${escapeHtml(it.Identifikator ?? "")}
             </div>
 
-            <div style="font-size:12px; color:#6b7280;">
+            <div style="font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word;">
               <strong>Hyllemeter:</strong> ${it.Hyllemeter == null ? "Ikke registrert" : escapeHtml(it.Hyllemeter)}
             </div>
 
-            <div style="font-size:12px; color:#6b7280;">
+            <div style="font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word; white-space:normal;">
               <strong>Restriksjoner:</strong> ${escapeHtml(it.Restriksjoner ?? "")}
             </div>
           </div>
         </td>
-        <td>${userPill(it.AssignedToUserName)}</td>
-        <td>
+
+        <td style="vertical-align:top;">${userPill(it.AssignedToUserName)}</td>
+
+        <td style="vertical-align:top;">
           <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
             Åpne
           </a>
         </td>
-        <td>${controlsCell(it)}</td>
+
+        <td style="vertical-align:top;">${controlsCell(it)}</td>
       </tr>
     `;
   }).join("");
