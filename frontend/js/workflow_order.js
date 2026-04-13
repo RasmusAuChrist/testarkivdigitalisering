@@ -740,24 +740,6 @@ function renderStep3FormInto(hostEl, payload, canEdit, isEditMode) {
       <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap;">
           <div style="font-weight:900;">Sjekkliste</div>
-
-          <label for="${toggleId}" class="${toggleClass}">
-            <span class="step3-toggle-label">
-              ${isEditMode ? "Redigering på" : "Lesemodus"}
-            </span>
-
-            <span class="step3-switch">
-              <input
-                id="${toggleId}"
-                type="checkbox"
-                ${toggleChecked}
-                ${toggleDisabled}
-                data-step3-edit-toggle="1"
-              />
-              <span class="step3-switch-track"></span>
-              <span class="step3-switch-thumb"></span>
-            </span>
-          </label>
         </div>
 
         ${renderStatusCommentListRows(
@@ -895,15 +877,15 @@ async function renderCurrentStepDetails(order) {
 
     if (externalHost) externalHost.innerHTML = "";
 
-    const bindStep3Toggle = () => {
-      const toggle = formHost.querySelector("[data-step3-edit-toggle='1']");
-      if (!toggle) return;
+   // const bindStep3Toggle = () => {
+   //   const toggle = formHost.querySelector("[data-step3-edit-toggle='1']");
+   //   if (!toggle) return;
 
-      toggle.addEventListener("change", () => {
-        isEditMode = !!toggle.checked;
-        renderAndBindStep3();
-      });
-    };
+   //   toggle.addEventListener("change", () => {
+   //     isEditMode = !!toggle.checked;
+   //     renderAndBindStep3();
+   //   });
+   // };
 
     const renderAndBindStep3 = () => {
       rerenderStep3();
