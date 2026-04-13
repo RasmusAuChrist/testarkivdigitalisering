@@ -118,6 +118,40 @@ function statusBadge(status) {
   return `<span style="display:inline-flex; padding:2px 8px; border-radius:999px; background:${color}; color:#fff; font-weight:700; font-size:12px;">${escapeHtml(status)}</span>`;
 }
 
+function stringToColor(str) {
+  let hash = 0;
+
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 45%)`;
+}
+
+function userPill(username, fallback = "") {
+  const text = String(username ?? "").trim();
+  if (!text) return escapeHtml(fallback);
+
+  const bg = stringToColor(text);
+
+  return `
+    <span style="
+      display:inline-flex;
+      align-items:center;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:600;
+      background:${bg};
+      color:#fff;
+      white-space:nowrap;
+    ">
+      ${escapeHtml(text)}
+    </span>
+  `;
+}
+
 function ensureLoggedIn() {
   const token = getToken();
   if (!token) {
@@ -179,7 +213,7 @@ function renderSteps(steps) {
       <td>${escapeHtml(s.Sequence)}</td>
       <td>${escapeHtml(s.StepName)}</td>
       <td>${statusBadge(s.StepStatus)}</td>
-      <td>${escapeHtml(s.AssignedToUserId ?? "")}</td>
+      <td>${userPill(s.AssignedToUserName, s.AssignedToUserId ?? "")}</td>      
       <td>${fmtDate(s.StartedAt)}</td>
       <td>${fmtDate(s.CompletedAt)}</td>
       <td>${escapeHtml(s.CompletionDisposition ?? "")}</td>
@@ -204,7 +238,7 @@ function renderEvents(events, steps) {
       <td>${escapeHtml(stepNameByOrderStepId.get(e.OrderStepId) ?? "")}</td>
       <td>${escapeHtml(e.ReasonCode ?? "")}</td>
       <td>${escapeHtml(e.Comment ?? "")}</td>
-      <td>${escapeHtml(e.CreatedByUserId ?? "")}</td>
+      <td>${userPill(e.CreatedByUserName, e.CreatedByUserId ?? "")}</td>
     </tr>
   `).join("");
 }
