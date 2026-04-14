@@ -115,54 +115,6 @@ function astaButton(item) {
   `;
 }
 
-function actionIcon(name) {
-  const common = 'width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"';
-  const stroke = 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"';
-
-  const icons = {
-    claim: `
-      <svg ${common}>
-        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
-      </svg>
-    `,
-    complete: `
-      <svg ${common}>
-        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
-      </svg>
-    `,
-    sendBack: `
-      <svg ${common}>
-        <path ${stroke} d="M13 5l-7 5 7 5V5z"></path>
-        <path ${stroke} d="M16 5l-7 5 7 5V5z" opacity="0.75"></path>
-      </svg>
-    `,
-    hold: `
-      <svg ${common}>
-        <path ${stroke} d="M7 5v10"></path>
-        <path ${stroke} d="M13 5v10"></path>
-      </svg>
-    `,
-    unhold: `
-      <svg ${common}>
-        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
-      </svg>
-    `,
-    close: `
-      <svg ${common}>
-        <rect x="5.5" y="5.5" width="9" height="9" rx="1.2" ${stroke}></rect>
-      </svg>
-    `,
-    unclaim: `
-      <svg ${common}>
-        <path ${stroke} d="M6 10h8"></path>
-        <path ${stroke} d="M10 6l4 4-4 4"></path>
-      </svg>
-    `,
-  };
-
-  return icons[name] || "";
-}
-
 function statusBadge(status) {
   const color =
     status === "Active" ? "#16a34a" :
