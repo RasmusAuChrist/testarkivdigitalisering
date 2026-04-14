@@ -373,89 +373,99 @@ function controlsCell(it) {
 
   const parts = [];
 
-  // Ta
+  // Ta (Claim)
   if (canShowClaim(it)) {
     parts.push(`
-      <button class="btn btn-primary"
+      <button class="btn btn-success"
               data-action="claim"
-              data-order-step-id="${orderStepId}">
-        <span class="btn-text">Ta</span>
+              data-order-step-id="${orderStepId}"
+              title="Ta oppgave">
+        <span class="btn-icon">▶️</span>
       </button>
     `);
   }
 
-  // Frigi
+  // Frigi (Unclaim)
   if (canShowUnclaim(it)) {
     parts.push(`
-      <button class="btn btn-outline"
+      <button class="btn btn-neutral"
               data-action="unclaim"
-              data-order-step-id="${orderStepId}">
-        <span class="btn-text">Frigi</span>
+              data-order-step-id="${orderStepId}"
+              title="Frigi">
+        <span class="btn-icon">⏏️</span>
       </button>
     `);
   }
 
-  // Fullfør
+  // Fullfør (Complete / Forward)
   if (canShowComplete(it)) {
     parts.push(`
-      <button class="btn btn-outline"
+      <button class="btn btn-success"
               data-action="complete"
-              data-order-step-id="${orderStepId}">
-        <span class="btn-text">Fullfør</span>
+              data-order-step-id="${orderStepId}"
+              title="Fullfør og gå videre">
+        <span class="btn-icon">▶️</span>
       </button>
     `);
   }
 
-    // Send tilbake
+  // Send tilbake (Rewind)
   if (canShowSendBack(it)) {
     parts.push(`
-      <button class="btn btn-outline"
+      <button class="btn btn-info"
               data-action="send-back"
-              data-order-step-id="${orderStepId}">
-        <span class="btn-text">Send tilbake</span>
+              data-order-step-id="${orderStepId}"
+              title="Send tilbake">
+        <span class="btn-icon">⏪</span>
       </button>
     `);
   }
 
-  // Vent / Av vent
+  // Vent (Hold / Pause)
   if (canShowHold(it)) {
     parts.push(`
-      <button class="btn btn-outline"
+      <button class="btn btn-warning"
               data-action="hold"
-              data-order-id="${orderId}">
-        <span class="btn-text">Vent</span>
+              data-order-id="${orderId}"
+              title="Sett på vent">
+        <span class="btn-icon">⏸️</span>
       </button>
     `);
   }
 
+  // Av vent (Resume)
   if (canShowUnhold(it)) {
     parts.push(`
-      <button class="btn btn-outline"
+      <button class="btn btn-success"
               data-action="unhold"
-              data-order-id="${orderId}">
-        <span class="btn-text">Av vent</span>
+              data-order-id="${orderId}"
+              title="Ta av vent">
+        <span class="btn-icon">▶️</span>
       </button>
     `);
   }
 
-  // Stopp
+  // Stopp (Close)
   if (canShowClose(it)) {
     parts.push(`
-      <button class="btn btn-outline"
+      <button class="btn btn-danger"
               data-action="close"
               data-order-id="${orderId}"
-              style="border-color:#ef4444; color:#ef4444;">
-        <span class="btn-text">Stopp</span>
+              title="Stopp ordre">
+        <span class="btn-icon">⏹️</span>
       </button>
     `);
   }
 
-  // If nothing is available, show a small dash
   if (parts.length === 0) {
     return `<span style="color:#6b7280;">–</span>`;
   }
 
-  return `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">${parts.join("")}</div>`;
+  return `
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      ${parts.join("")}
+    </div>
+  `;
 }
 
 function render(itemsAll) {
