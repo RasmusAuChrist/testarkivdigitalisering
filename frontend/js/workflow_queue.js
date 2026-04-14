@@ -210,6 +210,77 @@ function userPill(username) {
   `;
 }
 
+function actionIcon(name) {
+  const common = 'width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"';
+  const stroke = 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+
+  const icons = {
+    assign: `
+      <svg ${common}>
+        <circle cx="7.5" cy="6.5" r="2.75" ${stroke}></circle>
+        <path ${stroke} d="M3.5 14.5c.8-2.1 2.5-3.3 4-3.3s3.2 1.2 4 3.3"></path>
+        <path ${stroke} d="M15.25 6.25v5.5"></path>
+        <path ${stroke} d="M12.5 9h5.5"></path>
+      </svg>
+    `,
+    unassign: `
+      <svg ${common}>
+        <circle cx="7.5" cy="6.5" r="2.75" ${stroke}></circle>
+        <path ${stroke} d="M3.5 14.5c.8-2.1 2.5-3.3 4-3.3s3.2 1.2 4 3.3"></path>
+        <path ${stroke} d="M12.5 9h5.5"></path>
+      </svg>
+    `,
+    complete: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
+      </svg>
+    `,
+    sendBack: `
+      <svg ${common}>
+        <path ${stroke} d="M12.5 5.2L6.2 10l6.3 4.8V5.2z"></path>
+        <path ${stroke} d="M15.7 5.2L9.4 10l6.3 4.8V5.2z" opacity="0.72"></path>
+      </svg>
+    `,
+    hold: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5v10"></path>
+        <path ${stroke} d="M13 5v10"></path>
+      </svg>
+    `,
+    unhold: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
+      </svg>
+    `,
+    close: `
+      <svg ${common}>
+        <rect x="5.5" y="5.5" width="9" height="9" rx="1.25" ${stroke}></rect>
+      </svg>
+    `,
+  };
+
+  return icons[name] || "";
+}
+
+function iconButton({ action, icon, title, className = "", dataAttrs = {} }) {
+  const attrs = Object.entries(dataAttrs)
+    .map(([k, v]) => `${k}="${escapeHtml(v)}"`)
+    .join(" ");
+
+  return `
+    <button
+      class="btn btn-icon-only ${className}".trim()
+      data-action="${escapeHtml(action)}"
+      ${attrs}
+      title="${escapeHtml(title)}"
+      aria-label="${escapeHtml(title)}"
+      type="button"
+    >
+      <span class="btn-icon">${actionIcon(icon)}</span>
+    </button>
+  `;
+}
+
 async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
 
@@ -415,98 +486,124 @@ function canShowClose(it) {
   return !isOrderClosedLike(it); // allow close from Open or OnHold
 };
 
-function controlsCell(it) {
-  const orderId = it.OrderId;
-  const orderStepId = it.OrderStepId;
-
+function assignedCell(it) {
   const parts = [];
 
+  if (it.AssignedToUserName) {
+    parts.push(userPill(it.AssignedToUserName));
+  } else {
+    parts.push(`<span class="queue-assigned-empty">Ikke tildelt</span>`);
+  }
+
   if (canShowClaim(it)) {
-    parts.push(`
-      <button class="btn btn-success"
-              data-action="claim"
-              data-order-step-id="${orderStepId}"
-              title="Ta oppgave">
-        <span class="btn-icon">${actionIcon("claim")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "claim",
+        icon: "assign",
+        title: "Tildel til meg",
+        className: "btn-assign",
+        dataAttrs: {
+          "data-order-step-id": it.OrderStepId,
+        },
+      })
+    );
   }
 
   if (canShowUnclaim(it)) {
-    parts.push(`
-      <button class="btn btn-neutral"
-              data-action="unclaim"
-              data-order-step-id="${orderStepId}"
-              title="Frigi">
-        <span class="btn-icon">${actionIcon("unclaim")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "unclaim",
+        icon: "unassign",
+        title: "Fjern tildeling",
+        className: "btn-assign",
+        dataAttrs: {
+          "data-order-step-id": it.OrderStepId,
+        },
+      })
+    );
   }
 
+  return `<div class="queue-assigned-cell">${parts.join("")}</div>`;
+}
+
+function controlsCell(it) {
+  const parts = [];
+
   if (canShowComplete(it)) {
-    parts.push(`
-      <button class="btn btn-success"
-              data-action="complete"
-              data-order-step-id="${orderStepId}"
-              title="Fullfør og gå videre">
-        <span class="btn-icon">${actionIcon("complete")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "complete",
+        icon: "complete",
+        title: "Fullfør og gå videre",
+        className: "btn-success",
+        dataAttrs: {
+          "data-order-step-id": it.OrderStepId,
+        },
+      })
+    );
   }
 
   if (canShowSendBack(it)) {
-    parts.push(`
-      <button class="btn btn-info"
-              data-action="send-back"
-              data-order-step-id="${orderStepId}"
-              title="Send tilbake">
-        <span class="btn-icon">${actionIcon("sendBack")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "send-back",
+        icon: "sendBack",
+        title: "Send tilbake",
+        className: "btn-info",
+        dataAttrs: {
+          "data-order-step-id": it.OrderStepId,
+        },
+      })
+    );
   }
 
   if (canShowHold(it)) {
-    parts.push(`
-      <button class="btn btn-warning"
-              data-action="hold"
-              data-order-id="${orderId}"
-              title="Sett på vent">
-        <span class="btn-icon">${actionIcon("hold")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "hold",
+        icon: "hold",
+        title: "Sett på vent",
+        className: "btn-warning",
+        dataAttrs: {
+          "data-order-id": it.OrderId,
+        },
+      })
+    );
   }
 
   if (canShowUnhold(it)) {
-    parts.push(`
-      <button class="btn btn-success"
-              data-action="unhold"
-              data-order-id="${orderId}"
-              title="Ta av vent">
-        <span class="btn-icon">${actionIcon("unhold")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "unhold",
+        icon: "unhold",
+        title: "Ta av vent",
+        className: "btn-success",
+        dataAttrs: {
+          "data-order-id": it.OrderId,
+        },
+      })
+    );
   }
 
   if (canShowClose(it)) {
-    parts.push(`
-      <button class="btn btn-danger"
-              data-action="close"
-              data-order-id="${orderId}"
-              title="Stopp ordre">
-        <span class="btn-icon">${actionIcon("close")}</span>
-      </button>
-    `);
+    parts.push(
+      iconButton({
+        action: "close",
+        icon: "close",
+        title: "Stopp ordre",
+        className: "btn-danger",
+        dataAttrs: {
+          "data-order-id": it.OrderId,
+        },
+      })
+    );
   }
 
   if (parts.length === 0) {
     return `<span style="color:#6b7280;">–</span>`;
   }
 
-  return `
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-      ${parts.join("")}
-    </div>
-  `;
+  return `<div class="queue-controls">${parts.join("")}</div>`;
 }
 
 function render(itemsAll) {
@@ -552,7 +649,7 @@ function render(itemsAll) {
           </div>
         </td>
 
-        <td style="vertical-align:top;">${userPill(it.AssignedToUserName)}</td>
+        <td style="vertical-align:top;">${assignedCell(it)}</td>
 
         <td style="vertical-align:top;">
           <a class="btn btn-outline" href="/views/workflow_order.html?amid=${encodeURIComponent(it.ExternalAmid)}">
