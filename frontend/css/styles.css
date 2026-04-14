@@ -1135,3 +1135,95 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .btn-neutral:hover {
   background: #1f2937;
 }
+
+ /* =========================
+    Workflow queue action buttons
+ ========================= */
+
+.surface-light .queue-table .btn {
+  min-width: 60px;
+  min-height: 46px;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.surface-light .queue-table .btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.surface-light .queue-table .btn .btn-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* stronger specificity so these win over .surface-light button */
+.surface-light .queue-table .btn-success {
+  background: #16a34a;
+  color: #ffffff;
+  border: 1px solid #15803d;
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.22);
+}
+
+.surface-light .queue-table .btn-success:hover {
+  background: #15803d;
+  border-color: #166534;
+}
+
+.surface-light .queue-table .btn-info {
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+.surface-light .queue-table .btn-info:hover {
+  background: #1d4ed8;
+  border-color: #1e40af;
+}
+
+.surface-light .queue-table .btn-warning {
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
+  box-shadow: 0 10px 22px rgba(217, 119, 6, 0.22);
+}
+
+.surface-light .queue-table .btn-warning:hover {
+  background: #b45309;
+  border-color: #92400e;
+}
+
+.surface-light .queue-table .btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #b91c1c;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.22);
+}
+
+.surface-light .queue-table .btn-danger:hover {
+  background: #b91c1c;
+  border-color: #991b1b;
+}
+
+.surface-light .queue-table .btn-neutral {
+  background: #64748b;
+  color: #ffffff;
+  border: 1px solid #475569;
+  box-shadow: 0 10px 22px rgba(100, 116, 139, 0.18);
+}
+
+.surface-light .queue-table .btn-neutral:hover {
+  background: #475569;
+  border-color: #334155;
+}
+
+.surface-light .queue-table .btn:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}

@@ -115,6 +115,54 @@ function astaButton(item) {
   `;
 }
 
+function actionIcon(name) {
+  const common = 'width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"';
+  const stroke = 'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"';
+
+  const icons = {
+    claim: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
+      </svg>
+    `,
+    complete: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
+      </svg>
+    `,
+    sendBack: `
+      <svg ${common}>
+        <path ${stroke} d="M13 5l-7 5 7 5V5z"></path>
+        <path ${stroke} d="M16 5l-7 5 7 5V5z" opacity="0.75"></path>
+      </svg>
+    `,
+    hold: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5v10"></path>
+        <path ${stroke} d="M13 5v10"></path>
+      </svg>
+    `,
+    unhold: `
+      <svg ${common}>
+        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
+      </svg>
+    `,
+    close: `
+      <svg ${common}>
+        <rect x="5.5" y="5.5" width="9" height="9" rx="1.2" ${stroke}></rect>
+      </svg>
+    `,
+    unclaim: `
+      <svg ${common}>
+        <path ${stroke} d="M6 10h8"></path>
+        <path ${stroke} d="M10 6l4 4-4 4"></path>
+      </svg>
+    `,
+  };
+
+  return icons[name] || "";
+}
+
 function statusBadge(status) {
   const color =
     status === "Active" ? "#16a34a" :
@@ -373,86 +421,79 @@ function controlsCell(it) {
 
   const parts = [];
 
-  // Ta (Claim)
   if (canShowClaim(it)) {
     parts.push(`
       <button class="btn btn-success"
               data-action="claim"
               data-order-step-id="${orderStepId}"
               title="Ta oppgave">
-        <span class="btn-icon">▶️</span>
+        <span class="btn-icon">${actionIcon("claim")}</span>
       </button>
     `);
   }
 
-  // Frigi (Unclaim)
   if (canShowUnclaim(it)) {
     parts.push(`
       <button class="btn btn-neutral"
               data-action="unclaim"
               data-order-step-id="${orderStepId}"
               title="Frigi">
-        <span class="btn-icon">⏏️</span>
+        <span class="btn-icon">${actionIcon("unclaim")}</span>
       </button>
     `);
   }
 
-  // Fullfør (Complete / Forward)
   if (canShowComplete(it)) {
     parts.push(`
       <button class="btn btn-success"
               data-action="complete"
               data-order-step-id="${orderStepId}"
               title="Fullfør og gå videre">
-        <span class="btn-icon">▶️</span>
+        <span class="btn-icon">${actionIcon("complete")}</span>
       </button>
     `);
   }
 
-  // Send tilbake (Rewind)
   if (canShowSendBack(it)) {
     parts.push(`
       <button class="btn btn-info"
               data-action="send-back"
               data-order-step-id="${orderStepId}"
               title="Send tilbake">
-        <span class="btn-icon">⏪</span>
+        <span class="btn-icon">${actionIcon("sendBack")}</span>
       </button>
     `);
   }
 
-  // Vent (Hold / Pause)
   if (canShowHold(it)) {
     parts.push(`
       <button class="btn btn-warning"
               data-action="hold"
               data-order-id="${orderId}"
               title="Sett på vent">
-        <span class="btn-icon">⏸️</span>
+        <span class="btn-icon">${actionIcon("hold")}</span>
       </button>
     `);
   }
 
-  // Av vent (Resume)
   if (canShowUnhold(it)) {
     parts.push(`
       <button class="btn btn-success"
               data-action="unhold"
               data-order-id="${orderId}"
               title="Ta av vent">
-        <span class="btn-icon">▶️</span>
+        <span class="btn-icon">${actionIcon("unhold")}</span>
       </button>
     `);
   }
 
-  // Stopp (Close)
   if (canShowClose(it)) {
     parts.push(`
       <button class="btn btn-danger"
               data-action="close"
               data-order-id="${orderId}"
               title="Stopp ordre">
-        <span class="btn-icon">⏹️</span>
+        <span class="btn-icon">${actionIcon("close")}</span>
       </button>
     `);
   }
@@ -462,7 +503,7 @@ function controlsCell(it) {
   }
 
   return `
-    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
       ${parts.join("")}
     </div>
   `;
