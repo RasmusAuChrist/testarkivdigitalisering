@@ -348,6 +348,13 @@ function canShowComplete(it) {
   return isTakenByMe(it);
 }
 
+function canShowSendBack(it) {
+  if (!me) return false;
+  if (!isOrderOpen(it)) return false;
+  if (isStepFinished(it)) return false;
+  return isTakenByMe(it);
+}
+
 function canShowHold(it) {
   return isOrderOpenOnly(it);
 }
@@ -395,6 +402,17 @@ function controlsCell(it) {
               data-action="complete"
               data-order-step-id="${orderStepId}">
         <span class="btn-text">Fullfør</span>
+      </button>
+    `);
+  }
+
+    // Send tilbake
+  if (canShowSendBack(it)) {
+    parts.push(`
+      <button class="btn btn-outline"
+              data-action="send-back"
+              data-order-step-id="${orderStepId}">
+        <span class="btn-text">Send tilbake</span>
       </button>
     `);
   }
@@ -551,6 +569,21 @@ function wireDelegatedControls() {
         setMsg("Ordre satt på vent.");
       }
 
+      if (action === "send-back") {
+        const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+
+        const payload = await promptSendBack(orderStepId);
+        if (!payload) return;
+
+        setMsg(`Sender tilbake til ${payload.selected.StepName}…`);
+        await apiPost(`/api/wf/steps/${orderStepId}/send-back`, {
+          target_step_def_id: payload.target_step_def_id,
+          reason: payload.reason,
+          notes: payload.notes,
+        });
+        setMsg("Element sendt tilbake.");
+      }
+
       if (action === "unhold") {
         const orderId = Number(btn.getAttribute("data-order-id"));
         const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
@@ -579,6 +612,49 @@ function wireDelegatedControls() {
       btn.disabled = false;
     }
   });
+}
+
+async function promptSendBack(orderStepId) {
+  const data = await apiGet(`/api/wf/steps/${orderStepId}/send-back-targets`);
+  const items = data.items || [];
+
+  if (!items.length) {
+    throw new Error("Ingen tidligere steg er tilgjengelige for retur.");
+  }
+
+  const optionsText = items
+    .map((it, idx) => `${idx + 1}: ${it.Sequence}. ${it.StepName}`)
+    .join("\n");
+
+  const selectedRaw = window.prompt(
+    `Velg steg å sende tilbake til:\n\n${optionsText}\n\nSkriv nummeret foran steget:`,
+    "1"
+  );
+
+  if (selectedRaw == null) {
+    return null;
+  }
+
+  const selectedIndex = Number(selectedRaw.trim());
+  if (!Number.isInteger(selectedIndex) || selectedIndex < 1 || selectedIndex > items.length) {
+    throw new Error("Ugyldig valg av steg.");
+  }
+
+  const selected = items[selectedIndex - 1];
+
+  const reason = (window.prompt("Årsak (påkrevd):", "RETURN") ?? "").trim();
+  if (!reason) {
+    throw new Error("Årsak er påkrevd.");
+  }
+
+  const notes = window.prompt("Kommentar (valgfritt):", "") ?? "";
+
+  return {
+    target_step_def_id: selected.StepDefId,
+    reason,
+    notes: notes.trim() || null,
+    selected,
+  };
 }
 
 /* ---------- Refresh ---------- */

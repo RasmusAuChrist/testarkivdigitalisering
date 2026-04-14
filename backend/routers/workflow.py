@@ -578,3 +578,45 @@ def save_step3_form_data(order_step_id: int, payload: SaveStep3FormDataRequest, 
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
+
+class SendBackStepRequest(BaseModel):
+    target_step_def_id: int
+    reason: str = Field(min_length=1, max_length=80)
+    notes: Optional[str] = Field(default=None, max_length=400)
+
+@router.get("/wf/steps/{order_step_id}/send-back-targets")
+def get_send_back_targets(order_step_id: int, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_get_send_back_targets %s", (order_step_id,))
+        rows = cur.fetchall() or []
+        return {"order_step_id": order_step_id, "items": rows}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/wf/steps/{order_step_id}/send-back")
+def send_step_back(order_step_id: int, payload: SendBackStepRequest, me: MeResponse = Depends(get_current_user)):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_wf_send_step_back %s, %s, %s, %s, %s",
+            (
+                me.user_id,
+                order_step_id,
+                payload.target_step_def_id,
+                payload.reason,
+                payload.notes,
+            ),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
