@@ -4,7 +4,7 @@ from typing import Optional, Literal, Any, Dict
 import json
 import base64
 from backend.db import get_connection
-from backend.routers.auth import get_current_user, MeResponse
+from backend.routers.auth import get_current_user, MeResponse, require_admin_or_coordinator
 
 router = APIRouter()
 
@@ -611,6 +611,38 @@ def send_step_back(order_step_id: int, payload: SendBackStepRequest, me: MeRespo
                 payload.reason,
                 payload.notes,
             ),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+class AssignStepRequest(BaseModel):
+    target_user_id: int
+
+@router.post("/wf/steps/{order_step_id}/assign")
+def assign_step_to_user(
+    order_step_id: int,
+    payload: AssignStepRequest,
+    me: MeResponse = Depends(get_current_user),
+):
+    require_admin_or_coordinator(me)
+
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            """
+            EXEC dbo.usp_wf_assign_step_to_user
+                 @ActorUserId=%s,
+                 @OrderStepId=%s,
+                 @TargetUserId=%s
+            """,
+            (me.user_id, order_step_id, payload.target_user_id),
         )
         row = cur.fetchone()
         conn.commit()

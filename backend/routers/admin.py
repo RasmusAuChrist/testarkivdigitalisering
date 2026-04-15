@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from backend.db import get_connection
-from backend.routers.auth import get_current_user, MeResponse
+from backend.routers.auth import get_current_user, MeResponse, require_admin_or_coordinator
 from backend.security import hash_password  # <-- NEW: hash plaintext password server-side
 
 router = APIRouter()
@@ -146,6 +146,23 @@ def admin_set_role(payload: AdminSetRoleRequest, me: MeResponse = Depends(get_cu
         return row or {"ok": True}
     except Exception as e:
         conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.get("/admin/users/assignable")
+def admin_list_assignable_users(me: MeResponse = Depends(get_current_user)):
+    require_admin_or_coordinator(me)
+
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_admin_list_assignable_users @ActorUserId=%s",
+            (me.user_id,),
+        )
+        return {"items": cur.fetchall() or []}
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()

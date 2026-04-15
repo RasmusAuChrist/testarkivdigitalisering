@@ -61,6 +61,13 @@ def require_roles(*roles: str):
         return me
     return _dep
 
+def has_any_role(me: MeResponse, *allowed: str) -> bool:
+    return bool(set(me.roles or []).intersection(set(allowed)))
+
+def require_admin_or_coordinator(me: MeResponse):
+    if not has_any_role(me, "Admin", "Koordinator"):
+        raise HTTPException(status_code=403, detail="Ikke tilgang.")
+
 @router.post("/auth/login", response_model=TokenResponse)
 def login(payload: LoginRequest):
     conn = get_connection(autocommit=False)

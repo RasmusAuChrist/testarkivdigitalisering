@@ -23,6 +23,16 @@ const steps = [
 
 let me = null;
 let rawItems = [];
+let assignableUsers = null;
+
+function hasAnyRole(...roles) {
+  const mine = new Set(me?.roles || []);
+  return roles.some(role => mine.has(role));
+}
+
+function canAssignOthers() {
+  return hasAnyRole("Admin", "Koordinator");
+}
 
 const LS_SHOW_STOPPED = "wfq_show_stopped";
 const LS_SHOW_PAUSED = "wfq_show_paused";
@@ -284,6 +294,47 @@ async function loadNavbar() {
   }
 }
 
+async function loadAssignableUsers() {
+  if (!canAssignOthers()) return [];
+  if (assignableUsers) return assignableUsers;
+
+  const data = await apiGet("/api/admin/users/assignable");
+  assignableUsers = data.items || [];
+  return assignableUsers;
+}
+
+async function promptAssignUser(currentAssignedUserId = null) {
+  const users = await loadAssignableUsers();
+
+  if (!users.length) {
+    throw new Error("Ingen tilgjengelige brukere å tildele til.");
+  }
+
+  const optionsText = users
+    .map((u, idx) => {
+      const label = (u.DisplayName || u.Username || `Bruker ${u.UserId}`).trim();
+      const currentMark = u.UserId === currentAssignedUserId ? " [nåværende]" : "";
+      return `${idx + 1}: ${label} (${u.Username})${currentMark}`;
+    })
+    .join("\n");
+
+  const selectedRaw = window.prompt(
+    `Velg bruker:\n\n${optionsText}\n\nSkriv nummeret foran brukeren:`,
+    "1"
+  );
+
+  if (selectedRaw == null) {
+    return null;
+  }
+
+  const selectedIndex = Number(selectedRaw.trim());
+  if (!Number.isInteger(selectedIndex) || selectedIndex < 1 || selectedIndex > users.length) {
+    throw new Error("Ugyldig valg av bruker.");
+  }
+
+  return users[selectedIndex - 1];
+}
+
 function sumHyllemeter(items) {
   return (items || []).reduce((sum, it) => {
     const value = it?.Hyllemeter;
@@ -419,12 +470,25 @@ function isTakenByMe(it) {
 
 /** "Ta" allowed: order open, step claimable, and not taken */
 function canShowClaim(it) {
-  return !!me && isOrderOpenish(it) && isStepClaimableByStatus(it) && !isTaken(it);
+  if (!me) return false;
+  if (!isOrderOpenish(it)) return false;
+  if (!isStepClaimableByStatus(it)) return false;
+
+  if (canAssignOthers()) return true;
+
+  return !isTaken(it);
 }
 
 /** "Frigi" allowed: order open, step not finished, and taken by me */
 function canShowUnclaim(it) {
-  return !!me && isOrderOpen(it) && !isStepFinished(it) && isTakenByMe(it);
+  if (!me) return false;
+  if (!isOrderOpen(it)) return false;
+  if (isStepFinished(it)) return false;
+  if (!isTaken(it)) return false;
+
+  if (canAssignOthers()) return true;
+
+  return isTakenByMe(it);
 }
 
 /** "Fullfør" allowed: order open, step not finished, and either taken by me OR not taken (your choice) */
@@ -466,19 +530,20 @@ function assignedCell(it) {
     parts.push(`<span class="queue-assigned-empty">Ikke tildelt</span>`);
   }
 
-  if (canShowClaim(it)) {
-    parts.push(
-      iconButton({
-        action: "claim",
-        icon: "assign",
-        title: "Tildel til meg",
-        className: "btn-assign",
-        dataAttrs: {
-          "data-order-step-id": it.OrderStepId,
-        },
-      })
-    );
-  }
+if (canShowClaim(it)) {
+  parts.push(
+    iconButton({
+      action: "claim",
+      icon: "assign",
+      title: canAssignOthers() ? "Tildel eller endre tildeling" : "Tildel til meg",
+      className: "btn-assign",
+      dataAttrs: {
+        "data-order-step-id": it.OrderStepId,
+        "data-assigned-user-id": it.AssignedToUserId ?? "",
+      },
+    })
+  );
+}
 
   if (canShowUnclaim(it)) {
     parts.push(
@@ -650,12 +715,28 @@ function wireDelegatedControls() {
     try {
       btn.disabled = true;
 
-      if (action === "claim") {
-        const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+    if (action === "claim") {
+      const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+
+      if (canAssignOthers()) {
+        const currentAssignedUserIdRaw = btn.getAttribute("data-assigned-user-id");
+        const currentAssignedUserId = currentAssignedUserIdRaw ? Number(currentAssignedUserIdRaw) : null;
+
+        const selectedUser = await promptAssignUser(currentAssignedUserId);
+        if (!selectedUser) return;
+
+        setMsg(`Tildeler til ${selectedUser.DisplayName || selectedUser.Username}…`);
+        await apiPost(`/api/wf/steps/${orderStepId}/assign`, {
+          target_user_id: selectedUser.UserId,
+        });
+        assignableUsers = null;
+        setMsg("Oppgave tildelt.");
+      } else {
         setMsg("Tar oppgave…");
         await apiPost(`/api/wf/steps/${orderStepId}/claim`, {});
         setMsg("Oppgave tatt.");
       }
+    }
 
       if (action === "unclaim") {
         const orderStepId = Number(btn.getAttribute("data-order-step-id"));
