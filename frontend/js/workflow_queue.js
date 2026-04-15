@@ -26,6 +26,7 @@ let rawItems = [];
 
 const LS_SHOW_STOPPED = "wfq_show_stopped";
 const LS_SHOW_PAUSED = "wfq_show_paused";
+const LS_SHOW_MINE_ONLY = "wfq_show_mine_only";
 
 function ensureLoggedIn() {
   const token = getToken();
@@ -324,7 +325,13 @@ function computeDisplayStatus(it) {
 function readFilterState() {
   const chkShowStopped = document.getElementById("chkShowStopped");
   const chkShowPaused = document.getElementById("chkShowPaused");
-  return { showStopped: !!chkShowStopped?.checked, showPaused: !!chkShowPaused?.checked };
+  const chkShowMineOnly = document.getElementById("chkShowMineOnly");
+
+  return {
+    showStopped: !!chkShowStopped?.checked,
+    showPaused: !!chkShowPaused?.checked,
+    showMineOnly: !!chkShowMineOnly?.checked,
+  };
 }
 
 function isPausedOrder(it) {
@@ -336,29 +343,41 @@ function isStoppedOrder(it) {
 }
 
 function applyFilters(items) {
-  const { showStopped, showPaused } = readFilterState();
+  const { showStopped, showPaused, showMineOnly } = readFilterState();
+
   return (items || []).filter(it => {
     if (!showStopped && isStoppedOrder(it)) return false;
     if (!showPaused && isPausedOrder(it)) return false;
+
+    if (showMineOnly) {
+      if (!me) return false;
+      if (it.AssignedToUserId !== me.user_id) return false;
+    }
+
     return true;
   });
 }
 
 function persistFilters() {
-  const { showStopped, showPaused } = readFilterState();
+  const { showStopped, showPaused, showMineOnly } = readFilterState();
+
   localStorage.setItem(LS_SHOW_STOPPED, showStopped ? "1" : "0");
   localStorage.setItem(LS_SHOW_PAUSED, showPaused ? "1" : "0");
+  localStorage.setItem(LS_SHOW_MINE_ONLY, showMineOnly ? "1" : "0");
 }
 
 function restoreFilters() {
   const chkShowStopped = document.getElementById("chkShowStopped");
   const chkShowPaused = document.getElementById("chkShowPaused");
+  const chkShowMineOnly = document.getElementById("chkShowMineOnly");
 
   const sStopped = localStorage.getItem(LS_SHOW_STOPPED);
   const sPaused = localStorage.getItem(LS_SHOW_PAUSED);
+  const sMineOnly = localStorage.getItem(LS_SHOW_MINE_ONLY);
 
   if (chkShowStopped) chkShowStopped.checked = (sStopped === "1");
   if (chkShowPaused) chkShowPaused.checked = (sPaused === null ? true : sPaused === "1");
+  if (chkShowMineOnly) chkShowMineOnly.checked = (sMineOnly === "1");
 }
 
 /* ---------- Rendering ---------- */
@@ -788,6 +807,7 @@ async function initMe() {
 function wireFilterCheckboxes() {
   const chkShowStopped = document.getElementById("chkShowStopped");
   const chkShowPaused = document.getElementById("chkShowPaused");
+  const chkShowMineOnly = document.getElementById("chkShowMineOnly");
 
   const onChange = () => {
     persistFilters();
@@ -796,6 +816,7 @@ function wireFilterCheckboxes() {
 
   chkShowStopped?.addEventListener("change", onChange);
   chkShowPaused?.addEventListener("change", onChange);
+  chkShowMineOnly?.addEventListener("change", onChange);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
