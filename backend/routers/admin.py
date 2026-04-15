@@ -148,8 +148,8 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
             """
             EXEC dbo.usp_admin_reset_password
                  @ActorUserId=%s,
-                 @UserId=%s,
-                 @PasswordHash=%s,
+                 @TargetUserId=%s,
+                 @NewPasswordHash=%s,
                  @MustChangePassword=%s
             """,
             (
@@ -160,9 +160,14 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
             ),
         )
 
-        row = cur.fetchone() or {"ok": True}
+        row = None
+        try:
+            row = cur.fetchone()
+        except Exception:
+            row = None
+
         conn.commit()
-        return row
+        return row or {"ok": True}
 
     except HTTPException:
         conn.rollback()
