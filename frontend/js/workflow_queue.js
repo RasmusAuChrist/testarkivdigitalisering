@@ -303,6 +303,77 @@ async function loadAssignableUsers() {
   return assignableUsers;
 }
 
+function ensureAssignDialog() {
+  let dialog = document.getElementById("assignUserDialog");
+  if (dialog) return dialog;
+
+  dialog = document.createElement("dialog");
+  dialog.id = "assignUserDialog";
+  dialog.style.padding = "0";
+  dialog.style.border = "none";
+  dialog.style.borderRadius = "14px";
+  dialog.style.maxWidth = "520px";
+  dialog.style.width = "calc(100% - 24px)";
+  dialog.style.boxShadow = "0 20px 60px rgba(0,0,0,0.35)";
+
+  dialog.innerHTML = `
+    <form method="dialog" id="assignUserForm" style="margin:0; padding:20px; display:grid; gap:14px; background:#fff; color:#111827;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h3 style="margin:0; font-size:18px;">Tildel oppgave</h3>
+        <button
+          type="button"
+          id="assignUserCancelX"
+          class="btn btn-outline"
+          style="padding:6px 10px;"
+          aria-label="Lukk"
+        >
+          Lukk
+        </button>
+      </div>
+
+      <div style="display:grid; gap:6px;">
+        <label for="assignUserSelect" style="font-weight:700;">Velg bruker</label>
+        <select id="assignUserSelect" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#111827;"></select>
+      </div>
+
+      <div id="assignUserCurrent" style="font-size:13px; color:#64748b;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" id="assignUserCancelBtn" class="btn btn-outline">Avbryt</button>
+        <button type="submit" id="assignUserOkBtn" class="btn btn-primary">
+          <span class="btn-text">OK</span>
+        </button>
+      </div>
+    </form>
+  `;
+
+  document.body.appendChild(dialog);
+
+  const closeDialog = () => {
+    if (dialog.open) dialog.close("cancel");
+  };
+
+  dialog.querySelector("#assignUserCancelBtn")?.addEventListener("click", closeDialog);
+  dialog.querySelector("#assignUserCancelX")?.addEventListener("click", closeDialog);
+
+  dialog.addEventListener("cancel", (ev) => {
+    ev.preventDefault();
+    closeDialog();
+  });
+
+  return dialog;
+}
+
+function waitForDialogClose(dialog) {
+  return new Promise((resolve) => {
+    const onClose = () => {
+      dialog.removeEventListener("close", onClose);
+      resolve(dialog.returnValue || "cancel");
+    };
+    dialog.addEventListener("close", onClose, { once: true });
+  });
+}
+
 async function promptAssignUser(currentAssignedUserId = null) {
   const users = await loadAssignableUsers();
 
@@ -310,29 +381,53 @@ async function promptAssignUser(currentAssignedUserId = null) {
     throw new Error("Ingen tilgjengelige brukere å tildele til.");
   }
 
-  const optionsText = users
-    .map((u, idx) => {
-      const label = (u.DisplayName || u.Username || `Bruker ${u.UserId}`).trim();
-      const currentMark = u.UserId === currentAssignedUserId ? " [nåværende]" : "";
-      return `${idx + 1}: ${label} (${u.Username})${currentMark}`;
+  const dialog = ensureAssignDialog();
+  const selectEl = dialog.querySelector("#assignUserSelect");
+  const currentEl = dialog.querySelector("#assignUserCurrent");
+  const formEl = dialog.querySelector("#assignUserForm");
+
+  selectEl.innerHTML = users
+    .map((u) => {
+      const label = escapeHtml((u.DisplayName || u.Username || `Bruker ${u.UserId}`).trim());
+      const username = escapeHtml(u.Username || "");
+      const selected = u.UserId === currentAssignedUserId ? "selected" : "";
+      return `<option value="${u.UserId}" ${selected}>${label}${username ? ` (${username})` : ""}</option>`;
     })
-    .join("\n");
+    .join("");
 
-  const selectedRaw = window.prompt(
-    `Velg bruker:\n\n${optionsText}\n\nSkriv nummeret foran brukeren:`,
-    "1"
-  );
+  const currentUser = currentAssignedUserId == null
+    ? null
+    : users.find((u) => u.UserId === currentAssignedUserId) || null;
 
-  if (selectedRaw == null) {
+  currentEl.textContent = currentUser
+    ? `Nåværende tildeling: ${currentUser.DisplayName || currentUser.Username} (${currentUser.Username})`
+    : "Nåværende tildeling: Ikke tildelt";
+
+  const submitHandler = (ev) => {
+    ev.preventDefault();
+    dialog.close("ok");
+  };
+
+  formEl.addEventListener("submit", submitHandler, { once: true });
+
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+
+  const result = await waitForDialogClose(dialog);
+
+  if (result !== "ok") {
     return null;
   }
 
-  const selectedIndex = Number(selectedRaw.trim());
-  if (!Number.isInteger(selectedIndex) || selectedIndex < 1 || selectedIndex > users.length) {
+  const selectedUserId = Number(selectEl.value);
+  const selectedUser = users.find((u) => u.UserId === selectedUserId);
+
+  if (!selectedUser) {
     throw new Error("Ugyldig valg av bruker.");
   }
 
-  return users[selectedIndex - 1];
+  return selectedUser;
 }
 
 function sumHyllemeter(items) {
