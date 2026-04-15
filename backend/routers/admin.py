@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, model_validator
 
 from backend.db import get_connection
 from backend.routers.auth import get_current_user, MeResponse, require_admin_or_coordinator
-from backend.security import hash_password  # <-- NEW: hash plaintext password server-side
+from backend.security import hash_password
 
 router = APIRouter()
 
@@ -14,24 +15,61 @@ def require_admin(me: MeResponse):
         raise HTTPException(status_code=403, detail="Ikke tilgang (Admin kreves).")
 
 
+def resolve_user_id(cur, *, username: Optional[str] = None, user_id: Optional[int] = None) -> int:
+    if user_id:
+        return user_id
+
+    if not username:
+        raise HTTPException(status_code=400, detail="Brukernavn eller UserId må oppgis.")
+
+    cur.execute(
+        """
+        SELECT TOP 1 UserId
+        FROM dbo.AppUsers
+        WHERE Username = %s
+        """,
+        (username,),
+    )
+    row = cur.fetchone()
+
+    if not row or not row.get("UserId"):
+        raise HTTPException(status_code=404, detail=f"Fant ikke bruker: {username}")
+
+    return int(row["UserId"])
+
+
 class AdminCreateUserRequest(BaseModel):
     username: str
     display_name: Optional[str] = None
-    temp_password: str  # <-- CHANGED: plaintext temp password
+    temp_password: str
     must_change_password: bool = True
-    role_name: Optional[str] = None  # e.g. "Operator" or "Admin"
+    role_name: Optional[str] = None
 
 
 class AdminResetPasswordRequest(BaseModel):
-    user_id: int
-    temp_password: str  # <-- CHANGED: plaintext temp password
+    username: Optional[str] = None
+    user_id: Optional[int] = None
+    temp_password: str
     must_change_password: bool = True
+
+    @model_validator(mode="after")
+    def validate_identifier(self):
+        if not self.username and not self.user_id:
+            raise ValueError("username eller user_id må oppgis")
+        return self
 
 
 class AdminSetRoleRequest(BaseModel):
-    user_id: int
+    username: Optional[str] = None
+    user_id: Optional[int] = None
     role_name: str
     is_enabled: bool = True
+
+    @model_validator(mode="after")
+    def validate_identifier(self):
+        if not self.username and not self.user_id:
+            raise ValueError("username eller user_id må oppgis")
+        return self
 
 
 @router.get("/admin/roles")
@@ -58,10 +96,7 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
     try:
         cur = conn.cursor(as_dict=True)
 
-        # Hash plaintext temp password in API
         password_hash = hash_password(payload.temp_password)
-
-        # IMPORTANT: Pass RoleName so SQL doesn't fall back to default 'Operator'
         role_name = payload.role_name or "User"
 
         cur.execute(
@@ -84,8 +119,12 @@ def admin_create_user(payload: AdminCreateUserRequest, me: MeResponse = Depends(
             ),
         )
 
-        row = cur.fetchone() or {"ok": True}
+        row = cur.fetchone() or {}
         conn.commit()
+
+        if "Username" not in row:
+            row["Username"] = payload.username
+
         return row
 
     except Exception as e:
@@ -102,7 +141,7 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
     try:
         cur = conn.cursor(as_dict=True)
 
-        # Hash plaintext temp password in API
+        target_user_id = resolve_user_id(cur, username=payload.username, user_id=payload.user_id)
         password_hash = hash_password(payload.temp_password)
 
         cur.execute(
@@ -113,11 +152,21 @@ def admin_reset_password(payload: AdminResetPasswordRequest, me: MeResponse = De
                  @PasswordHash=%s,
                  @MustChangePassword=%s
             """,
-            (me.user_id, payload.user_id, password_hash, int(payload.must_change_password)),
+            (
+                me.user_id,
+                target_user_id,
+                password_hash,
+                int(payload.must_change_password),
+            ),
         )
-        row = cur.fetchone()
+
+        row = cur.fetchone() or {"ok": True}
         conn.commit()
-        return row or {"ok": True}
+        return row
+
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -131,6 +180,9 @@ def admin_set_role(payload: AdminSetRoleRequest, me: MeResponse = Depends(get_cu
     conn = get_connection(autocommit=False)
     try:
         cur = conn.cursor(as_dict=True)
+
+        target_user_id = resolve_user_id(cur, username=payload.username, user_id=payload.user_id)
+
         cur.execute(
             """
             EXEC dbo.usp_admin_set_user_role
@@ -139,16 +191,27 @@ def admin_set_role(payload: AdminSetRoleRequest, me: MeResponse = Depends(get_cu
                  @RoleName=%s,
                  @IsEnabled=%s
             """,
-            (me.user_id, payload.user_id, payload.role_name, int(payload.is_enabled)),
+            (
+                me.user_id,
+                target_user_id,
+                payload.role_name,
+                int(payload.is_enabled),
+            ),
         )
-        row = cur.fetchone()
+
+        row = cur.fetchone() or {"ok": True}
         conn.commit()
-        return row or {"ok": True}
+        return row
+
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         conn.close()
+
 
 @router.get("/admin/users/assignable")
 def admin_list_assignable_users(me: MeResponse = Depends(get_current_user)):

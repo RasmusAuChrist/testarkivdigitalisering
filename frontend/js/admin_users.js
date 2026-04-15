@@ -25,7 +25,9 @@ function setMsg(text, isError = false) {
 }
 
 async function apiGet(path) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { ...authHeaders() },
+  });
 
   if (res.status === 401) {
     clearToken();
@@ -74,28 +76,31 @@ async function loadNavbar() {
 }
 
 function fillRoleSelect(selectEl, roles) {
-  // roles: [{RoleId, Name}, ...]
   selectEl.innerHTML = roles
-    .map(r => `<option value="${r.Name}">${r.Name}</option>`)
+    .map((r) => `<option value="${r.Name}">${r.Name}</option>`)
     .join("");
 
-  // default preference
-  const hasOperator = roles.some(r => r.Name === "Operator");
-  if (hasOperator) selectEl.value = "Operator";
+  const hasOperator = roles.some((r) => r.Name === "Operator");
+  if (hasOperator) {
+    selectEl.value = "Operator";
+  }
+}
+
+function value(id) {
+  return document.getElementById(id)?.value?.trim() ?? "";
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
-
   if (!ensureLoggedIn()) return;
 
-  // Must be admin
   let me;
   try {
     setMsg("Laster…");
     me = await apiGet("/api/auth/me");
     initUserMenu(me);
+
     if (!me?.roles?.includes("Admin")) {
       setMsg("Ikke tilgang (Admin kreves).", true);
       return;
@@ -105,7 +110,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Load roles for dropdowns
   let roles = [];
   try {
     const res = await apiGet("/api/admin/roles");
@@ -118,78 +122,82 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-// Create user
-document.getElementById("createUserBtn").addEventListener("click", async () => {
-  try {
-    const username = document.getElementById("cu_username").value.trim();
-    const display_name = document.getElementById("cu_displayName").value.trim() || null;
-    const temp_password = document.getElementById("cu_tempPassword").value;
-    const must_change_password = document.getElementById("cu_mustChange").checked;
-    const role_name = document.getElementById("cu_role").value;
+  document.getElementById("createUserBtn").addEventListener("click", async () => {
+    try {
+      const username = value("cu_username");
+      const display_name = value("cu_displayName") || null;
+      const temp_password = document.getElementById("cu_tempPassword").value;
+      const must_change_password = document.getElementById("cu_mustChange").checked;
+      const role_name = document.getElementById("cu_role").value;
 
-    if (!username || !temp_password) {
-      setMsg("Brukernavn og midlertidig passord må fylles ut.", true);
-      return;
+      if (!username || !temp_password) {
+        setMsg("Brukernavn og midlertidig passord må fylles ut.", true);
+        return;
+      }
+
+      setMsg("Oppretter bruker…");
+
+      const created = await apiPost("/api/admin/users", {
+        username,
+        display_name,
+        temp_password,
+        must_change_password,
+        role_name,
+      });
+
+      setMsg(`Bruker opprettet: ${created.Username ?? username}.`);
+      document.getElementById("cu_tempPassword").value = "";
+    } catch (e) {
+      setMsg(e.message || "Feil ved oppretting.", true);
     }
+  });
 
-    setMsg("Oppretter bruker…");
+  document.getElementById("resetPwdBtn").addEventListener("click", async () => {
+    try {
+      const username = value("rp_username");
+      const temp_password = document.getElementById("rp_tempPassword").value;
+      const must_change_password = document.getElementById("rp_mustChange").checked;
 
-    const created = await apiPost("/api/admin/users", {
-      username,
-      display_name,
-      temp_password,
-      must_change_password,
-      role_name
-    });
+      if (!username || !temp_password) {
+        setMsg("Brukernavn og midlertidig passord må fylles ut.", true);
+        return;
+      }
 
-    setMsg(`Bruker opprettet (UserId: ${created.UserId ?? "ukjent"}).`);
-  } catch (e) {
-    setMsg(e.message || "Feil ved oppretting.", true);
-  }
-});
+      setMsg("Nullstiller passord…");
 
-// Reset password
-document.getElementById("resetPwdBtn").addEventListener("click", async () => {
-  try {
-    const user_id = Number(document.getElementById("rp_userId").value);
-    const temp_password = document.getElementById("rp_tempPassword").value;
-    const must_change_password = document.getElementById("rp_mustChange").checked;
+      await apiPost("/api/admin/users/reset-password", {
+        username,
+        temp_password,
+        must_change_password,
+      });
 
-    if (!user_id || !temp_password) {
-      setMsg("Bruker-ID og midlertidig passord må fylles ut.", true);
-      return;
+      setMsg(`Passord nullstilt for ${username}.`);
+      document.getElementById("rp_tempPassword").value = "";
+    } catch (e) {
+      setMsg(e.message || "Feil ved nullstilling.", true);
     }
+  });
 
-    setMsg("Nullstiller passord…");
-
-    await apiPost("/api/admin/users/reset-password", {
-      user_id,
-      temp_password,
-      must_change_password
-    });
-
-    setMsg("Passord nullstilt.");
-  } catch (e) {
-    setMsg(e.message || "Feil ved nullstilling.", true);
-  }
-});
-
-  // Set role (enable/disable)
   document.getElementById("setRoleBtn").addEventListener("click", async () => {
     try {
-      const user_id = Number(document.getElementById("sr_userId").value);
+      const username = value("sr_username");
       const role_name = document.getElementById("sr_role").value;
       const is_enabled = document.getElementById("sr_enabled").checked;
 
-      if (!user_id || !role_name) {
-        setMsg("Bruker-ID og rolle må fylles ut.", true);
+      if (!username || !role_name) {
+        setMsg("Brukernavn og rolle må fylles ut.", true);
         return;
       }
 
       setMsg("Oppdaterer rolle…");
-      await apiPost("/api/admin/users/set-role", { user_id, role_name, is_enabled });
 
-      setMsg(is_enabled ? "Rolle aktivert." : "Rolle fjernet.");
+      await apiPost("/api/admin/users/set-role", {
+        username,
+        role_name,
+        is_enabled,
+      });
+
+      setMsg(is_enabled ? `Rolle aktivert for ${username}.` : `Rolle fjernet for ${username}.`);
     } catch (e) {
       setMsg(e.message || "Feil ved rolleoppdatering.", true);
     }
