@@ -204,10 +204,15 @@ def admin_set_role(payload: AdminSetRoleRequest, me: MeResponse = Depends(get_cu
             ),
         )
 
-        row = cur.fetchone() or {"ok": True}
-        conn.commit()
-        return row
+        row = None
+        try:
+            row = cur.fetchone()
+        except Exception:
+            row = None
 
+        conn.commit()
+        return row or {"ok": True}
+    
     except HTTPException:
         conn.rollback()
         raise
