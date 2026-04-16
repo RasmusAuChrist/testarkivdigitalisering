@@ -4,3 +4,4 @@ pymssql==2.3.6
 python-dotenv==1.1.1
 passlib==1.7.4
 python-jose==3.3.0
+weasyprint
