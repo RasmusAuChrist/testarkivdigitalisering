@@ -14,7 +14,6 @@ from backend.models.workflow import (
 )
 from backend.routers.auth import get_current_user, MeResponse, require_admin_or_coordinator
 from backend.services import workflow_service as service
-from backend.services.pdf_report import render_report_pdf
 from fastapi.responses import Response
 
 router = APIRouter()
@@ -49,6 +48,8 @@ def get_order_by_amid(amid: str, me: MeResponse = Depends(get_current_user)):
 @router.get("/wf/orders/by-amid/{amid}/report.pdf")
 def get_order_pdf_report(amid: str, me: MeResponse = Depends(get_current_user)):
     try:
+        from backend.services.pdf_report import render_report_pdf
+
         report_data = service.build_order_report_data(amid)
 
         if not report_data.get("header"):
