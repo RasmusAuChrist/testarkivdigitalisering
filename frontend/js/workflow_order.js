@@ -60,6 +60,63 @@ async function apiPost(path, body) {
   return data;
 }
 
+async function apiGetBlob(path) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { ...authHeaders() },
+  });
+
+  if (res.status === 401) {
+    clearToken();
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/views/login.html?next=${next}`);
+    throw new Error("Ikke innlogget.");
+  }
+
+  if (!res.ok) {
+    let detail = "Ukjent feil";
+    try {
+      const data = await res.json();
+      detail = data?.detail || detail;
+    } catch {
+      try {
+        detail = await res.text();
+      } catch {
+        // ignore
+      }
+    }
+    throw new Error(detail);
+  }
+
+  return await res.blob();
+}
+
+async function downloadWorkflowPdf(amid) {
+  if (!amid) {
+    throw new Error("Fant ikke AMID for denne ordren.");
+  }
+
+  const path = `/api/wf/orders/by-amid/${encodeURIComponent(amid)}/report.pdf`;
+  const blob = await apiGetBlob(path);
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `workflow-report-${amid}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function updatePdfButtonState() {
+  const btn = document.getElementById("downloadPdfBtn");
+  if (!btn) return;
+
+  const amid = lastOrder?.header?.ExternalAmid;
+  btn.disabled = !amid;
+}
+
 async function initMeForMenu() {
   try {
     const me = await apiGet("/api/auth/me");
@@ -1065,3 +1122,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 });
+
+  const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+  downloadPdfBtn?.addEventListener("click", async () => {
+    if (!ensureLoggedIn()) return;
+
+    try {
+      const amid = lastOrder?.header?.ExternalAmid || document.getElementById("amidInput")?.value?.trim();
+      if (!amid) {
+        setMsg("Fant ikke AMID for denne ordren.", true);
+        return;
+      }
+
+      setMsg("Genererer PDF…");
+      await downloadWorkflowPdf(amid);
+      setMsg("PDF lastet ned.");
+    } catch (e) {
+      setMsg(e.message || "Feil ved nedlasting av PDF.", true);
+    }
+  });

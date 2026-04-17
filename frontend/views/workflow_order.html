@@ -95,14 +95,17 @@
           <input id="amidInput" placeholder="340EEB8A-89CD-4D97-86D9-0127EF11DF72" style="width:100%;" />
         </div>
 
-        <button id="loadBtn" class="btn btn-primary" type="button">
-          <span class="btn-spinner" aria-hidden="true"></span>
-          <span class="btn-text">Hent ordre</span>
-        </button>
-      </div>
+        <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+          <button id="loadBtn" class="btn btn-primary" type="button">
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span class="btn-text">Hent ordre</span>
+          </button>
 
-      <div id="msg" style="color:#fff; opacity:0.9;"></div>
-    </div>
+          <button id="downloadPdfBtn" class="btn btn-outline" type="button" disabled>
+            <span class="btn-text">Last ned PDF</span>
+          </button>
+        </div>
+      </div>
 
     <!-- Arbeidsnotat + sjekkliste (lokal lagring) -->
 <div id="workNoteCard" class="surface-light" style="margin-top: 14px; display:none;">
