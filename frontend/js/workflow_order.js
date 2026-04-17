@@ -1067,6 +1067,7 @@ async function loadOrder() {
   setMsg("Henter…");
   const data = await apiGet(`/api/wf/orders/by-amid/${encodeURIComponent(amid)}`);
   lastOrder = data;
+  updatePdfButtonState();
 
   // Hide old local-only notes block
   const workNoteCard = document.getElementById("workNoteCard");
@@ -1093,6 +1094,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
   initUserMenu(null);
+  updatePdfButtonState();
 
   if (ensureLoggedIn()) {
     await initMeForMenu();
@@ -1107,21 +1109,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       setMsg(e.message || "Feil ved henting.", true);
     }
   });
-
-  const amidFromQs = new URLSearchParams(window.location.search).get("amid");
-  if (amidFromQs) {
-    const amidInput = document.getElementById("amidInput");
-    if (amidInput) amidInput.value = amidFromQs;
-
-    if (ensureLoggedIn()) {
-      try {
-        await loadOrder();
-      } catch {
-        // already handled
-      }
-    }
-  }
-});
 
   const downloadPdfBtn = document.getElementById("downloadPdfBtn");
   downloadPdfBtn?.addEventListener("click", async () => {
@@ -1141,3 +1128,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       setMsg(e.message || "Feil ved nedlasting av PDF.", true);
     }
   });
+
+  const amidFromQs = new URLSearchParams(window.location.search).get("amid");
+  if (amidFromQs) {
+    const amidInput = document.getElementById("amidInput");
+    if (amidInput) amidInput.value = amidFromQs;
+
+    if (ensureLoggedIn()) {
+      try {
+        await loadOrder();
+      } catch {
+        // already handled
+      }
+    }
+  }
+});
