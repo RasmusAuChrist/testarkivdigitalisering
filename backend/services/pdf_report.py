@@ -101,34 +101,53 @@ def _render_structured_fields(story, step: Dict[str, Any], styles) -> bool:
         story.append(Paragraph(_safe_para(field_label), styles["step_title"]))
 
         rows = []
-        for item in items:
+        row_backgrounds = []
+
+        for idx, item in enumerate(items):
             item_key = str(item.get("key"))
             item_label = item.get("label") or item_key
 
             item_data = field_data.get(item_key) or {}
-            status = item_data.get("status")
+            status = bool(item_data.get("status"))
             kommentar = item_data.get("kommentar") or ""
 
-            cell_text = f"{_status_symbol(status)} {_safe_para(item_label)}"
+            label_text = _safe_para(item_label)
             if kommentar:
-                cell_text += (
+                label_text += (
                     f"<br/><font size='9' color='#64748B'>"
                     f"<b>KOMMENTAR:</b> {_safe_para(kommentar)}"
                     f"</font>"
                 )
 
-            rows.append([Paragraph(cell_text, styles["table_cell"])])
+            checkbox_text = "X" if status else ""
+
+            rows.append([
+                Paragraph(checkbox_text, styles["checkbox_cell"]),
+                Paragraph(label_text, styles["table_cell"]),
+            ])
+
+            row_backgrounds.append(colors.HexColor("#FEF3C7") if status else colors.HexColor("#F1F5F9"))
 
         if rows:
-            table = Table(rows, colWidths=[170 * mm])
-            table.setStyle(TableStyle([
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            table = Table(rows, colWidths=[10 * mm, 160 * mm])
+            style_commands = [
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 6),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ]))
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                ("ALIGN", (0, 0), (0, -1), "CENTER"),
+                ("VALIGN", (0, 0), (0, -1), "MIDDLE"),
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ]
+
+            for idx, bg in enumerate(row_backgrounds):
+                style_commands.append(("BACKGROUND", (0, idx), (-1, idx), bg))
+                style_commands.append(("BOX", (0, idx), (0, idx), 1, colors.HexColor("#334155")))
+
+            table.setStyle(TableStyle(style_commands))
             story.append(table)
             story.append(Spacer(1, 6))
 
@@ -152,60 +171,69 @@ def render_report_pdf(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -
 
     base_styles = getSampleStyleSheet()
     styles = {
-        "title": ParagraphStyle(
-            "title",
-            parent=base_styles["Heading1"],
-            fontName="Helvetica-Bold",
-            fontSize=20,
-            leading=24,
-            textColor=colors.HexColor("#0F172A"),
-            spaceAfter=8,
-        ),
-        "section": ParagraphStyle(
-            "section",
-            parent=base_styles["Heading2"],
-            fontName="Helvetica-Bold",
-            fontSize=13,
-            leading=16,
-            textColor=colors.HexColor("#0F172A"),
-            spaceBefore=10,
-            spaceAfter=8,
-        ),
-        "step_title": ParagraphStyle(
-            "step_title",
-            parent=base_styles["Heading3"],
-            fontName="Helvetica-Bold",
-            fontSize=12,
-            leading=14,
-            textColor=colors.HexColor("#0F172A"),
-            spaceAfter=6,
-        ),
-        "body": ParagraphStyle(
-            "body",
-            parent=base_styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=10,
-            leading=13,
-            alignment=TA_LEFT,
-            textColor=colors.HexColor("#1F2937"),
-        ),
-        "muted": ParagraphStyle(
-            "muted",
-            parent=base_styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=9,
-            leading=12,
-            textColor=colors.HexColor("#64748B"),
-        ),
-        "table_cell": ParagraphStyle(
-            "table_cell",
-            parent=base_styles["BodyText"],
-            fontName="Helvetica",
-            fontSize=9,
-            leading=11,
-            textColor=colors.HexColor("#1F2937"),
-        ),
-    }
+    "title": ParagraphStyle(
+        "title",
+        parent=base_styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=20,
+        leading=24,
+        textColor=colors.HexColor("#0F172A"),
+        spaceAfter=8,
+    ),
+    "section": ParagraphStyle(
+        "section",
+        parent=base_styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#0F172A"),
+        spaceBefore=10,
+        spaceAfter=8,
+    ),
+    "step_title": ParagraphStyle(
+        "step_title",
+        parent=base_styles["Heading3"],
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=14,
+        textColor=colors.HexColor("#0F172A"),
+        spaceAfter=6,
+    ),
+    "body": ParagraphStyle(
+        "body",
+        parent=base_styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10,
+        leading=13,
+        alignment=TA_LEFT,
+        textColor=colors.HexColor("#1F2937"),
+    ),
+    "muted": ParagraphStyle(
+        "muted",
+        parent=base_styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor("#64748B"),
+    ),
+    "table_cell": ParagraphStyle(
+        "table_cell",
+        parent=base_styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor("#1F2937"),
+    ),
+    "checkbox_cell": ParagraphStyle(
+        "checkbox_cell",
+        parent=base_styles["BodyText"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=11,
+        alignment=1,
+        textColor=colors.HexColor("#0F172A"),
+    ),
+}
 
     story = []
 
