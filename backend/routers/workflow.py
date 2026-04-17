@@ -14,6 +14,8 @@ from backend.models.workflow import (
 )
 from backend.routers.auth import get_current_user, MeResponse, require_admin_or_coordinator
 from backend.services import workflow_service as service
+from backend.services.pdf_report import render_report_pdf
+from fastapi.responses import Response
 
 router = APIRouter()
 
@@ -39,6 +41,31 @@ def get_order_by_amid(amid: str, me: MeResponse = Depends(get_current_user)):
         if not result.get("header"):
             raise HTTPException(status_code=404, detail="Fant ikke ordre")
         return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.get("/wf/orders/by-amid/{amid}/report.pdf")
+def get_order_pdf_report(amid: str, me: MeResponse = Depends(get_current_user)):
+    try:
+        report_data = service.build_order_report_data(amid)
+
+        if not report_data.get("header"):
+            raise HTTPException(status_code=404, detail="Fant ikke ordre")
+
+        pdf_bytes = render_report_pdf(
+            order_meta=report_data["header"],
+            steps=report_data["steps"],
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="workflow-report-{amid}.pdf"'
+            },
+        )
     except HTTPException:
         raise
     except Exception as e:

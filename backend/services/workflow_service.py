@@ -1,6 +1,6 @@
 import base64
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from backend.repositories import workflow_repository as repo
 
@@ -246,3 +246,57 @@ def assign_step_to_user(
     target_user_id: int,
 ) -> Dict[str, Any]:
     return repo.assign_step_to_user(actor_user_id, order_step_id, target_user_id) or {"ok": True}
+
+def _parse_data_json(data_json: str | None) -> Dict[str, Any]:
+    if not data_json:
+        return {}
+
+    try:
+        parsed = json.loads(data_json)
+        return parsed if isinstance(parsed, dict) else {"value": parsed}
+    except Exception:
+        return {"_raw": data_json}
+
+
+def _extract_commentary(data: Dict[str, Any]) -> str:
+    return str(data.get("kommentarer") or data.get("commentary") or "")
+
+
+def build_order_report_data(amid: str) -> Dict[str, Any]:
+    order_data = repo.get_order_by_amid(amid)
+
+    header = order_data.get("header")
+    if not header:
+        return {}
+
+    steps = order_data.get("steps") or []
+    step_form_data = order_data.get("step_form_data") or []
+
+    form_data_by_order_step_id = {
+        row["OrderStepId"]: row
+        for row in step_form_data
+        if row.get("OrderStepId") is not None
+    }
+
+    enriched_steps: List[Dict[str, Any]] = []
+
+    for step in steps:
+        order_step_id = step.get("OrderStepId")
+        raw_form_row = form_data_by_order_step_id.get(order_step_id, {})
+        parsed_data = _parse_data_json(raw_form_row.get("DataJson"))
+
+        enriched_steps.append(
+            {
+                **step,
+                "form_data": parsed_data,
+                "commentary": _extract_commentary(parsed_data),
+                "form_updated_at_utc": raw_form_row.get("UpdatedAtUtc"),
+                "updated_by_user_id": raw_form_row.get("UpdatedByUserId"),
+            }
+        )
+
+    return {
+        "header": header,
+        "steps": enriched_steps,
+        "events": order_data.get("events") or [],
+    }

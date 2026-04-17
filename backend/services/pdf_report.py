@@ -39,7 +39,7 @@ def build_order_report_html(order_meta: Dict[str, Any], steps: List[Dict[str, An
 
     step_sections = []
     for step in steps:
-        extra_fields = step.get("form_fields", {})
+        extra_fields = step.get("form_data", {})
         extra_rows = "".join(
             f"""
             <tr>
