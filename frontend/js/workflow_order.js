@@ -114,7 +114,26 @@ function updatePdfButtonState() {
   if (!btn) return;
 
   const amid = lastOrder?.header?.ExternalAmid;
-  btn.disabled = !amid;
+  btn.disabled = isDownloadingPdf || !amid;
+}
+
+let isDownloadingPdf = false;
+
+function setPdfButtonLoading(isLoading) {
+  const btn = document.getElementById("downloadPdfBtn");
+  if (!btn) return;
+
+  isDownloadingPdf = isLoading;
+
+  const textEl = btn.querySelector(".btn-text");
+  if (textEl) {
+    textEl.textContent = isLoading ? "Laster ned PDF…" : "Last ned PDF";
+  } else {
+    btn.textContent = isLoading ? "Laster ned PDF…" : "Last ned PDF";
+  }
+
+  const hasAmid = !!lastOrder?.header?.ExternalAmid;
+  btn.disabled = isLoading || !hasAmid;
 }
 
 async function initMeForMenu() {
@@ -1111,23 +1130,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   const downloadPdfBtn = document.getElementById("downloadPdfBtn");
-  downloadPdfBtn?.addEventListener("click", async () => {
-    if (!ensureLoggedIn()) return;
+    downloadPdfBtn?.addEventListener("click", async () => {
+      if (!ensureLoggedIn()) return;
+      if (isDownloadingPdf) return;
 
-    try {
-      const amid = lastOrder?.header?.ExternalAmid || document.getElementById("amidInput")?.value?.trim();
-      if (!amid) {
-        setMsg("Fant ikke AMID for denne ordren.", true);
-        return;
+      try {
+        const amid = lastOrder?.header?.ExternalAmid || document.getElementById("amidInput")?.value?.trim();
+        if (!amid) {
+          setMsg("Fant ikke AMID for denne ordren.", true);
+          return;
+        }
+
+        setPdfButtonLoading(true);
+        setMsg("Genererer PDF…");
+
+        await downloadWorkflowPdf(amid);
+
+        setMsg("PDF lastet ned.");
+      } catch (e) {
+        setMsg(e.message || "Feil ved nedlasting av PDF.", true);
+      } finally {
+        setPdfButtonLoading(false);
       }
-
-      setMsg("Genererer PDF…");
-      await downloadWorkflowPdf(amid);
-      setMsg("PDF lastet ned.");
-    } catch (e) {
-      setMsg(e.message || "Feil ved nedlasting av PDF.", true);
-    }
-  });
+    });
 
   const amidFromQs = new URLSearchParams(window.location.search).get("amid");
   if (amidFromQs) {
