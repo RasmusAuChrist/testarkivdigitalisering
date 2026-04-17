@@ -1,15 +1,26 @@
 # backend/services/pdf_report.py
 import json
-from html import escape
-from typing import Any, Dict, List, Optional
+from io import BytesIO
+from typing import Any, Dict, List
 
-from weasyprint import HTML
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 
 def _safe(value: Any) -> str:
     if value is None:
         return ""
-    return escape(str(value))
+    return str(value)
 
 
 def _format_json_value(value: Any) -> str:
@@ -18,248 +29,196 @@ def _format_json_value(value: Any) -> str:
     if isinstance(value, list):
         return ", ".join(_safe(v) for v in value)
     if isinstance(value, dict):
-        return _safe(json.dumps(value, ensure_ascii=False))
+        return json.dumps(value, ensure_ascii=False)
     return _safe(value)
 
 
-def build_order_report_html(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -> str:
-    total_steps = len(steps)
-    steps_with_commentary = sum(1 for s in steps if (s.get("commentary") or "").strip())
-    completed_steps = sum(1 for s in steps if str(s.get("Status") or "").lower() == "completed")
+def _build_meta_table(data: Dict[str, Any], styles) -> Table:
+    rows = [["Felt", "Verdi"]]
+    for key, value in data.items():
+        rows.append([
+            Paragraph(_safe(key), styles["table_cell"]),
+            Paragraph(_safe(value), styles["table_cell"]),
+        ])
 
-    meta_rows = "".join(
-        f"""
-        <tr>
-            <th>{_safe(k)}</th>
-            <td>{_safe(v)}</td>
-        </tr>
-        """
-        for k, v in order_meta.items()
-    )
+    table = Table(rows, colWidths=[55 * mm, 115 * mm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DBEAFE")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return table
 
-    step_sections = []
-    for step in steps:
-        extra_fields = step.get("form_data", {})
-        extra_rows = "".join(
-            f"""
-            <tr>
-                <th>{_safe(key)}</th>
-                <td>{_format_json_value(val)}</td>
-            </tr>
-            """
-            for key, val in extra_fields.items()
-            if key not in {"kommentarer", "commentary"}
-        )
 
-        commentary = (step.get("commentary") or "").strip()
-
-        step_sections.append(
-            f"""
-            <section class="step">
-                <div class="step-header">
-                    <div>
-                        <div class="step-title">{_safe(step.get("Sequence"))}. {_safe(step.get("Name"))}</div>
-                        <div class="muted">OrderStepId: {_safe(step.get("OrderStepId"))}</div>
-                    </div>
-                    <div class="badge">{_safe(step.get("Status"))}</div>
-                </div>
-
-                <table class="meta-table">
-                    <tr>
-                        <th>Tildelt</th>
-                        <td>{_safe(step.get("AssignedToName"))}</td>
-                    </tr>
-                    <tr>
-                        <th>Sist oppdatert</th>
-                        <td>{_safe(step.get("UpdatedAtUtc"))}</td>
-                    </tr>
-                </table>
-
-                <h3>Kommentar</h3>
-                {
-                    f'<div class="commentary">{_safe(commentary)}</div>'
-                    if commentary
-                    else '<p class="muted">Ingen kommentar registrert.</p>'
-                }
-
-                <h3>Øvrige felt</h3>
-                {
-                    f'<table class="meta-table">{extra_rows}</table>'
-                    if extra_rows
-                    else '<p class="muted">Ingen øvrige felt registrert.</p>'
-                }
-            </section>
-            """
-        )
-
-    return f"""
-    <!doctype html>
-    <html lang="no">
-    <head>
-        <meta charset="utf-8">
-        <style>
-            @page {{
-                size: A4;
-                margin: 18mm 14mm;
-            }}
-
-            body {{
-                font-family: Arial, Helvetica, sans-serif;
-                font-size: 12px;
-                color: #1f2937;
-                line-height: 1.45;
-            }}
-
-            h1, h2, h3 {{
-                color: #0f172a;
-                margin: 0 0 8px 0;
-            }}
-
-            h1 {{
-                font-size: 24px;
-                margin-bottom: 12px;
-            }}
-
-            h2 {{
-                font-size: 16px;
-                margin: 20px 0 10px 0;
-                border-bottom: 2px solid #dbeafe;
-                padding-bottom: 4px;
-            }}
-
-            .header {{
-                display: flex;
-                justify-content: space-between;
-                border-bottom: 3px solid #2563eb;
-                padding-bottom: 12px;
-                margin-bottom: 18px;
-            }}
-
-            .summary {{
-                display: flex;
-                gap: 10px;
-                margin: 16px 0 20px 0;
-            }}
-
-            .summary-card {{
-                flex: 1;
-                border: 1px solid #cbd5e1;
-                border-radius: 8px;
-                padding: 10px;
-                background: #f8fafc;
-            }}
-
-            .summary-label {{
-                color: #64748b;
-                font-size: 11px;
-                text-transform: uppercase;
-            }}
-
-            .summary-value {{
-                font-size: 18px;
-                font-weight: bold;
-                margin-top: 4px;
-            }}
-
-            .meta-table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 8px;
-            }}
-
-            .meta-table th,
-            .meta-table td {{
-                border: 1px solid #e2e8f0;
-                padding: 8px;
-                text-align: left;
-                vertical-align: top;
-            }}
-
-            .meta-table th {{
-                width: 30%;
-                background: #eff6ff;
-            }}
-
-            .step {{
-                border: 1px solid #cbd5e1;
-                border-radius: 10px;
-                padding: 14px;
-                margin-bottom: 16px;
-                page-break-inside: avoid;
-            }}
-
-            .step-header {{
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 10px;
-            }}
-
-            .step-title {{
-                font-size: 15px;
-                font-weight: bold;
-            }}
-
-            .badge {{
-                background: #dbeafe;
-                color: #1d4ed8;
-                border-radius: 999px;
-                padding: 4px 8px;
-                font-size: 11px;
-                font-weight: bold;
-                height: fit-content;
-            }}
-
-            .commentary {{
-                background: #f8fafc;
-                border-left: 4px solid #2563eb;
-                padding: 10px 12px;
-                border-radius: 6px;
-                white-space: pre-wrap;
-            }}
-
-            .muted {{
-                color: #64748b;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <div>
-                <h1>Workflow-rapport</h1>
-                <div class="muted">PDF-eksport av ordre og stegdata</div>
-            </div>
-            <div>
-                <div><strong>Ordre:</strong> {_safe(order_meta.get("OrderId"))}</div>
-            </div>
-        </div>
-
-        <h2>Objektmetadata</h2>
-        <table class="meta-table">
-            {meta_rows}
-        </table>
-
-        <div class="summary">
-            <div class="summary-card">
-                <div class="summary-label">Antall steg</div>
-                <div class="summary-value">{total_steps}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Fullførte steg</div>
-                <div class="summary-value">{completed_steps}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Steg med kommentarer</div>
-                <div class="summary-value">{steps_with_commentary}</div>
-            </div>
-        </div>
-
-        <h2>Stegdetaljer</h2>
-        {''.join(step_sections)}
-    </body>
-    </html>
-    """
+def _build_key_value_table(items: List[List[Any]]) -> Table:
+    table = Table(items, colWidths=[45 * mm, 125 * mm])
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#EFF6FF")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return table
 
 
 def render_report_pdf(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -> bytes:
-    html = build_order_report_html(order_meta, steps)
-    return HTML(string=html).write_pdf()
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=14 * mm,
+        rightMargin=14 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+        title=f"Workflow-rapport {_safe(order_meta.get('OrderId'))}",
+    )
+
+    base_styles = getSampleStyleSheet()
+    styles = {
+        "title": ParagraphStyle(
+            "title",
+            parent=base_styles["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=20,
+            leading=24,
+            textColor=colors.HexColor("#0F172A"),
+            spaceAfter=8,
+        ),
+        "section": ParagraphStyle(
+            "section",
+            parent=base_styles["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=13,
+            leading=16,
+            textColor=colors.HexColor("#0F172A"),
+            spaceBefore=10,
+            spaceAfter=8,
+        ),
+        "step_title": ParagraphStyle(
+            "step_title",
+            parent=base_styles["Heading3"],
+            fontName="Helvetica-Bold",
+            fontSize=12,
+            leading=14,
+            textColor=colors.HexColor("#0F172A"),
+            spaceAfter=6,
+        ),
+        "body": ParagraphStyle(
+            "body",
+            parent=base_styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=10,
+            leading=13,
+            alignment=TA_LEFT,
+            textColor=colors.HexColor("#1F2937"),
+        ),
+        "muted": ParagraphStyle(
+            "muted",
+            parent=base_styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor("#64748B"),
+        ),
+        "table_cell": ParagraphStyle(
+            "table_cell",
+            parent=base_styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor("#1F2937"),
+        ),
+    }
+
+    story = []
+
+    story.append(Paragraph("Workflow-rapport", styles["title"]))
+    story.append(Paragraph("PDF-eksport av ordre og stegdata", styles["muted"]))
+    story.append(Spacer(1, 6))
+
+    summary_items = [
+        ["Ordre", Paragraph(_safe(order_meta.get("OrderId")), styles["body"])],
+        ["Status", Paragraph(_safe(order_meta.get("Status")), styles["body"])],
+        ["AMID", Paragraph(_safe(order_meta.get("ExternalAmid")), styles["body"])],
+    ]
+    story.append(_build_key_value_table(summary_items))
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("Objektmetadata", styles["section"]))
+    story.append(_build_meta_table(order_meta, styles))
+    story.append(Spacer(1, 12))
+
+    total_steps = len(steps)
+    steps_with_commentary = sum(1 for s in steps if (_safe(s.get("commentary")).strip()))
+    completed_steps = sum(1 for s in steps if _safe(s.get("Status")).lower() == "completed")
+
+    story.append(Paragraph("Oppsummering", styles["section"]))
+    summary_table = _build_key_value_table([
+        ["Antall steg", Paragraph(str(total_steps), styles["body"])],
+        ["Fullførte steg", Paragraph(str(completed_steps), styles["body"])],
+        ["Steg med kommentarer", Paragraph(str(steps_with_commentary), styles["body"])],
+    ])
+    story.append(summary_table)
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("Stegdetaljer", styles["section"]))
+
+    for step in steps:
+        step_title = f"{_safe(step.get('Sequence'))}. {_safe(step.get('Name'))}"
+        story.append(Paragraph(step_title, styles["step_title"]))
+        story.append(Paragraph(f"OrderStepId: {_safe(step.get('OrderStepId'))}", styles["muted"]))
+        story.append(Spacer(1, 4))
+
+        step_info = _build_key_value_table([
+            ["Status", Paragraph(_safe(step.get("Status")), styles["body"])],
+            ["Tildelt", Paragraph(_safe(step.get("AssignedToName")), styles["body"])],
+            ["Sist oppdatert", Paragraph(_safe(step.get("form_updated_at_utc") or step.get("UpdatedAtUtc")), styles["body"])],
+        ])
+        story.append(step_info)
+        story.append(Spacer(1, 6))
+
+        commentary = _safe(step.get("commentary")).strip()
+        story.append(Paragraph("Kommentar", styles["body"]))
+        story.append(
+            Paragraph(commentary if commentary else "Ingen kommentar registrert.", styles["body"])
+        )
+        story.append(Spacer(1, 6))
+
+        extra_fields = step.get("form_data", {}) or {}
+        filtered_items = [
+            [Paragraph(_safe(k), styles["table_cell"]), Paragraph(_format_json_value(v), styles["table_cell"])]
+            for k, v in extra_fields.items()
+            if k not in {"kommentarer", "commentary"}
+        ]
+
+        story.append(Paragraph("Øvrige felt", styles["body"]))
+        if filtered_items:
+            extra_table = Table(filtered_items, colWidths=[45 * mm, 125 * mm])
+            extra_table.setStyle(TableStyle([
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8FAFC")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(extra_table)
+        else:
+            story.append(Paragraph("Ingen øvrige felt registrert.", styles["muted"]))
+
+        story.append(Spacer(1, 12))
+
+    doc.build(story)
+    return buffer.getvalue()
