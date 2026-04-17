@@ -2,6 +2,7 @@
 import json
 from io import BytesIO
 from typing import Any, Dict, List
+from xml.sax.saxutils import escape as xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -23,6 +24,10 @@ def _safe(value: Any) -> str:
     return str(value)
 
 
+def _safe_para(value: Any) -> str:
+    return xml_escape(_safe(value))
+
+
 def _format_json_value(value: Any) -> str:
     if value is None:
         return ""
@@ -37,8 +42,8 @@ def _build_meta_table(data: Dict[str, Any], styles) -> Table:
     rows = [["Felt", "Verdi"]]
     for key, value in data.items():
         rows.append([
-            Paragraph(_safe(key), styles["table_cell"]),
-            Paragraph(_safe(value), styles["table_cell"]),
+            Paragraph(_safe_para(key), styles["table_cell"]),
+            Paragraph(_safe_para(value), styles["table_cell"]),
         ])
 
     table = Table(rows, colWidths=[55 * mm, 115 * mm])
@@ -69,6 +74,67 @@ def _build_key_value_table(items: List[List[Any]]) -> Table:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     return table
+
+
+def _status_symbol(value: Any) -> str:
+    return "☑" if bool(value) else "☐"
+
+
+def _render_structured_fields(story, step: Dict[str, Any], styles) -> bool:
+    schema = step.get("form_schema") or {}
+    data = step.get("form_data") or {}
+
+    fields = schema.get("fields") or []
+    rendered_any = False
+
+    for field in fields:
+        field_type = field.get("type")
+        field_key = field.get("key")
+        field_label = field.get("label") or field_key or ""
+
+        if field_type != "status_comment_list":
+            continue
+
+        field_data = data.get(field_key) or {}
+        items = field.get("items") or []
+
+        story.append(Paragraph(_safe_para(field_label), styles["step_title"]))
+
+        rows = []
+        for item in items:
+            item_key = str(item.get("key"))
+            item_label = item.get("label") or item_key
+
+            item_data = field_data.get(item_key) or {}
+            status = item_data.get("status")
+            kommentar = item_data.get("kommentar") or ""
+
+            cell_text = f"{_status_symbol(status)} {_safe_para(item_label)}"
+            if kommentar:
+                cell_text += (
+                    f"<br/><font size='9' color='#64748B'>"
+                    f"<b>KOMMENTAR:</b> {_safe_para(kommentar)}"
+                    f"</font>"
+                )
+
+            rows.append([Paragraph(cell_text, styles["table_cell"])])
+
+        if rows:
+            table = Table(rows, colWidths=[170 * mm])
+            table.setStyle(TableStyle([
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(table)
+            story.append(Spacer(1, 6))
+
+        rendered_any = True
+
+    return rendered_any
 
 
 def render_report_pdf(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -> bytes:
@@ -148,9 +214,9 @@ def render_report_pdf(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -
     story.append(Spacer(1, 6))
 
     summary_items = [
-        ["Ordre", Paragraph(_safe(order_meta.get("OrderId")), styles["body"])],
-        ["Status", Paragraph(_safe(order_meta.get("Status")), styles["body"])],
-        ["AMID", Paragraph(_safe(order_meta.get("ExternalAmid")), styles["body"])],
+        ["Ordre", Paragraph(_safe_para(order_meta.get("OrderId")), styles["body"])],
+        ["Status", Paragraph(_safe_para(order_meta.get("Status")), styles["body"])],
+        ["AMID", Paragraph(_safe_para(order_meta.get("ExternalAmid")), styles["body"])],
     ]
     story.append(_build_key_value_table(summary_items))
     story.append(Spacer(1, 10))
@@ -176,14 +242,14 @@ def render_report_pdf(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -
 
     for step in steps:
         step_title = f"{_safe(step.get('Sequence'))}. {_safe(step.get('Name'))}"
-        story.append(Paragraph(step_title, styles["step_title"]))
-        story.append(Paragraph(f"OrderStepId: {_safe(step.get('OrderStepId'))}", styles["muted"]))
+        story.append(Paragraph(_safe_para(step_title), styles["step_title"]))
+        story.append(Paragraph(f"OrderStepId: {_safe_para(step.get('OrderStepId'))}", styles["muted"]))
         story.append(Spacer(1, 4))
 
         step_info = _build_key_value_table([
-            ["Status", Paragraph(_safe(step.get("Status")), styles["body"])],
-            ["Tildelt", Paragraph(_safe(step.get("AssignedToName")), styles["body"])],
-            ["Sist oppdatert", Paragraph(_safe(step.get("form_updated_at_utc") or step.get("UpdatedAtUtc")), styles["body"])],
+            ["Status", Paragraph(_safe_para(step.get("Status")), styles["body"])],
+            ["Tildelt", Paragraph(_safe_para(step.get("AssignedToName")), styles["body"])],
+            ["Sist oppdatert", Paragraph(_safe_para(step.get("form_updated_at_utc") or step.get("UpdatedAtUtc")), styles["body"])],
         ])
         story.append(step_info)
         story.append(Spacer(1, 6))
@@ -191,32 +257,41 @@ def render_report_pdf(order_meta: Dict[str, Any], steps: List[Dict[str, Any]]) -
         commentary = _safe(step.get("commentary")).strip()
         story.append(Paragraph("Kommentar", styles["body"]))
         story.append(
-            Paragraph(commentary if commentary else "Ingen kommentar registrert.", styles["body"])
+            Paragraph(
+                _safe_para(commentary) if commentary else "Ingen kommentar registrert.",
+                styles["body"],
+            )
         )
         story.append(Spacer(1, 6))
 
-        extra_fields = step.get("form_data", {}) or {}
-        filtered_items = [
-            [Paragraph(_safe(k), styles["table_cell"]), Paragraph(_format_json_value(v), styles["table_cell"])]
-            for k, v in extra_fields.items()
-            if k not in {"kommentarer", "commentary"}
-        ]
+        rendered_structured = _render_structured_fields(story, step, styles)
 
-        story.append(Paragraph("Øvrige felt", styles["body"]))
-        if filtered_items:
-            extra_table = Table(filtered_items, colWidths=[45 * mm, 125 * mm])
-            extra_table.setStyle(TableStyle([
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8FAFC")),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ]))
-            story.append(extra_table)
-        else:
-            story.append(Paragraph("Ingen øvrige felt registrert.", styles["muted"]))
+        if not rendered_structured:
+            extra_fields = step.get("form_data", {}) or {}
+            filtered_items = [
+                [
+                    Paragraph(_safe_para(k), styles["table_cell"]),
+                    Paragraph(_safe_para(_format_json_value(v)), styles["table_cell"]),
+                ]
+                for k, v in extra_fields.items()
+                if k not in {"kommentarer", "commentary"}
+            ]
+
+            story.append(Paragraph("Øvrige felt", styles["body"]))
+            if filtered_items:
+                extra_table = Table(filtered_items, colWidths=[45 * mm, 125 * mm])
+                extra_table.setStyle(TableStyle([
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#F8FAFC")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]))
+                story.append(extra_table)
+            else:
+                story.append(Paragraph("Ingen øvrige felt registrert.", styles["muted"]))
 
         story.append(Spacer(1, 12))
 

@@ -21,6 +21,16 @@ def rowver_to_client(v: Any) -> Optional[str]:
         return "0x" + bytes(v).hex().upper()
     return str(v)
 
+def _parse_schema_json(schema_json: Optional[str]) -> Dict[str, Any]:
+    if not schema_json:
+        return {}
+
+    try:
+        parsed = json.loads(schema_json)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
 
 def build_step3_payload(
     amid: str,
@@ -247,7 +257,7 @@ def assign_step_to_user(
 ) -> Dict[str, Any]:
     return repo.assign_step_to_user(actor_user_id, order_step_id, target_user_id) or {"ok": True}
 
-def _parse_data_json(data_json: str | None) -> Dict[str, Any]:
+def _parse_data_json(data_json: Optional[str]) -> Dict[str, Any]:
     if not data_json:
         return {}
 
@@ -263,7 +273,7 @@ def _extract_commentary(data: Dict[str, Any]) -> str:
 
 
 def build_order_report_data(amid: str) -> Dict[str, Any]:
-    order_data = repo.get_order_by_amid(amid)
+    order_data = get_order_by_amid(amid)
 
     header = order_data.get("header")
     if not header:
@@ -273,7 +283,7 @@ def build_order_report_data(amid: str) -> Dict[str, Any]:
     step_form_data = order_data.get("step_form_data") or []
 
     form_data_by_order_step_id = {
-        row["OrderStepId"]: row
+        row.get("OrderStepId"): row
         for row in step_form_data
         if row.get("OrderStepId") is not None
     }
@@ -282,13 +292,29 @@ def build_order_report_data(amid: str) -> Dict[str, Any]:
 
     for step in steps:
         order_step_id = step.get("OrderStepId")
+        step_def_id = step.get("StepDefId")
+
         raw_form_row = form_data_by_order_step_id.get(order_step_id, {})
         parsed_data = _parse_data_json(raw_form_row.get("DataJson"))
+
+        parsed_schema: Dict[str, Any] = {}
+
+        if step_def_id == 3:
+            step3_form = get_step3_form(order_step_id)
+            if step3_form:
+                parsed_schema = step3_form.get("schema") or {}
+                if not parsed_data:
+                    parsed_data = step3_form.get("data") or {}
+        else:
+            schema_row = get_step_form_schema(step_def_id)
+            if schema_row:
+                parsed_schema = _parse_schema_json(schema_row.get("SchemaJson"))
 
         enriched_steps.append(
             {
                 **step,
                 "form_data": parsed_data,
+                "form_schema": parsed_schema,
                 "commentary": _extract_commentary(parsed_data),
                 "form_updated_at_utc": raw_form_row.get("UpdatedAtUtc"),
                 "updated_by_user_id": raw_form_row.get("UpdatedByUserId"),
