@@ -173,9 +173,30 @@ async function loadNavbar() {
 
 function fmtDate(v) {
   if (!v) return "";
+
   try {
-    const d = new Date(v);
-    return d.toLocaleString("no-NO");
+    let s = String(v).trim();
+
+    // If backend sends SQL-style datetime with space, normalize to ISO-ish
+    s = s.replace(" ", "T");
+
+    // If there is no timezone info, treat the value as UTC
+    const hasTimezone = /[zZ]$|[+\-]\d{2}:\d{2}$/.test(s);
+    if (!hasTimezone) {
+      s += "Z";
+    }
+
+    const d = new Date(s);
+
+    return d.toLocaleString("no-NO", {
+      timeZone: "Europe/Oslo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   } catch {
     return String(v);
   }
