@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.models.workflow import (
+    AddStepCommentRequest,
     AssignStepRequest,
     CloseOrderRequest,
     CompleteStepRequest,
@@ -276,6 +277,29 @@ def assign_step_to_user(
             actor_user_id=me.user_id,
             order_step_id=order_step_id,
             target_user_id=payload.target_user_id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.get("/wf/steps/{order_step_id}/comments")
+def get_step_comments(order_step_id: int, me: MeResponse = Depends(get_current_user)):
+    try:
+        return service.get_step_comment_history(order_step_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/wf/steps/{order_step_id}/comments")
+def add_step_comment(
+    order_step_id: int,
+    payload: AddStepCommentRequest,
+    me: MeResponse = Depends(get_current_user),
+):
+    try:
+        return service.add_step_comment(
+            actor_user_id=me.user_id,
+            order_step_id=order_step_id,
+            comment_text=payload.text,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -326,3 +326,11 @@ def build_order_report_data(amid: str) -> Dict[str, Any]:
         "steps": enriched_steps,
         "events": order_data.get("events") or [],
     }
+
+def add_step_comment(actor_user_id: int, order_step_id: int, comment_text: str):
+    return repo.add_step_comment(actor_user_id, order_step_id, comment_text) or {"ok": True}
+
+
+def get_step_comment_history(order_step_id: int):
+    rows = repo.get_step_comment_history(order_step_id)
+    return {"items": rows}

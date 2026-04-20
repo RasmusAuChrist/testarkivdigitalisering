@@ -26,6 +26,14 @@ async function apiPostStep3Form(orderStepId, body) {
   return apiPost(`/api/wf/steps/${encodeURIComponent(orderStepId)}/step3-form`, body);
 }
 
+async function apiGetStepComments(orderStepId) {
+  return apiGet(`/api/wf/steps/${encodeURIComponent(orderStepId)}/comments`);
+}
+
+async function apiPostStepComment(orderStepId, body) {
+  return apiPost(`/api/wf/steps/${encodeURIComponent(orderStepId)}/comments`, body);
+}
+
 async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
 
@@ -914,6 +922,7 @@ async function renderCurrentStepDetails(order) {
   const sub = document.getElementById("stepDetailsSub");
   const externalHost = document.getElementById("currentStepExternalHost");
   const formHost = document.getElementById("currentStepFormHost");
+  const commentsHost = document.getElementById("stepCommentsHost");
   const saveBtn = document.getElementById("currentStepSaveBtn");
 
   if (!card || !sub || !formHost || !saveBtn) return;
@@ -1044,6 +1053,46 @@ async function renderCurrentStepDetails(order) {
 
   renderDynamicFormInto(formHost, schemaObj, currentValues, canEdit);
 
+  if (commentsHost) {
+  const commentsPayload = await apiGetStepComments(step.OrderStepId);
+
+  commentsHost.innerHTML = (commentsPayload.items || []).map(c => `
+    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between;">
+        <div style="font-weight:800;">
+          Steg ${c.Sequence} · ${escapeHtml(c.CreatedByUserName || "")}
+        </div>
+        <div style="font-size:12px; color:#6b7280;">
+          ${fmtDate(c.CreatedAtUtc)}
+        </div>
+      </div>
+      <div style="margin-top:6px; white-space:pre-wrap;">
+        ${escapeHtml(c.CommentText || "")}
+      </div>
+    </div>
+  `).join("") + `
+    <div style="margin-top:10px;">
+      <textarea id="stepCommentText" style="width:100%; min-height:80px;"></textarea>
+      <button id="stepCommentBtn" class="btn btn-primary" style="margin-top:6px;">
+        Legg til kommentar
+      </button>
+    </div>
+  `;
+
+  const btn = document.getElementById("stepCommentBtn");
+  btn?.addEventListener("click", async () => {
+    const text = document.getElementById("stepCommentText").value.trim();
+    if (!text) return;
+
+    await apiPostStepComment(step.OrderStepId, { text });
+
+    // reload comments
+    const refreshed = await apiGetStepComments(step.OrderStepId);
+    commentsHost.innerHTML = ""; // simple reset
+    renderCurrentStepDetails(order);
+  });
+}
+
   const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
   renderPriorStepsInline(allData.items || [], step.Sequence);
 
@@ -1072,6 +1121,7 @@ async function renderCurrentStepDetails(order) {
     }
   };
 }
+
 /* -----------------------------
    Load order
 ------------------------------ */

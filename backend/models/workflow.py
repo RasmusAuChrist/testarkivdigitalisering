@@ -53,3 +53,6 @@ class SendBackStepRequest(BaseModel):
 
 class AssignStepRequest(BaseModel):
     target_user_id: int
+
+class AddStepCommentRequest(BaseModel):
+    text: str = Field(..., min_length=1)

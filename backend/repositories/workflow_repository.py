@@ -408,3 +408,34 @@ def assign_step_to_user(
         raise
     finally:
         conn.close()
+
+def add_step_comment(
+    actor_user_id: int,
+    order_step_id: int,
+    comment_text: str,
+) -> Optional[Dict[str, Any]]:
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            "EXEC dbo.usp_wf_add_step_comment %s, %s, %s",
+            (actor_user_id, order_step_id, comment_text),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_step_comment_history(order_step_id: int) -> List[Dict[str, Any]]:
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_get_step_comment_history %s", (order_step_id,))
+        return cur.fetchall() or []
+    finally:
+        conn.close()
