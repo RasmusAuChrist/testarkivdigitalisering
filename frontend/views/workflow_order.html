@@ -182,18 +182,19 @@
 
     <div style="padding: 0 14px 14px 14px;">
       <div id="currentStepExternalHost"></div>
-      <div id="currentStepFormHost"></div>
+        <div id="currentStepFormHost"></div>
 
-      <div id="stepCommentsHost" style="margin-top:12px;"></div>
+        <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+          <label id="currentStepEditToggleWrap" style="display:none; align-items:center; gap:8px; user-select:none; cursor:pointer;">
+            <input id="currentStepEditToggle" type="checkbox" />
+            <span>Rediger</span>
+          </label>
 
-      <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:10px;">
-        <label id="currentStepEditToggleWrap" style="display:none; align-items:center; gap:8px; user-select:none; cursor:pointer;">
-          <input id="currentStepEditToggle" type="checkbox" />
-          <span>Rediger</span>
-        </label>
+          <button id="currentStepSaveBtn" class="btn btn-primary" type="button" style="display:none;">Lagre</button>
+          <div id="currentStepMsg" style="color:#6b7280; font-size:12px;"></div>
+        </div>
 
-        <button id="currentStepSaveBtn" class="btn btn-primary" type="button" style="display:none;">Lagre</button>
-        <div id="currentStepMsg" style="color:#6b7280; font-size:12px;"></div>
+        <div id="stepCommentsHost" style="margin-top:12px;"></div>
       </div>
 
       <div style="margin-top:12px;">

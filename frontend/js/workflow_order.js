@@ -1162,6 +1162,7 @@ if (!nonCommentFields.length && !primaryCommentField) {
   if (commentsHost) {
   const commentsPayload = await apiGetStepComments(step.OrderStepId);
   const commentItems = commentsPayload.items || [];
+  const commentCount = commentItems.length;
 
   const commentListHtml = commentItems.length
     ? commentItems.map(c => `
@@ -1185,7 +1186,7 @@ if (!nonCommentFields.length && !primaryCommentField) {
     <details open style="border:1px solid #e5e7eb; border-radius:10px; background:#fff;">
       <summary style="list-style:none; cursor:pointer; padding:12px; display:flex; align-items:center; justify-content:space-between;">
         <div>
-          <div style="font-weight:900;">Samtalekommentarer</div>
+          <div style="font-weight:900;">Samtalekommentarer (${commentCount})</div>
           <div style="font-size:12px; color:#6b7280; margin-top:4px;">
             Tidligere kommentarer er låst og kan ikke redigeres.
           </div>
