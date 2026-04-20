@@ -359,8 +359,27 @@ function getCurrentStep(order) {
   return steps.find(s => s.StepStatus === "Active") || null;
 }
 
+function isCommentField(field) {
+  const key = String(field?.key || "").toLowerCase();
+  const label = String(field?.label || "").toLowerCase();
+
+  return [
+    "kommentar",
+    "kommentarer",
+    "merknad",
+    "notat",
+    "note",
+    "comment",
+    "comments",
+  ].some(word => key.includes(word) || label.includes(word));
+}
+
+function getRenderableFormFields(schemaObj) {
+  return (schemaObj?.fields || []).filter(f => !isCommentField(f));
+}
+
 function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
-  const fields = schemaObj?.fields || [];
+  const fields = getRenderableFormFields(schemaObj);
   if (!fields.length) {
     hostEl.innerHTML = `<div style="color:#6b7280;">Ingen felter definert for dette steget.</div>`;
     return;
@@ -478,7 +497,7 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
 }
 
 function readDynamicFormValuesFrom(hostEl, schemaObj) {
-  const fields = schemaObj?.fields || [];
+  const fields = getRenderableFormFields(schemaObj);
   const out = {};
 
   for (const f of fields) {
@@ -508,7 +527,7 @@ function readDynamicFormValuesFrom(hostEl, schemaObj) {
 }
 
 function validateDynamicForm(schemaObj, values) {
-  const fields = schemaObj?.fields || [];
+  const fields = getRenderableFormFields(schemaObj);
   const missing = fields.filter(f => {
     if (!f.required) return false;
 
@@ -598,8 +617,11 @@ function renderPriorStepsInline(items, currentSequence) {
 function clearCurrentStepHosts() {
   const externalHost = document.getElementById("currentStepExternalHost");
   const formHost = document.getElementById("currentStepFormHost");
+  const commentsHost = document.getElementById("stepCommentsHost");
+
   if (externalHost) externalHost.innerHTML = "";
   if (formHost) formHost.innerHTML = "";
+  if (commentsHost) commentsHost.innerHTML = "";
 }
 
 function normalizeBoolLike(v) {
@@ -1055,71 +1077,104 @@ async function renderCurrentStepDetails(order) {
 
   if (commentsHost) {
   const commentsPayload = await apiGetStepComments(step.OrderStepId);
+  const commentItems = commentsPayload.items || [];
 
-  commentsHost.innerHTML = (commentsPayload.items || []).map(c => `
-    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-bottom:8px;">
-      <div style="display:flex; justify-content:space-between;">
-        <div style="font-weight:800;">
-          Steg ${c.Sequence} · ${escapeHtml(c.CreatedByUserName || "")}
+  const commentListHtml = commentItems.length
+    ? commentItems.map(c => `
+        <div style="border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-bottom:8px; background:#fff;">
+          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div style="font-weight:800;">
+              Steg ${escapeHtml(c.Sequence)} · ${escapeHtml(c.CreatedByUserName || c.CreatedByUserId || "")}
+            </div>
+            <div style="font-size:12px; color:#6b7280;">
+              ${fmtDate(c.CreatedAtUtc)}
+            </div>
+          </div>
+          <div style="margin-top:6px; white-space:pre-wrap;">
+            ${escapeHtml(c.CommentText || "")}
+          </div>
         </div>
-        <div style="font-size:12px; color:#6b7280;">
-          ${fmtDate(c.CreatedAtUtc)}
+      `).join("")
+    : `<div style="color:#6b7280;">Ingen kommentarer ennå.</div>`;
+
+  commentsHost.innerHTML = `
+    <details open style="border:1px solid #e5e7eb; border-radius:10px; background:#fff;">
+      <summary style="list-style:none; cursor:pointer; padding:12px; display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-weight:900;">Samtalekommentarer</div>
+          <div style="font-size:12px; color:#6b7280; margin-top:4px;">
+            Tidligere kommentarer er låst og kan ikke redigeres.
+          </div>
+        </div>
+        <span aria-hidden="true" style="font-weight:900;">▾</span>
+      </summary>
+
+      <div style="padding:0 12px 12px 12px;">
+        <div style="margin-bottom:12px;">
+          ${commentListHtml}
+        </div>
+
+        <div style="border-top:1px solid #e5e7eb; padding-top:12px;">
+          <div style="font-weight:800; margin-bottom:6px;">Ny kommentar</div>
+          <textarea
+            id="stepCommentText"
+            style="width:100%; min-height:80px;"
+            placeholder="Skriv ny kommentar her..."
+            ${canEdit ? "" : "disabled"}
+          ></textarea>
+
+          <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+            <button
+              id="stepCommentBtn"
+              class="btn btn-primary"
+              type="button"
+              ${canEdit ? "" : "disabled"}
+            >
+              Legg til kommentar
+            </button>
+            <div id="stepCommentMsg" style="font-size:12px; color:#6b7280;">
+              ${canEdit ? "" : "Kun aktivt steg tildelt deg kan kommenteres."}
+            </div>
+          </div>
         </div>
       </div>
-      <div style="margin-top:6px; white-space:pre-wrap;">
-        ${escapeHtml(c.CommentText || "")}
-      </div>
-    </div>
-  `).join("") + `
-    <div style="margin-top:10px;">
-      <textarea id="stepCommentText" style="width:100%; min-height:80px;"></textarea>
-      <button id="stepCommentBtn" class="btn btn-primary" style="margin-top:6px;">
-        Legg til kommentar
-      </button>
-    </div>
+    </details>
   `;
 
   const btn = document.getElementById("stepCommentBtn");
+  const msgEl = document.getElementById("stepCommentMsg");
+
   btn?.addEventListener("click", async () => {
-    const text = document.getElementById("stepCommentText").value.trim();
-    if (!text) return;
+    const text = document.getElementById("stepCommentText")?.value?.trim() || "";
+    if (!text) {
+      if (msgEl) {
+        msgEl.textContent = "Skriv en kommentar først.";
+        msgEl.style.color = "#b91c1c";
+      }
+      return;
+    }
 
-    await apiPostStepComment(step.OrderStepId, { text });
-
-    // reload comments
-    const refreshed = await apiGetStepComments(step.OrderStepId);
-    commentsHost.innerHTML = ""; // simple reset
-    renderCurrentStepDetails(order);
-  });
-}
-
-  const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
-  renderPriorStepsInline(allData.items || [], step.Sequence);
-
-  setCurrentStepMsg(
-    canEdit ? "Du kan redigere dette steget." : "Kun aktivt steg tildelt deg kan redigeres.",
-    !canEdit
-  );
-
-  saveBtn.onclick = async () => {
     try {
-      const values = readDynamicFormValuesFrom(formHost, schemaObj);
-      const missing = validateDynamicForm(schemaObj, values);
-      if (missing.length) {
-        setCurrentStepMsg(`Mangler: ${missing.join(", ")}`, true);
-        return;
+      if (msgEl) {
+        msgEl.textContent = "Lagrer kommentar…";
+        msgEl.style.color = "#6b7280";
       }
 
-      setCurrentStepMsg("Lagrer…");
-      await apiPost(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`, { data: values });
-      setCurrentStepMsg("Lagret ✔️");
+      await apiPostStepComment(step.OrderStepId, { text });
+      await renderCurrentStepDetails(order);
 
-      const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
-      renderPriorStepsInline(allData2.items || [], step.Sequence);
+      if (msgEl) {
+        msgEl.textContent = "Kommentar lagret ✔️";
+        msgEl.style.color = "#6b7280";
+      }
     } catch (e) {
-      setCurrentStepMsg(e.message || "Feil ved lagring.", true);
+      if (msgEl) {
+        msgEl.textContent = e.message || "Feil ved lagring av kommentar.";
+        msgEl.style.color = "#b91c1c";
+      }
     }
-  };
+  });
+}
 }
 
 /* -----------------------------
