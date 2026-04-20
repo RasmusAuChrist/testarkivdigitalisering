@@ -374,8 +374,16 @@ function isCommentField(field) {
   ].some(word => key.includes(word) || label.includes(word));
 }
 
-function getRenderableFormFields(schemaObj) {
+function getNonCommentFields(schemaObj) {
   return (schemaObj?.fields || []).filter(f => !isCommentField(f));
+}
+
+function getCommentFields(schemaObj) {
+  return (schemaObj?.fields || []).filter(f => isCommentField(f));
+}
+
+function getRenderableFormFields(schemaObj) {
+  return getNonCommentFields(schemaObj);
 }
 
 function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
@@ -939,6 +947,34 @@ function readStep3FormValuesFrom(hostEl, originalPayload) {
   return out;
 }
 
+function renderStepCommentFieldInto(hostEl, field, values, canEdit) {
+  if (!field) {
+    hostEl.innerHTML = "";
+    return;
+  }
+
+  const key = escapeHtml(field.key);
+  const label = escapeHtml(field.label || field.key);
+  const required = !!field.required;
+  const val = values?.[field.key] ?? "";
+  const dis = canEdit ? "" : "disabled";
+
+  hostEl.innerHTML = `
+    <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff; margin-top:12px;">
+      <div style="font-weight:900; margin-bottom:8px;">Stegkommentar</div>
+      <div style="margin-bottom:10px;">
+        <label style="font-weight:800;">${label}${required ? " *" : ""}</label><br/>
+        <textarea
+          data-field="${key}"
+          ${required ? "data-required='1'" : ""}
+          ${dis}
+          style="width:100%; min-height:90px;"
+        >${escapeHtml(val)}</textarea>
+      </div>
+    </div>
+  `;
+}
+
 async function renderCurrentStepDetails(order) {
   const card = document.getElementById("stepDetailsCard");
   const sub = document.getElementById("stepDetailsSub");
@@ -1039,41 +1075,89 @@ async function renderCurrentStepDetails(order) {
     renderPriorStepsInline(allData.items || [], step.Sequence);
 
     saveBtn.onclick = async () => {
-      try {
-        const values = readStep3FormValuesFrom(formHost, step3Payload);
+  try {
+    const values = {};
 
-        setCurrentStepMsg("Lagrer…");
-        await apiPostStep3Form(step.OrderStepId, {
-          data: values,
-          expected_row_ver: step3Payload.rowVer || null,
-        });
+    const nonCommentFields = getNonCommentFields(schemaObj);
+    const commentFields = getCommentFields(schemaObj);
+    const primaryCommentField = commentFields[0] || null;
 
-        const freshPayload = await apiGetStep3Form(step.OrderStepId);
-        step3Payload.schema = freshPayload.schema;
-        step3Payload.data = freshPayload.data;
-        step3Payload.rowVer = freshPayload.rowVer;
+    if (nonCommentFields.length) {
+      Object.assign(
+        values,
+        readDynamicFormValuesFrom(formHost, { fields: nonCommentFields })
+      );
+    }
 
-        isEditMode = false;
-        renderAndBindStep3();
+    if (primaryCommentField) {
+      Object.assign(
+        values,
+        readDynamicFormValuesFrom(formHost, { fields: [primaryCommentField] })
+      );
+    }
 
-        const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
-        renderPriorStepsInline(allData2.items || [], step.Sequence);
+    const missing = [
+      ...validateDynamicForm({ fields: nonCommentFields }, values),
+      ...validateDynamicForm({ fields: primaryCommentField ? [primaryCommentField] : [] }, values),
+    ];
 
-        setCurrentStepMsg("Lagret ✔️");
-      } catch (e) {
-        setCurrentStepMsg(e.message || "Feil ved lagring.", true);
-      }
-    };
+    if (missing.length) {
+      setCurrentStepMsg(`Mangler: ${missing.join(", ")}`, true);
+      return;
+    }
+
+    setCurrentStepMsg("Lagrer…");
+    await apiPost(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`, { data: values });
+    setCurrentStepMsg("Lagret ✔️");
+
+    const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
+    renderPriorStepsInline(allData2.items || [], step.Sequence);
+  } catch (e) {
+    setCurrentStepMsg(e.message || "Feil ved lagring.", true);
+  }
+};
 
     return;
   }
   // Normal editable workflow form
   saveBtn.style.display = canEdit ? "inline-flex" : "none";
 
-  const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
-  const currentValues = safeParseJson(dataRow.DataJson, {});
+const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
+const currentValues = safeParseJson(dataRow.DataJson, {});
 
-  renderDynamicFormInto(formHost, schemaObj, currentValues, canEdit);
+const nonCommentFields = getNonCommentFields(schemaObj);
+const commentFields = getCommentFields(schemaObj);
+const primaryCommentField = commentFields[0] || null;
+
+formHost.innerHTML = "";
+
+if (nonCommentFields.length) {
+  const normalHost = document.createElement("div");
+  formHost.appendChild(normalHost);
+
+  renderDynamicFormInto(
+    normalHost,
+    { ...schemaObj, fields: nonCommentFields },
+    currentValues,
+    canEdit
+  );
+}
+
+if (primaryCommentField) {
+  const stepCommentHost = document.createElement("div");
+  formHost.appendChild(stepCommentHost);
+
+  renderStepCommentFieldInto(
+    stepCommentHost,
+    primaryCommentField,
+    currentValues,
+    canEdit
+  );
+}
+
+if (!nonCommentFields.length && !primaryCommentField) {
+  formHost.innerHTML = `<div style="color:#6b7280;">Ingen felter definert for dette steget.</div>`;
+}
 
   if (commentsHost) {
   const commentsPayload = await apiGetStepComments(step.OrderStepId);
