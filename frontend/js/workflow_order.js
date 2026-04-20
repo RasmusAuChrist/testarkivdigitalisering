@@ -1259,6 +1259,11 @@ if (!nonCommentFields.length && !primaryCommentField) {
     }
   });
 }
+
+setCurrentStepMsg(
+  canEdit ? "Du kan redigere dette steget." : "Kun aktivt steg tildelt deg kan redigeres.",
+  !canEdit
+);
 }
 
 /* -----------------------------
