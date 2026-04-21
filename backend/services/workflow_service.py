@@ -174,8 +174,21 @@ def get_step_form_schema(step_def_id: int) -> Optional[Dict[str, Any]]:
 
 
 def get_step_form_data(order_step_id: int) -> Dict[str, Any]:
-    return repo.get_step_form_data(order_step_id) or {"OrderStepId": order_step_id, "DataJson": None}
+    row = repo.get_step_form_data(order_step_id)
 
+    if not row:
+        return {
+            "OrderStepId": order_step_id,
+            "DataJson": None,
+            "UpdatedAtUtc": None,
+            "UpdatedByUserId": None,
+            "RowVer": None,
+        }
+
+    return {
+        **row,
+        "RowVer": rowver_to_client(row.get("RowVer")),
+    }
 
 def get_order_step_form_data(order_id: int) -> Dict[str, Any]:
     return {"order_id": order_id, "items": repo.get_order_step_form_data(order_id)}
