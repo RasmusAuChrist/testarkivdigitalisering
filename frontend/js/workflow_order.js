@@ -439,6 +439,45 @@ function renderStatusCommentListField(field, value, canEdit) {
   `;
 }
 
+function normalizeGroupedField(field, valuesForField) {
+  if (!field) return field;
+
+  const hasGroupedValue =
+    valuesForField &&
+    typeof valuesForField === "object" &&
+    !Array.isArray(valuesForField) &&
+    Object.values(valuesForField).some(v =>
+      v && typeof v === "object" && ("status" in v || "kommentar" in v)
+    );
+
+  if (!hasGroupedValue) return field;
+
+  const itemsFromValue = Object.keys(valuesForField).map(key => ({
+    key,
+    label: key,
+  }));
+
+  return {
+    ...field,
+    type: "status_comment_list",
+    items: Array.isArray(field.items) && field.items.length ? field.items : itemsFromValue,
+  };
+}
+
+function normalizeSchemaForValues(schemaObj, values) {
+  const fields = (schemaObj?.fields || []).map(f => {
+    if (f.key === "sjekkliste" || f.key === "egenskaper") {
+      return normalizeGroupedField(f, values?.[f.key]);
+    }
+    return f;
+  });
+
+  return {
+    ...schemaObj,
+    fields,
+  };
+}
+
 function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
   const fields = getRenderableFormFields(schemaObj);
   if (!fields.length) {
@@ -896,27 +935,14 @@ async function renderCurrentStepDetails(order) {
     return;
   }
 
-  const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
-  const schemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
+const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
+const rawSchemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
 
-  const editToggleWrap = document.getElementById("currentStepEditToggleWrap");
-  const editToggle = document.getElementById("currentStepEditToggle");
+const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
+const currentValues = safeParseJson(dataRow.DataJson, {});
+const rowVer = dataRow.RowVer || null;
 
-  if (editToggleWrap) editToggleWrap.style.display = "none";
-  if (editToggle) {
-    editToggle.checked = false;
-    editToggle.disabled = true;
-  }
-
-
-
-
-  // Normal editable workflow form
-  saveBtn.style.display = canEdit ? "inline-flex" : "none";
-
-  const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
-  const currentValues = safeParseJson(dataRow.DataJson, {});
-  const rowVer = dataRow.RowVer || null;
+const schemaObj = normalizeSchemaForValues(rawSchemaObj, currentValues);
 
     formHost.innerHTML = "";
 
