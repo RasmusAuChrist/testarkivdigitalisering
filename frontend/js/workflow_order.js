@@ -241,20 +241,13 @@ function userPill(username, fallback = "") {
   const bg = stringToColor(text);
 
   return `
-    <span style="
-      display:inline-flex;
-      align-items:center;
-      padding:4px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:600;
-      background:${bg};
-      color:#fff;
-      white-space:nowrap;
-    ">
-      ${escapeHtml(text)}
-    </span>
-  `;
+  <span
+    class="user-pill user-pill--dynamic"
+    style="--pill-bg:${bg};"
+  >
+    ${escapeHtml(text)}
+  </span>
+`;
 }
 
 function ensureLoggedIn() {
@@ -1189,17 +1182,11 @@ if (!nonCommentFields.length && !primaryCommentField) {
     ? commentItems.map(c => `
         <div style="border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin-bottom:8px; background:#fff;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div style="
-              display:inline-flex;
-              align-items:center;
-              padding:4px 10px;
-              border-radius:999px;
-              background:#eef2ff;
-              color:#3730a3;
-              font-weight:700;
-              font-size:12px;
-            ">
-              ${escapeHtml(c.CreatedByUserName || c.CreatedByUserId || "")}
+            <div
+              class="user-pill user-pill--dynamic"
+            style="--pill-bg:${stringToColor(String(c.CreatedByUserName || c.CreatedByUserId || 'ukjent'))};"
+>
+            ${escapeHtml(c.CreatedByUserName || c.CreatedByUserId || "")}
             </div>
 
             <div style="font-size:12px; color:#6b7280;">

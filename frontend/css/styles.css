@@ -1360,3 +1360,20 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   align-items: center;
   flex-wrap: wrap;
 }
+
+.user-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #9333ea;
+  color: #fff;
+}
+
+.user-pill--dynamic {
+  background: var(--pill-bg, #9333ea);
+  color: #fff;
+}

@@ -157,20 +157,13 @@ function userPill(username) {
   const bg = stringToColor(username);
 
   return `
-    <span style="
-      display:inline-flex;
-      align-items:center;
-      padding:4px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:600;
-      background:${bg};
-      color:#fff;
-      white-space:nowrap;
-    ">
-      ${escapeHtml(username)}
-    </span>
-  `;
+  <span
+    class="user-pill user-pill--dynamic"
+    style="--pill-bg:${bg};"
+  >
+    ${escapeHtml(username)}
+  </span>
+`;
 }
 
 function actionIcon(name) {
