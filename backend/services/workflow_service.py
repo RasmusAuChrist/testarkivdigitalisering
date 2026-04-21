@@ -189,8 +189,22 @@ def save_step_form_data(
 ) -> Dict[str, Any]:
     data_json = json.dumps(payload_data, ensure_ascii=False)
     expected_rowver = rowver_from_client(expected_row_ver)
-    return repo.save_step_form_data(actor_user_id, order_step_id, data_json, expected_rowver) or {"ok": True}
 
+    ctx, _ = repo.get_step3_context(order_step_id)
+    if ctx and ctx.get("StepDefId") == 3:
+        return repo.save_step3_form_data(
+            actor_user_id,
+            order_step_id,
+            data_json,
+            expected_rowver,
+        ) or {"ok": True}
+
+    return repo.save_step_form_data(
+        actor_user_id,
+        order_step_id,
+        data_json,
+        expected_rowver,
+    ) or {"ok": True}
 
 def get_step_external_data(order_step_id: int) -> Optional[Dict[str, Any]]:
     amid, serie, sjekkliste, egenskaper = repo.get_step_external_data(order_step_id)
@@ -299,17 +313,9 @@ def build_order_report_data(amid: str) -> Dict[str, Any]:
 
         parsed_schema: Dict[str, Any] = {}
 
-        if step_def_id == 3:
-            step3_form = get_step3_form(order_step_id)
-            if step3_form:
-                parsed_schema = step3_form.get("schema") or {}
-                if not parsed_data:
-                    parsed_data = step3_form.get("data") or {}
-        else:
-            schema_row = get_step_form_schema(step_def_id)
-            if schema_row:
-                parsed_schema = _parse_schema_json(schema_row.get("SchemaJson"))
-
+        schema_row = get_step_form_schema(step_def_id)
+        if schema_row:
+            parsed_schema = _parse_schema_json(schema_row.get("SchemaJson"))
         enriched_steps.append(
             {
                 **step,
