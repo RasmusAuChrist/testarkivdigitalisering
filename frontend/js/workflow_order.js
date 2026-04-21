@@ -392,6 +392,53 @@ function getRenderableFormFields(schemaObj) {
   return getNonCommentFields(schemaObj);
 }
 
+function renderStatusCommentListField(field, value, canEdit) {
+  const items = field?.items || [];
+  const dis = canEdit ? "" : "disabled";
+
+  if (!items.length) {
+    return `<div style="color:#6b7280;">Ingen elementer definert.</div>`;
+  }
+
+  return `
+    <div style="display:grid; gap:8px;">
+      ${items.map(item => {
+        const itemKey = String(item.key);
+        const current = value?.[itemKey] || {};
+        const checked = current.status ? "checked" : "";
+        const comment = current.kommentar ?? "";
+
+        return `
+          <div style="border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
+            <label style="display:flex; gap:10px; align-items:flex-start; font-weight:700;">
+              <input
+                type="checkbox"
+                data-field="${escapeHtml(field.key)}"
+                data-subkey="${escapeHtml(itemKey)}"
+                data-role="status"
+                ${checked}
+                ${dis}
+              />
+              <span>${escapeHtml(item.label || item.key)}</span>
+            </label>
+
+            <div style="margin-top:8px;">
+              <textarea
+                data-field="${escapeHtml(field.key)}"
+                data-subkey="${escapeHtml(itemKey)}"
+                data-role="kommentar"
+                ${dis}
+                style="width:100%; min-height:70px;"
+                placeholder="Kommentar"
+              >${escapeHtml(comment)}</textarea>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
   const fields = getRenderableFormFields(schemaObj);
   if (!fields.length) {
@@ -405,6 +452,15 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const key = escapeHtml(f.key);
     const label = escapeHtml(f.label || f.key);
     const required = !!f.required;
+
+    if (f.type === "status_comment_list") {
+  return `
+    <div style="margin-bottom:12px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
+      <div style="font-weight:800; margin-bottom:8px;">${label}${required ? " *" : ""}</div>
+      ${renderStatusCommentListField(f, values?.[f.key] || {}, canEdit)}
+    </div>
+  `;
+}
 
     if (f.type === "checklist") {
       const obj = values?.[f.key] || {};
@@ -515,6 +571,29 @@ function readDynamicFormValuesFrom(hostEl, schemaObj) {
   const out = {};
 
   for (const f of fields) {
+
+    if (f.type === "status_comment_list") {
+  const obj = {};
+  const nodes = hostEl.querySelectorAll(`[data-field="${CSS.escape(f.key)}"][data-subkey]`);
+
+  nodes.forEach(n => {
+    const subkey = n.getAttribute("data-subkey");
+    const role = n.getAttribute("data-role");
+
+    if (!obj[subkey]) {
+      obj[subkey] = { status: false, kommentar: "" };
+    }
+
+    if (role === "status") {
+      obj[subkey].status = !!n.checked;
+    } else if (role === "kommentar") {
+      obj[subkey].kommentar = (n.value || "").trim();
+    }
+  });
+
+  out[f.key] = obj;
+  continue;
+}
     if (f.type === "checklist") {
       const obj = {};
       const nodes = hostEl.querySelectorAll(`[data-field="${CSS.escape(f.key)}"][data-subkey]`);
@@ -544,6 +623,10 @@ function validateDynamicForm(schemaObj, values) {
   const fields = getRenderableFormFields(schemaObj);
   const missing = fields.filter(f => {
     if (!f.required) return false;
+
+    if (f.type === "status_comment_list") {
+  return !Object.values(values?.[f.key] || {}).some(v => v?.status === true);
+}
 
     if (f.type === "checklist") {
       return !Object.values(values?.[f.key] || {}).some(Boolean);
