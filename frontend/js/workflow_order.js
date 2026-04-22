@@ -702,9 +702,19 @@ function renderPriorStepsInline(items, currentSequence) {
     );
 
     const checklistEntries = entries.filter(([k, v]) =>
-      v && typeof v === "object" && !Array.isArray(v) &&
-      Object.values(v).every(x => typeof x === "boolean")
-    );
+  v &&
+  typeof v === "object" &&
+  !Array.isArray(v) &&
+  Object.keys(v).length > 0 &&
+  Object.values(v).every(x =>
+    typeof x === "boolean" ||
+    (
+      x &&
+      typeof x === "object" &&
+      ("status" in x || "kommentar" in x)
+    )
+  )
+);
 
     const commentHtml = commentEntries.map(([k, v]) => `
       <div style="margin-top:8px;">
@@ -714,20 +724,41 @@ function renderPriorStepsInline(items, currentSequence) {
     `).join("");
 
     const checklistHtml = checklistEntries.map(([k, v]) => {
-      const rows = Object.entries(v).map(([ck, cv]) => `
-        <div style="display:flex; gap:8px; align-items:center; padding:4px 0; border-bottom:1px dashed #e5e7eb;">
+  const rows = Object.entries(v).map(([ck, cv]) => {
+    if (typeof cv === "boolean") {
+      return `
+        <div style="display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px dashed #e5e7eb;">
           <span style="width:18px;">${cv ? "✅" : "⬜"}</span>
           <div style="font-weight:800;">${escapeHtml(ck)}</div>
         </div>
-      `).join("");
-
-      return `
-        <div style="margin-top:10px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
-          <div style="font-weight:900; margin-bottom:6px;">${escapeHtml(k)}</div>
-          ${rows}
-        </div>
       `;
-    }).join("");
+    }
+
+    const checked = !!cv?.status;
+    const comment = (cv?.kommentar || "").trim();
+
+    return `
+      <div style="padding:8px 0; border-bottom:1px dashed #e5e7eb;">
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <span style="width:18px;">${checked ? "✅" : "⬜"}</span>
+          <div style="font-weight:800;">${escapeHtml(ck)}</div>
+        </div>
+        ${comment ? `
+          <div style="margin-left:26px; margin-top:4px; color:#374151; white-space:pre-wrap;">
+            ${escapeHtml(comment)}
+          </div>
+        ` : ""}
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div style="margin-top:10px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
+      <div style="font-weight:900; margin-bottom:6px;">${escapeHtml(k)}</div>
+      ${rows}
+    </div>
+  `;
+}).join("");
 
     const fallbackHtml = (!commentEntries.length && !checklistEntries.length)
       ? `<div style="margin-top:10px; color:#6b7280; font-size:12px;">(Ingen kommentar/sjekkliste funnet – viser alle felter)</div>
