@@ -392,6 +392,22 @@ function getRenderableFormFields(schemaObj) {
   return getNonCommentFields(schemaObj);
 }
 
+function buildFieldItemLabelMap(schemaObj) {
+  const map = {};
+
+  for (const field of (schemaObj?.fields || [])) {
+    const items = field?.items || [];
+    if (!items.length) continue;
+
+    map[field.key] = {};
+    for (const item of items) {
+      map[field.key][String(item.key)] = item.label || String(item.key);
+    }
+  }
+
+  return map;
+}
+
 function renderStatusCommentListField(field, value, canEdit) {
   const items = field?.items || [];
   const dis = canEdit ? "" : "disabled";
@@ -678,7 +694,7 @@ function validateDynamicForm(schemaObj, values) {
   return missing.map(m => m.label || m.key);
 }
 
-function renderPriorStepsInline(items, currentSequence) {
+function renderPriorStepsInline(items, currentSequence, labelMapsByStep = {}) {
   const host = document.getElementById("priorStepsInlineHost");
   if (!host) return;
 
@@ -724,12 +740,16 @@ function renderPriorStepsInline(items, currentSequence) {
     `).join("");
 
     const checklistHtml = checklistEntries.map(([k, v]) => {
+  const labelMapForStep = labelMapsByStep[String(p.OrderStepId)] || {};
+
   const rows = Object.entries(v).map(([ck, cv]) => {
+    const displayLabel = labelMapForStep?.[k]?.[ck] || ck;
+
     if (typeof cv === "boolean") {
       return `
         <div style="display:flex; gap:8px; align-items:center; padding:6px 0; border-bottom:1px dashed #e5e7eb;">
           <span style="width:18px;">${cv ? "✅" : "⬜"}</span>
-          <div style="font-weight:800;">${escapeHtml(ck)}</div>
+          <div style="font-weight:800;">${escapeHtml(displayLabel)}</div>
         </div>
       `;
     }
@@ -741,7 +761,7 @@ function renderPriorStepsInline(items, currentSequence) {
       <div style="padding:8px 0; border-bottom:1px dashed #e5e7eb;">
         <div style="display:flex; gap:8px; align-items:flex-start;">
           <span style="width:18px;">${checked ? "✅" : "⬜"}</span>
-          <div style="font-weight:800;">${escapeHtml(ck)}</div>
+          <div style="font-weight:800;">${escapeHtml(displayLabel)}</div>
         </div>
         ${comment ? `
           <div style="margin-left:26px; margin-top:4px; color:#374151; white-space:pre-wrap;">
@@ -1010,7 +1030,25 @@ const schemaObj = normalizeSchemaForValues(rawSchemaObj, currentValues);
   }
 
   const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
-  renderPriorStepsInline(allData.items || [], step.Sequence);
+
+const labelMapsByStep = {};
+for (const item of (allData.items || [])) {
+  const stepMeta = (order.steps || []).find(s => String(s.OrderStepId) === String(item.OrderStepId));
+  if (!stepMeta?.StepDefId) continue;
+
+  try {
+    const schemaRowForPrior = await apiGet(`/api/wf/steps/def/${encodeURIComponent(stepMeta.StepDefId)}/form-schema`);
+    const rawPriorSchema = safeParseJson(schemaRowForPrior.SchemaJson, schemaRowForPrior.SchemaJson);
+    const dataObj = safeParseJson(item.DataJson, {});
+    const normalizedPriorSchema = normalizeSchemaForValues(rawPriorSchema, dataObj);
+
+    labelMapsByStep[String(item.OrderStepId)] = buildFieldItemLabelMap(normalizedPriorSchema);
+  } catch {
+    labelMapsByStep[String(item.OrderStepId)] = {};
+  }
+}
+
+renderPriorStepsInline(allData.items || [], step.Sequence, labelMapsByStep);
 
   saveBtn.onclick = async () => {
     try {
@@ -1056,7 +1094,25 @@ const schemaObj = normalizeSchemaForValues(rawSchemaObj, currentValues);
       setCurrentStepMsg("Lagret ✔️");
 
       const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
-      renderPriorStepsInline(allData2.items || [], step.Sequence);
+
+const labelMapsByStep2 = {};
+for (const item of (allData2.items || [])) {
+  const stepMeta = (order.steps || []).find(s => String(s.OrderStepId) === String(item.OrderStepId));
+  if (!stepMeta?.StepDefId) continue;
+
+  try {
+    const schemaRowForPrior = await apiGet(`/api/wf/steps/def/${encodeURIComponent(stepMeta.StepDefId)}/form-schema`);
+    const rawPriorSchema = safeParseJson(schemaRowForPrior.SchemaJson, schemaRowForPrior.SchemaJson);
+    const dataObj = safeParseJson(item.DataJson, {});
+    const normalizedPriorSchema = normalizeSchemaForValues(rawPriorSchema, dataObj);
+
+    labelMapsByStep2[String(item.OrderStepId)] = buildFieldItemLabelMap(normalizedPriorSchema);
+  } catch {
+    labelMapsByStep2[String(item.OrderStepId)] = {};
+  }
+}
+
+renderPriorStepsInline(allData2.items || [], step.Sequence, labelMapsByStep2);
     } catch (e) {
       setCurrentStepMsg(e.message || "Feil ved lagring.", true);
     }
