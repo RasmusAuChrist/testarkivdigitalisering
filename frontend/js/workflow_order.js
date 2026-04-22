@@ -492,7 +492,7 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const label = escapeHtml(f.label || f.key);
     const required = !!f.required;
 
-    if (f.type === "status_comment_list") {
+    if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
   return `
     <div style="margin-bottom:12px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
       <div style="font-weight:800; margin-bottom:8px;">${label}${required ? " *" : ""}</div>
@@ -611,7 +611,7 @@ function readDynamicFormValuesFrom(hostEl, schemaObj) {
 
   for (const f of fields) {
 
-    if (f.type === "status_comment_list") {
+    if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
   const obj = {};
   const nodes = hostEl.querySelectorAll(`[data-field="${CSS.escape(f.key)}"][data-subkey]`);
 
@@ -663,7 +663,7 @@ function validateDynamicForm(schemaObj, values) {
   const missing = fields.filter(f => {
     if (!f.required) return false;
 
-    if (f.type === "status_comment_list") {
+    if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
   return !Object.values(values?.[f.key] || {}).some(v => v?.status === true);
 }
 
