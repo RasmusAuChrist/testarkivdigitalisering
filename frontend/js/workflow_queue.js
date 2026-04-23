@@ -973,6 +973,17 @@ async function initMe() {
   me = await apiGet("/api/auth/me");
 }
 
+async function triggerRefresh() {
+  if (!ensureLoggedIn()) return;
+
+  try {
+    if (!me) await initMe();
+    await refresh();
+  } catch (e) {
+    setMsg(e.message || "Feil ved henting.", true);
+  }
+}
+
 function wireFilterCheckboxes() {
   const chkShowStopped = document.getElementById("chkShowStopped");
   const chkShowPaused = document.getElementById("chkShowPaused");
@@ -1001,15 +1012,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireFilterCheckboxes();
   wireDelegatedControls();
 
-  document.getElementById("refreshBtn")?.addEventListener("click", async () => {
-    if (!ensureLoggedIn()) return;
-    try {
-      if (!me) await initMe();
-      await refresh();
-    } catch (e) {
-      setMsg(e.message || "Feil ved henting.", true);
-    }
-  });
+  document.getElementById("refreshBtn")?.addEventListener("click", triggerRefresh);
+  document.getElementById("stepSelect")?.addEventListener("change", triggerRefresh);
 
   if (ensureLoggedIn()) {
     try {
