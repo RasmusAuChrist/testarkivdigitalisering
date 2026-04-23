@@ -336,7 +336,13 @@ function ensureAssignDialog() {
 
       <div style="display:grid; gap:6px;">
         <label for="assignUserSelect" style="font-weight:700;">Velg bruker</label>
-        <select id="assignUserSelect" multiple style="width:100%; min-height:220px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#111827;"></select>
+        <div style="display:grid; gap:6px;">
+  <label style="font-weight:700;">Velg brukere</label>
+
+  <div id="assignUserList"
+       style="max-height:260px; overflow:auto; border:1px solid #cbd5e1; border-radius:10px; padding:8px; display:flex; flex-direction:column; gap:6px;">
+  </div>
+</div>
       </div>
 
       <div id="assignUserCurrent" style="font-size:13px; color:#64748b;"></div>
@@ -385,20 +391,29 @@ async function promptAssignUsers(currentAssignedUserIds = []) {
   }
 
   const dialog = ensureAssignDialog();
-  const selectEl = dialog.querySelector("#assignUserSelect");
+  const listEl = dialog.querySelector("#assignUserList");
   const currentEl = dialog.querySelector("#assignUserCurrent");
   const formEl = dialog.querySelector("#assignUserForm");
 
   const currentSet = new Set((currentAssignedUserIds || []).map(Number));
 
-  selectEl.innerHTML = users
-    .map((u) => {
-      const label = escapeHtml((u.DisplayName || u.Username || `Bruker ${u.UserId}`).trim());
-      const username = escapeHtml(u.Username || "");
-      const selected = currentSet.has(Number(u.UserId)) ? "selected" : "";
-      return `<option value="${u.UserId}" ${selected}>${label}${username ? ` (${username})` : ""}</option>`;
-    })
-    .join("");
+  listEl.innerHTML = users.map(u => {
+  const label = escapeHtml((u.DisplayName || u.Username || `Bruker ${u.UserId}`).trim());
+  const username = escapeHtml(u.Username || "");
+  const checked = currentSet.has(Number(u.UserId)) ? "checked" : "";
+
+  return `
+    <label style="display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:6px; cursor:pointer;">
+      <input type="checkbox"
+             value="${u.UserId}"
+             ${checked}
+             style="cursor:pointer;" />
+      <span>
+        ${label}${username ? ` (${username})` : ""}
+      </span>
+    </label>
+  `;
+}).join("");
 
   currentEl.textContent = currentAssignedUserIds.length
     ? `Nåværende tildelinger: ${currentAssignedUserIds.length}`
@@ -421,7 +436,8 @@ async function promptAssignUsers(currentAssignedUserIds = []) {
     return null;
   }
 
-  return Array.from(selectEl.selectedOptions).map(opt => Number(opt.value));
+  const checked = Array.from(listEl.querySelectorAll("input[type=checkbox]:checked"));
+return checked.map(cb => Number(cb.value));
 }
 
 function sumHyllemeter(items) {

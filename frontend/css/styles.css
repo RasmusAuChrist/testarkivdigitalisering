@@ -1377,3 +1377,20 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   background: var(--pill-bg, #9333ea);
   color: #fff;
 }
+
+.assign-user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.assign-user-row:hover {
+  background: #f1f5f9;
+}
+
+.assign-user-row input:checked + span {
+  font-weight: 600;
+}
