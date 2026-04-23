@@ -273,10 +273,10 @@ def assign_step_to_user(
     require_admin_or_coordinator(me)
 
     try:
-        return service.assign_step_to_user(
+        return service.set_step_assignees(
             actor_user_id=me.user_id,
             order_step_id=order_step_id,
-            target_user_id=payload.target_user_id,
+            target_user_ids=payload.target_user_ids,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

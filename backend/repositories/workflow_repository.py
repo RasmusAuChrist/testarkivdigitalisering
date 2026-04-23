@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional, Tuple
-
+import json
 from backend.db import get_connection
 
 
@@ -159,8 +159,15 @@ def complete_step(
     try:
         cur = conn.cursor(as_dict=True)
         cur.execute(
-            "EXEC dbo.usp_wf_complete_step %s, %s, %s, %s",
-            (actor_user_id, order_step_id, disposition, notes),
+            """
+            EXEC dbo.usp_wf_complete_step
+                 @ActorUserId=%s,
+                 @OrderStepId=%s,
+                 @Disposition=%s,
+                 @Reason=%s,
+                 @Notes=%s
+            """,
+            (actor_user_id, order_step_id, disposition, None, notes),
         )
         row = cur.fetchone()
         conn.commit()
@@ -383,22 +390,22 @@ def send_step_back(
         conn.close()
 
 
-def assign_step_to_user(
+def set_step_assignees(
     actor_user_id: int,
     order_step_id: int,
-    target_user_id: int,
+    target_user_ids: List[int],
 ) -> Optional[Dict[str, Any]]:
     conn = get_connection(autocommit=False)
     try:
         cur = conn.cursor(as_dict=True)
         cur.execute(
             """
-            EXEC dbo.usp_wf_assign_step_to_user
+            EXEC dbo.usp_wf_set_step_assignees
                  @ActorUserId=%s,
                  @OrderStepId=%s,
-                 @TargetUserId=%s
+                 @TargetUserIdsJson=%s
             """,
-            (actor_user_id, order_step_id, target_user_id),
+            (actor_user_id, order_step_id, json.dumps(target_user_ids)),
         )
         row = cur.fetchone()
         conn.commit()

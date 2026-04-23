@@ -119,11 +119,28 @@ def create_order(
 
 
 def get_order_by_amid(amid: str) -> Dict[str, Any]:
-    return repo.get_order_by_amid(amid)
+    data = repo.get_order_by_amid(amid)
+
+    steps = []
+    for step in data.get("steps", []):
+        step = dict(step)
+        step["AssignedUsers"] = _parse_assigned_users_json(step.get("AssignedUsersJson"))
+        steps.append(step)
+
+    data["steps"] = steps
+    return data
 
 
 def get_step_queue(step_def_id: int) -> Dict[str, Any]:
-    return {"step_def_id": step_def_id, "items": repo.get_step_queue(step_def_id)}
+    items = repo.get_step_queue(step_def_id)
+
+    normalized = []
+    for row in items:
+        row = dict(row)
+        row["AssignedUsers"] = _parse_assigned_users_json(row.get("AssignedUsersJson"))
+        normalized.append(row)
+
+    return {"step_def_id": step_def_id, "items": normalized}
 
 
 def claim_step(actor_user_id: int, order_step_id: int) -> Dict[str, Any]:
@@ -171,6 +188,16 @@ def unclaim_step(
 
 def get_step_form_schema(step_def_id: int) -> Optional[Dict[str, Any]]:
     return repo.get_step_form_schema(step_def_id)
+
+def _parse_assigned_users_json(value: Optional[str]) -> List[Dict[str, Any]]:
+    if not value:
+        return []
+
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else []
+    except Exception:
+        return []
 
 
 def get_step_form_data(order_step_id: int) -> Dict[str, Any]:
@@ -277,12 +304,12 @@ def send_step_back(
     return repo.send_step_back(actor_user_id, order_step_id, target_step_def_id, reason, notes) or {"ok": True}
 
 
-def assign_step_to_user(
+def set_step_assignees(
     actor_user_id: int,
     order_step_id: int,
-    target_user_id: int,
+    target_user_ids: list[int],
 ) -> Dict[str, Any]:
-    return repo.assign_step_to_user(actor_user_id, order_step_id, target_user_id) or {"ok": True}
+    return repo.set_step_assignees(actor_user_id, order_step_id, target_user_ids) or {"ok": True}
 
 def _parse_data_json(data_json: Optional[str]) -> Dict[str, Any]:
     if not data_json:
@@ -325,13 +352,19 @@ def build_order_report_data(amid: str) -> Dict[str, Any]:
         parsed_data = _parse_data_json(raw_form_row.get("DataJson"))
 
         parsed_schema: Dict[str, Any] = {}
-
         schema_row = get_step_form_schema(step_def_id)
         if schema_row:
             parsed_schema = _parse_schema_json(schema_row.get("SchemaJson"))
+
+        assigned_users = step.get("AssignedUsers")
+        if not isinstance(assigned_users, list):
+            assigned_users = _parse_assigned_users_json(step.get("AssignedUsersJson"))
+
         enriched_steps.append(
             {
                 **step,
+                "AssignedUsers": assigned_users,
+                "AssignedUserCount": len(assigned_users),
                 "form_data": parsed_data,
                 "form_schema": parsed_schema,
                 "commentary": _extract_commentary(parsed_data),

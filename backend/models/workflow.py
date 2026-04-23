@@ -52,7 +52,7 @@ class SendBackStepRequest(BaseModel):
 
 
 class AssignStepRequest(BaseModel):
-    target_user_id: int
+    target_user_ids: list[int]
 
 class AddStepCommentRequest(BaseModel):
     text: str = Field(..., min_length=1)

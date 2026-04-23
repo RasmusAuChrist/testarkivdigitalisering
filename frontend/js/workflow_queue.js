@@ -79,6 +79,16 @@ function escapeHtml(v) {
     .replaceAll("'", "&#039;");
 }
 
+function getAssignedUsers(it) {
+  if (Array.isArray(it?.AssignedUsers)) return it.AssignedUsers;
+
+  try {
+    return JSON.parse(it?.AssignedUsersJson || "[]");
+  } catch {
+    return [];
+  }
+}
+
 const ASTA_GUI_BASE = "https://av.stiftelsen-asta.no/gui/";
 
 function buildAstaSeriesUrl(item) {
@@ -326,7 +336,7 @@ function ensureAssignDialog() {
 
       <div style="display:grid; gap:6px;">
         <label for="assignUserSelect" style="font-weight:700;">Velg bruker</label>
-        <select id="assignUserSelect" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#111827;"></select>
+        <select id="assignUserSelect" multiple style="width:100%; min-height:220px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#111827;"></select>
       </div>
 
       <div id="assignUserCurrent" style="font-size:13px; color:#64748b;"></div>
@@ -367,7 +377,7 @@ function waitForDialogClose(dialog) {
   });
 }
 
-async function promptAssignUser(currentAssignedUserId = null) {
+async function promptAssignUsers(currentAssignedUserIds = []) {
   const users = await loadAssignableUsers();
 
   if (!users.length) {
@@ -379,22 +389,20 @@ async function promptAssignUser(currentAssignedUserId = null) {
   const currentEl = dialog.querySelector("#assignUserCurrent");
   const formEl = dialog.querySelector("#assignUserForm");
 
+  const currentSet = new Set((currentAssignedUserIds || []).map(Number));
+
   selectEl.innerHTML = users
     .map((u) => {
       const label = escapeHtml((u.DisplayName || u.Username || `Bruker ${u.UserId}`).trim());
       const username = escapeHtml(u.Username || "");
-      const selected = u.UserId === currentAssignedUserId ? "selected" : "";
+      const selected = currentSet.has(Number(u.UserId)) ? "selected" : "";
       return `<option value="${u.UserId}" ${selected}>${label}${username ? ` (${username})` : ""}</option>`;
     })
     .join("");
 
-  const currentUser = currentAssignedUserId == null
-    ? null
-    : users.find((u) => u.UserId === currentAssignedUserId) || null;
-
-  currentEl.textContent = currentUser
-    ? `Nåværende tildeling: ${currentUser.DisplayName || currentUser.Username} (${currentUser.Username})`
-    : "Nåværende tildeling: Ikke tildelt";
+  currentEl.textContent = currentAssignedUserIds.length
+    ? `Nåværende tildelinger: ${currentAssignedUserIds.length}`
+    : "Nåværende tildelinger: Ingen";
 
   const submitHandler = (ev) => {
     ev.preventDefault();
@@ -413,14 +421,7 @@ async function promptAssignUser(currentAssignedUserId = null) {
     return null;
   }
 
-  const selectedUserId = Number(selectEl.value);
-  const selectedUser = users.find((u) => u.UserId === selectedUserId);
-
-  if (!selectedUser) {
-    throw new Error("Ugyldig valg av bruker.");
-  }
-
-  return selectedUser;
+  return Array.from(selectEl.selectedOptions).map(opt => Number(opt.value));
 }
 
 function sumHyllemeter(items) {
@@ -441,22 +442,14 @@ function sumHyllemeter(items) {
    Rule-based "Stegstatus"
    --------------------------- */
 function computeDisplayStatus(it) {
-  // 1) Order-level hold overrides everything
+  const assignedUsers = getAssignedUsers(it);
+
   if (it.OrderStatus === "OnHold") return "OnHold";
-
-  // 2) Order-level closure => stopped
   if (it.OrderStatus === "Closed" || it.OrderStatus === "Completed") return "Stopped";
-
-  // 3) Step-level stop (if included in queue)
   if (it.StepStatus === "Stopped") return "Stopped";
-
-  // 4) Blocked is explicit
   if (it.StepStatus === "Blocked") return "Blocked";
+  if (assignedUsers.length > 0) return "Active";
 
-  // 5) Assigned => Active (your preferred rule)
-  if (it.AssignedToUserId != null) return "Active";
-
-  // 6) Default
   return "Pending";
 }
 
@@ -489,9 +482,9 @@ function applyFilters(items) {
     if (!showPaused && isPausedOrder(it)) return false;
 
     if (showMineOnly) {
-      if (!me) return false;
-      if (it.AssignedToUserId !== me.user_id) return false;
-    }
+  if (!me) return false;
+  if (!getAssignedUsers(it).some(u => u.UserId === me.user_id)) return false;
+}
 
     return true;
   });
@@ -549,11 +542,11 @@ function isStepClaimableByStatus(it) {
 }
 
 function isTaken(it) {
-  return it.AssignedToUserId != null;
+  return getAssignedUsers(it).length > 0;
 }
 
 function isTakenByMe(it) {
-  return me && it.AssignedToUserId === me.user_id;
+  return !!me && getAssignedUsers(it).some(u => u.UserId === me.user_id);
 }
 
 /** "Ta" allowed: order open, step claimable, and not taken */
@@ -564,7 +557,7 @@ function canShowClaim(it) {
 
   if (canAssignOthers()) return true;
 
-  return !isTaken(it);
+  return !isTakenByMe(it);
 }
 
 /** "Frigi" allowed: order open, step not finished, and taken by me */
@@ -572,9 +565,6 @@ function canShowUnclaim(it) {
   if (!me) return false;
   if (!isOrderOpen(it)) return false;
   if (isStepFinished(it)) return false;
-  if (!isTaken(it)) return false;
-
-  if (canAssignOthers()) return true;
 
   return isTakenByMe(it);
 }
@@ -586,7 +576,6 @@ function canShowComplete(it) {
   if (isStepFinished(it)) return false;
   if (!isStepClaimableByStatus(it)) return false;
 
-  // if you want to require "taken by me", keep only isTakenByMe(it)
   return isTakenByMe(it);
 }
 
@@ -611,34 +600,38 @@ function canShowClose(it) {
 
 function assignedCell(it) {
   const parts = [];
+  const assignedUsers = getAssignedUsers(it);
 
-  if (it.AssignedToUserName) {
-    parts.push(userPill(it.AssignedToUserName));
+  if (assignedUsers.length) {
+    parts.push(`
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        ${assignedUsers.map(u => userPill(u.DisplayName || u.Username || `Bruker ${u.UserId}`)).join("")}
+      </div>
+    `);
   } else {
     parts.push(`<span class="queue-assigned-empty">Ikke tildelt</span>`);
   }
 
-if (canShowClaim(it)) {
-  parts.push(
-    iconButton({
-      action: "claim",
-      icon: "assign",
-      title: canAssignOthers() ? "Tildel eller endre tildeling" : "Tildel til meg",
-      className: "btn-assign",
-      dataAttrs: {
-        "data-order-step-id": it.OrderStepId,
-        "data-assigned-user-id": it.AssignedToUserId ?? "",
-      },
-    })
-  );
-}
+  if (canShowClaim(it)) {
+    parts.push(
+      iconButton({
+        action: "claim",
+        icon: "assign",
+        title: canAssignOthers() ? "Rediger tildelte brukere" : "Tildel til meg",
+        className: "btn-assign",
+        dataAttrs: {
+          "data-order-step-id": it.OrderStepId,
+        },
+      })
+    );
+  }
 
   if (canShowUnclaim(it)) {
     parts.push(
       iconButton({
         action: "unclaim",
         icon: "unassign",
-        title: "Fjern tildeling",
+        title: "Fjern meg fra oppgaven",
         className: "btn-assign",
         dataAttrs: {
           "data-order-step-id": it.OrderStepId,
@@ -804,35 +797,35 @@ function wireDelegatedControls() {
       btn.disabled = true;
 
     if (action === "claim") {
-      const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+  const orderStepId = Number(btn.getAttribute("data-order-step-id"));
 
-      if (canAssignOthers()) {
-        const currentAssignedUserIdRaw = btn.getAttribute("data-assigned-user-id");
-        const currentAssignedUserId = currentAssignedUserIdRaw ? Number(currentAssignedUserIdRaw) : null;
+  if (canAssignOthers()) {
+    const row = rawItems.find(x => Number(x.OrderStepId) === orderStepId);
+    const currentAssignedUserIds = getAssignedUsers(row).map(u => Number(u.UserId));
 
-        const selectedUser = await promptAssignUser(currentAssignedUserId);
-        if (!selectedUser) return;
+    const selectedUserIds = await promptAssignUsers(currentAssignedUserIds);
+    if (!selectedUserIds) return;
 
-        setMsg(`Tildeler til ${selectedUser.DisplayName || selectedUser.Username}…`);
-        await apiPost(`/api/wf/steps/${orderStepId}/assign`, {
-          target_user_id: selectedUser.UserId,
-        });
-        assignableUsers = null;
-        setMsg("Oppgave tildelt.");
-      } else {
-        setMsg("Tar oppgave…");
-        await apiPost(`/api/wf/steps/${orderStepId}/claim`, {});
-        setMsg("Oppgave tatt.");
-      }
-    }
+    setMsg("Oppdaterer tildelinger…");
+    await apiPost(`/api/wf/steps/${orderStepId}/assign`, {
+      target_user_ids: selectedUserIds,
+    });
+    assignableUsers = null;
+    setMsg("Tildelinger oppdatert.");
+  } else {
+    setMsg("Legger deg til på oppgaven…");
+    await apiPost(`/api/wf/steps/${orderStepId}/claim`, {});
+    setMsg("Du er lagt til på oppgaven.");
+  }
+}
 
       if (action === "unclaim") {
-        const orderStepId = Number(btn.getAttribute("data-order-step-id"));
-        const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
-        setMsg("Frigir…");
-        await apiPost(`/api/wf/steps/${orderStepId}/unclaim`, { comment: comment.trim() || null });
-        setMsg("Frigitt.");
-      }
+  const orderStepId = Number(btn.getAttribute("data-order-step-id"));
+  const comment = window.prompt("Kommentar (valgfritt):", "") ?? "";
+  setMsg("Fjerner deg fra oppgaven…");
+  await apiPost(`/api/wf/steps/${orderStepId}/unclaim`, { comment: comment.trim() || null });
+  setMsg("Du er fjernet fra oppgaven.");
+}
 
       if (action === "complete") {
         const orderStepId = Number(btn.getAttribute("data-order-step-id"));
@@ -951,7 +944,12 @@ async function refresh() {
   setMsg("Henter kø…");
 
   const data = await apiGet(`/api/wf/steps/${stepDefId}/queue`);
-  rawItems = data.items || [];
+  rawItems = (data.items || []).map(it => ({
+  ...it,
+  AssignedUsers: Array.isArray(it.AssignedUsers)
+    ? it.AssignedUsers
+    : getAssignedUsers(it),
+}));
 
   render(rawItems);
   setMsg("OK");
@@ -1002,10 +1000,11 @@ function wireFilterCheckboxes() {
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
-  document.getElementById("logoutBtn")?.addEventListener("click", () => {
-    clearToken();
-    window.location.assign("/views/login.html");
-  });
+  document.getElementById("userMenuLogout")?.addEventListener("click", (ev) => {
+  ev.preventDefault();
+  clearToken();
+  window.location.assign("/views/login.html");
+});
 
   initStepSelect();
   restoreFilters();

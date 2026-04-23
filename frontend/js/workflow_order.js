@@ -298,18 +298,26 @@ function renderSteps(steps) {
   const body = document.getElementById("stepsBody");
   if (!body) return;
 
-  body.innerHTML = (steps || []).map(s => `
-    <tr>
-      <td>${escapeHtml(s.Sequence)}</td>
-      <td>${escapeHtml(s.StepName)}</td>
-      <td>${statusBadge(s.StepStatus)}</td>
-      <td>${userPill(s.AssignedToUserName, s.AssignedToUserId ?? "")}</td>      
-      <td>${fmtDate(s.StartedAt)}</td>
-      <td>${fmtDate(s.CompletedAt)}</td>
-      <td>${escapeHtml(s.CompletionDisposition ?? "")}</td>
-      <td>${escapeHtml(s.Notes ?? "")}</td>
-    </tr>
-  `).join("");
+  body.innerHTML = (steps || []).map(s => {
+    const assignedUsers = getAssignedUsers(s);
+
+    return `
+      <tr>
+        <td>${escapeHtml(s.Sequence)}</td>
+        <td>${escapeHtml(s.StepName)}</td>
+        <td>${statusBadge(s.StepStatus)}</td>
+        <td>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${assignedUsers.map(u => userPill(u.DisplayName || u.Username, u.UserId ?? "")).join("")}
+          </div>
+        </td>
+        <td>${fmtDate(s.StartedAt)}</td>
+        <td>${fmtDate(s.CompletedAt)}</td>
+        <td>${escapeHtml(s.CompletionDisposition ?? "")}</td>
+        <td>${escapeHtml(s.Notes ?? "")}</td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function renderEvents(events, steps) {
@@ -350,6 +358,16 @@ function safeParseJson(maybeJson, fallback) {
     return JSON.parse(maybeJson);
   } catch {
     return fallback;
+  }
+}
+
+function getAssignedUsers(step) {
+  if (Array.isArray(step?.AssignedUsers)) return step.AssignedUsers;
+
+  try {
+    return JSON.parse(step?.AssignedUsersJson || "[]");
+  } catch {
+    return [];
   }
 }
 
@@ -968,9 +986,9 @@ async function renderCurrentStepDetails(order) {
   sub.textContent = `Aktivt steg: ${step.Sequence} – ${step.StepName} (OrderStepId: ${step.OrderStepId})`;
 
   const canEdit =
-    step.StepStatus === "Active" &&
-    lastMe?.user_id != null &&
-    String(step.AssignedToUserId) === String(lastMe.user_id);
+  step.StepStatus === "Active" &&
+  lastMe?.user_id != null &&
+  getAssignedUsers(step).some(u => String(u.UserId) === String(lastMe.user_id));
 
   setCurrentStepMsg("Laster…");
 
@@ -1180,7 +1198,7 @@ renderPriorStepsInline(allData2.items || [], step.Sequence, labelMapsByStep2);
               Legg til kommentar
             </button>
             <div id="stepCommentMsg" style="font-size:12px; color:#6b7280;">
-              ${canEdit ? "" : "Kun aktivt steg tildelt deg kan kommenteres."}
+              ${canEdit ? "" : "Kun aktivt steg der du er tildelt kan kommenteres."}
             </div>
           </div>
         </div>
@@ -1224,7 +1242,7 @@ renderPriorStepsInline(allData2.items || [], step.Sequence, labelMapsByStep2);
 }
 
 setCurrentStepMsg(
-  canEdit ? "Du kan redigere dette steget." : "Kun aktivt steg tildelt deg kan redigeres.",
+  canEdit ? "Du kan redigere dette steget." : "Kun aktivt steg der du er tildelt kan redigeres.",
   !canEdit
 );
 }
@@ -1243,6 +1261,10 @@ async function loadOrder() {
   setMsg("Henter…");
   const data = await apiGet(`/api/wf/orders/by-amid/${encodeURIComponent(amid)}`);
   lastOrder = data;
+  lastOrder.steps = (lastOrder.steps || []).map(step => ({
+  ...step,
+  AssignedUsers: getAssignedUsers(step),
+}));
   updatePdfButtonState();
 
   // Hide old local-only notes block
