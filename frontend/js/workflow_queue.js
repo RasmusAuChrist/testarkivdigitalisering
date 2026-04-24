@@ -805,12 +805,12 @@ function render(itemsAll) {
 
     return `
       <tr>
-        <td>
-          <div class="step-status-cell">
-            ${statusBadge(it)}
-            ${stepLabel(it)}
-          </div>
-        </td>
+        <td style="vertical-align:top;">
+  <div class="step-status-cell">
+    ${statusBadge(dispStatus)}
+    ${stepLabel(it)}
+  </div>
+</td>
 
         <td style="vertical-align:top;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
