@@ -214,25 +214,12 @@ function stepLabel(it) {
   if (!it?.StepDefId) return "";
 
   return `
-    <span
+    <div
       title="${escapeHtml(it.StepName || "")}"
-      style="
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-width:32px;
-        padding:2px 8px;
-        border-radius:999px;
-        background:#e0f2fe;
-        color:#075985;
-        font-weight:900;
-        font-size:12px;
-        border:1px solid #bae6fd;
-        margin-right:6px;
-      "
+      class="step-number-label"
     >
       ${escapeHtml(it.StepDefId)}
-    </span>
+    </div>
   `;
 }
 
@@ -818,12 +805,16 @@ function render(itemsAll) {
 
     return `
       <tr>
-        <td style="vertical-align:top;">${statusBadge(dispStatus)}</td>
+        <td>
+          <div class="step-status-cell">
+            ${statusBadge(it)}
+            ${stepLabel(it)}
+          </div>
+        </td>
 
         <td style="vertical-align:top;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
             <div style="font-weight:700; overflow-wrap:anywhere; word-break:break-word;">
-              ${stepLabel(it)}
               ${escapeHtml(it.Title ?? "")}
             </div>
 

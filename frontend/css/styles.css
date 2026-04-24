@@ -1456,3 +1456,27 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .workflow-step-card.heat-2 { background: #fde68a; }
 .workflow-step-card.heat-3 { background: #fdba74; }
 .workflow-step-card.heat-4 { background: #fca5a5; }
+
+.step-status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.step-number-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+
+  font-weight: 900;
+  font-size: 12px;
+  border: 1px solid #bae6fd;
+}
