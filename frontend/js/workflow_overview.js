@@ -55,7 +55,6 @@ function renderOverview(items) {
 
         <div class="workflow-step-breakdown">
           <span>Aktive: ${item.ActiveCount || 0}</span>
-          <span>Ventende: ${item.PendingCount || 0}</span>
           <span>Blokkert: ${item.BlockedCount || 0}</span>
           <span>På vent: ${item.OnHoldCount || 0}</span>
         </div>
