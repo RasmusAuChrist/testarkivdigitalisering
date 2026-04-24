@@ -1394,3 +1394,65 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .assign-user-row input:checked + span {
   font-weight: 600;
 }
+
+.workflow-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.workflow-step-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  text-decoration: none;
+  color: #111827;
+  background: #f8fafc;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.workflow-step-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.workflow-step-card-top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.workflow-step-number {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.7);
+  font-weight: 900;
+}
+
+.workflow-step-name {
+  font-weight: 800;
+}
+
+.workflow-step-count {
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.workflow-step-breakdown {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.workflow-step-card.heat-0 { background: #f1f5f9; }
+.workflow-step-card.heat-1 { background: #fef9c3; }
+.workflow-step-card.heat-2 { background: #fde68a; }
+.workflow-step-card.heat-3 { background: #fdba74; }
+.workflow-step-card.heat-4 { background: #fca5a5; }

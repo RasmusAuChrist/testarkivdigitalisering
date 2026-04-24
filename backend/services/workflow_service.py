@@ -327,6 +327,9 @@ def get_multi_step_queue(step_def_ids: str) -> Dict[str, Any]:
         "items": normalized,
     }
 
+def get_step_overview() -> Dict[str, Any]:
+    return {"items": repo.get_step_overview()}
+
 def set_step_assignees(
     actor_user_id: int,
     order_step_id: int,

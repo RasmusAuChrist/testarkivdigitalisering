@@ -200,6 +200,15 @@ def unclaim_step(
     finally:
         conn.close()
 
+def get_step_overview() -> List[Dict[str, Any]]:
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute("EXEC dbo.usp_wf_get_step_overview")
+        return cur.fetchall() or []
+    finally:
+        conn.close()
+
 def get_multi_step_queue(step_def_ids: Optional[List[int]]) -> List[Dict[str, Any]]:
     conn = get_connection(autocommit=False)
     try:
