@@ -22,6 +22,20 @@ async function apiGet(path) {
   return data;
 }
 
+function updateSummary(items) {
+  const total = items.reduce((sum, x) => sum + Number(x.ItemCount || 0), 0);
+  const active = items.reduce((sum, x) => sum + Number(x.ActiveCount || 0), 0);
+  const pending = items.reduce((sum, x) => sum + Number(x.PendingCount || 0), 0);
+  const blocked = items.reduce((sum, x) => sum + Number(x.BlockedCount || 0), 0);
+  const onHold = items.reduce((sum, x) => sum + Number(x.OnHoldCount || 0), 0);
+  const stopped = items.reduce((sum, x) => sum + Number(x.StoppedCount || 0), 0);
+
+  document.getElementById("totalCount").textContent = total;
+  document.getElementById("activeCount").textContent = active;
+  document.getElementById("pendingCount").textContent = pending;
+  document.getElementById("blockedHoldCount").textContent = blocked + onHold + stopped;
+}
+
 function heatClass(count, max) {
   if (!count) return "heat-0";
   const ratio = max ? count / max : 0;
@@ -54,9 +68,11 @@ function renderOverview(items) {
         <div class="workflow-step-count">${count}</div>
 
         <div class="workflow-step-breakdown">
-          <span>Aktive: ${item.ActiveCount || 0}</span>
-          <span>Blokkert: ${item.BlockedCount || 0}</span>
-          <span>På vent: ${item.OnHoldCount || 0}</span>
+            <span>Aktive: ${item.ActiveCount || 0}</span>
+            <span>Ikke påbegynt: ${item.PendingCount || 0}</span>
+            <span>Blokkert: ${item.BlockedCount || 0}</span>
+            <span>På vent: ${item.OnHoldCount || 0}</span>
+            <span>Stoppet: ${item.StoppedCount || 0}</span>
         </div>
       </a>
     `;
@@ -69,6 +85,12 @@ async function refresh() {
 
   const data = await apiGet("/api/wf/overview/steps");
   renderOverview(data.items || []);
+
+  const data = await apiGet("/api/wf/overview/steps");
+const items = data.items || [];
+
+updateSummary(items);
+renderOverview(items);
 
   if (msg) msg.textContent = "OK";
 }
