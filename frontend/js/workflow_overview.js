@@ -84,13 +84,10 @@ async function refresh() {
   if (msg) msg.textContent = "Henter oversikt…";
 
   const data = await apiGet("/api/wf/overview/steps");
-  renderOverview(data.items || []);
+  const items = data.items || [];
 
-  const data = await apiGet("/api/wf/overview/steps");
-const items = data.items || [];
-
-updateSummary(items);
-renderOverview(items);
+  updateSummary(items);
+  renderOverview(items);
 
   if (msg) msg.textContent = "OK";
 }
