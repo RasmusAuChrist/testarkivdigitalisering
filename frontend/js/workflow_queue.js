@@ -38,6 +38,7 @@ function canAssignOthers() {
 const LS_SHOW_STOPPED = "wfq_show_stopped";
 const LS_SHOW_PAUSED = "wfq_show_paused";
 const LS_SHOW_MINE_ONLY = "wfq_show_mine_only";
+const LS_FAVOURITE_STEPS = "wfq_favourite_steps";
 
 function ensureLoggedIn() {
   const token = getToken();
@@ -208,6 +209,38 @@ function updateStepPickerText() {
   }
 
   textEl.textContent = `${selectedStepIds.length} steg valgt`;
+}
+
+function getFavouriteStepIds() {
+  try {
+    const raw = localStorage.getItem(LS_FAVOURITE_STEPS);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setFavouriteStepIds(ids) {
+  localStorage.setItem(
+    LS_FAVOURITE_STEPS,
+    JSON.stringify([...new Set((ids || []).map(Number))])
+  );
+}
+
+function isFavouriteStep(id) {
+  return getFavouriteStepIds().includes(Number(id));
+}
+
+function toggleFavouriteStep(id) {
+  const stepId = Number(id);
+  const favs = getFavouriteStepIds();
+
+  const next = favs.includes(stepId)
+    ? favs.filter(x => x !== stepId)
+    : [...favs, stepId];
+
+  setFavouriteStepIds(next);
 }
 
 function stepLabel(it) {
@@ -1043,31 +1076,55 @@ function initStepSelect() {
     <div style="height:1px; background:#e5e7eb; margin:8px 0;"></div>
 
     ${steps.map(s => `
-      <label class="assign-user-row" style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer;">
-        <input class="step-filter-checkbox" type="checkbox" value="${s.id}" />
-        <span>${s.id}. ${escapeHtml(s.name)}</span>
-      </label>
-    `).join("")}
+  <div class="step-picker-row">
+    <label class="assign-user-row step-picker-label">
+      <input class="step-filter-checkbox" type="checkbox" value="${s.id}" />
+      <span>${s.id}. ${escapeHtml(s.name)}</span>
+    </label>
+
+    <button
+      type="button"
+      class="step-favourite-btn"
+      data-step-id="${s.id}"
+      title="Sett som favoritt"
+      aria-label="Sett ${s.id}. ${escapeHtml(s.name)} som favoritt"
+    >
+      ${isFavouriteStep(s.id) ? "★" : "☆"}
+    </button>
+  </div>
+`).join("")}
   `;
 
   const stepFromQs = new URLSearchParams(window.location.search).get("step");
 
-  if (stepFromQs && stepFromQs.toLowerCase() !== "all") {
-    const ids = stepFromQs
-      .split(",")
-      .map(x => Number(x.trim()))
-      .filter(id => steps.some(s => Number(s.id) === id));
+if (stepFromQs && stepFromQs.toLowerCase() !== "all") {
+  const ids = stepFromQs
+    .split(",")
+    .map(x => Number(x.trim()))
+    .filter(id => steps.some(s => Number(s.id) === id));
 
-    if (ids.length) {
-      selectedStepIds = ids;
-      panel.querySelector("#stepAllCheckbox").checked = false;
+  if (ids.length) {
+    selectedStepIds = ids;
+    panel.querySelector("#stepAllCheckbox").checked = false;
 
-      ids.forEach(id => {
-        const cb = panel.querySelector(`.step-filter-checkbox[value="${id}"]`);
-        if (cb) cb.checked = true;
-      });
-    }
+    ids.forEach(id => {
+      const cb = panel.querySelector(`.step-filter-checkbox[value="${id}"]`);
+      if (cb) cb.checked = true;
+    });
   }
+} else if (!stepFromQs) {
+  const favIds = getFavouriteStepIds();
+
+  if (favIds.length) {
+    selectedStepIds = favIds;
+    panel.querySelector("#stepAllCheckbox").checked = false;
+
+    favIds.forEach(id => {
+      const cb = panel.querySelector(`.step-filter-checkbox[value="${id}"]`);
+      if (cb) cb.checked = true;
+    });
+  }
+}
 
   updateStepPickerText();
 
@@ -1104,6 +1161,19 @@ function initStepSelect() {
     updateStepPickerText();
     await triggerRefresh();
   });
+
+  panel.addEventListener("click", (ev) => {
+  const favBtn = ev.target.closest(".step-favourite-btn");
+  if (!favBtn) return;
+
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const stepId = Number(favBtn.getAttribute("data-step-id"));
+  toggleFavouriteStep(stepId);
+
+  favBtn.textContent = isFavouriteStep(stepId) ? "★" : "☆";
+});
 
   document.addEventListener("click", (ev) => {
     if (!panel.contains(ev.target) && !btn.contains(ev.target)) {

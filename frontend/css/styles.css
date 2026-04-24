@@ -1480,3 +1480,37 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   font-size: 12px;
   border: 1px solid #bae6fd;
 }
+
+.step-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.step-picker-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.step-favourite-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #ca8a04;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.step-favourite-btn:hover {
+  background: #fef3c7;
+}
