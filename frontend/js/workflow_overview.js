@@ -22,6 +22,23 @@ async function apiGet(path) {
   return data;
 }
 
+async function loadNavbar() {
+  const container = document.getElementById("navbar-container");
+  if (!container) return;
+
+  try {
+    const res = await fetch("/partials/navbar.html");
+    container.innerHTML = await res.text();
+  } catch {
+    try {
+      const res = await fetch("/navbar.html");
+      container.innerHTML = await res.text();
+    } catch {
+      container.innerHTML = "";
+    }
+  }
+}
+
 function updateSummary(items) {
   const total = items.reduce((sum, x) => sum + Number(x.ItemCount || 0), 0);
   const active = items.reduce((sum, x) => sum + Number(x.ActiveCount || 0), 0);
@@ -93,6 +110,9 @@ async function refresh() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await loadNavbar();
+
   document.getElementById("refreshBtn")?.addEventListener("click", refresh);
+
   await refresh();
 });
