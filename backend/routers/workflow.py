@@ -263,6 +263,15 @@ def send_step_back(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/wf/steps/queue")
+def get_multi_step_queue(
+    step_def_ids: str = "all",
+    me: MeResponse = Depends(get_current_user),
+):
+    try:
+        return service.get_multi_step_queue(step_def_ids)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/wf/steps/{order_step_id}/assign")
 def assign_step_to_user(

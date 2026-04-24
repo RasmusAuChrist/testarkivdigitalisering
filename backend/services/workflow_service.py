@@ -302,7 +302,30 @@ def send_step_back(
     notes: Optional[str],
 ) -> Dict[str, Any]:
     return repo.send_step_back(actor_user_id, order_step_id, target_step_def_id, reason, notes) or {"ok": True}
+def get_multi_step_queue(step_def_ids: str) -> Dict[str, Any]:
+    raw = (step_def_ids or "all").strip().lower()
 
+    if raw == "all":
+        ids = None
+    else:
+        ids = [
+            int(x.strip())
+            for x in raw.split(",")
+            if x.strip()
+        ]
+
+    items = repo.get_multi_step_queue(ids)
+
+    normalized = []
+    for row in items:
+        row = dict(row)
+        row["AssignedUsers"] = _parse_assigned_users_json(row.get("AssignedUsersJson"))
+        normalized.append(row)
+
+    return {
+        "step_def_ids": ids or "all",
+        "items": normalized,
+    }
 
 def set_step_assignees(
     actor_user_id: int,

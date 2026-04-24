@@ -87,9 +87,38 @@
 
     <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
       <div style="display:flex; flex-wrap:wrap; gap: 10px; align-items:flex-end;">
-        <div style="min-width: 320px;">
-          <label for="stepSelect">Velg steg</label><br />
-          <select id="stepSelect" style="width:100%;"></select>
+        <div style="min-width: 360px; position:relative;">
+  <label>Velg steg</label><br />
+
+  <button
+    id="stepPickerBtn"
+    class="btn btn-outline"
+    type="button"
+    style="width:100%; justify-content:space-between;"
+  >
+    <span id="stepPickerText">Alle steg</span>
+    <span aria-hidden="true">▾</span>
+  </button>
+
+  <div
+    id="stepPickerPanel"
+    style="
+      display:none;
+      position:absolute;
+      z-index:60;
+      margin-top:6px;
+      width:360px;
+      max-height:360px;
+      overflow:auto;
+      background:#fff;
+      color:#111827;
+      border:1px solid #cbd5e1;
+      border-radius:12px;
+      box-shadow:0 12px 30px rgba(0,0,0,0.18);
+      padding:10px;
+    "
+  ></div>
+</div>
         </div>
 
       <div style="display:flex; gap:12px; align-items:center; padding:8px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:10px;">

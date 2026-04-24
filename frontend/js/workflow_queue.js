@@ -24,6 +24,7 @@ const steps = [
 let me = null;
 let rawItems = [];
 let assignableUsers = null;
+let selectedStepIds = "all";
 
 function hasAnyRole(...roles) {
   const mine = new Set(me?.roles || []);
@@ -174,6 +175,65 @@ function userPill(username) {
     ${escapeHtml(username)}
   </span>
 `;
+}
+
+function getSelectedStepIdsArray() {
+  if (selectedStepIds === "all") return null;
+  return Array.isArray(selectedStepIds) ? selectedStepIds : [];
+}
+
+function getStepNameById(id) {
+  return steps.find(s => Number(s.id) === Number(id))?.name || `Steg ${id}`;
+}
+
+function updateStepPickerText() {
+  const textEl = document.getElementById("stepPickerText");
+  if (!textEl) return;
+
+  if (selectedStepIds === "all") {
+    textEl.textContent = "Alle steg";
+    return;
+  }
+
+  if (!selectedStepIds.length) {
+    textEl.textContent = "Ingen steg valgt";
+    return;
+  }
+
+  if (selectedStepIds.length <= 3) {
+    textEl.textContent = selectedStepIds
+      .map(id => `${id}. ${getStepNameById(id)}`)
+      .join(", ");
+    return;
+  }
+
+  textEl.textContent = `${selectedStepIds.length} steg valgt`;
+}
+
+function stepLabel(it) {
+  if (!it?.StepDefId) return "";
+
+  return `
+    <span
+      title="${escapeHtml(it.StepName || "")}"
+      style="
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-width:32px;
+        padding:2px 8px;
+        border-radius:999px;
+        background:#e0f2fe;
+        color:#075985;
+        font-weight:900;
+        font-size:12px;
+        border:1px solid #bae6fd;
+        margin-right:6px;
+      "
+    >
+      ${escapeHtml(it.StepDefId)}
+    </span>
+  `;
 }
 
 function actionIcon(name) {
@@ -763,6 +823,7 @@ function render(itemsAll) {
         <td style="vertical-align:top;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
             <div style="font-weight:700; overflow-wrap:anywhere; word-break:break-word;">
+              ${stepLabel(it)}
               ${escapeHtml(it.Title ?? "")}
             </div>
 
@@ -956,31 +1017,108 @@ async function promptSendBack(orderStepId) {
 
 /* ---------- Refresh ---------- */
 async function refresh() {
-  const stepDefId = Number(document.getElementById("stepSelect").value);
   setMsg("Henter kø…");
 
-  const data = await apiGet(`/api/wf/steps/${stepDefId}/queue`);
+  let path = "/api/wf/steps/queue";
+
+  if (selectedStepIds !== "all") {
+    path += `?step_def_ids=${encodeURIComponent(selectedStepIds.join(","))}`;
+  }
+
+  const data = await apiGet(path);
+
   rawItems = (data.items || []).map(it => ({
-  ...it,
-  AssignedUsers: Array.isArray(it.AssignedUsers)
-    ? it.AssignedUsers
-    : getAssignedUsers(it),
-}));
+    ...it,
+    AssignedUsers: Array.isArray(it.AssignedUsers)
+      ? it.AssignedUsers
+      : getAssignedUsers(it),
+  }));
 
   render(rawItems);
   setMsg("OK");
 }
 
 function initStepSelect() {
-  const select = document.getElementById("stepSelect");
-  if (!select) return;
+  const btn = document.getElementById("stepPickerBtn");
+  const panel = document.getElementById("stepPickerPanel");
+  if (!btn || !panel) return;
 
-  select.innerHTML = steps.map(s => `<option value="${s.id}">${s.id}. ${escapeHtml(s.name)}</option>`).join("");
+  panel.innerHTML = `
+    <label class="assign-user-row" style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer;">
+      <input id="stepAllCheckbox" type="checkbox" value="all" checked />
+      <span>Alle steg</span>
+    </label>
+
+    <div style="height:1px; background:#e5e7eb; margin:8px 0;"></div>
+
+    ${steps.map(s => `
+      <label class="assign-user-row" style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer;">
+        <input class="step-filter-checkbox" type="checkbox" value="${s.id}" />
+        <span>${s.id}. ${escapeHtml(s.name)}</span>
+      </label>
+    `).join("")}
+  `;
 
   const stepFromQs = new URLSearchParams(window.location.search).get("step");
-  if (stepFromQs && steps.some(s => String(s.id) === stepFromQs)) {
-    select.value = stepFromQs;
+
+  if (stepFromQs && stepFromQs.toLowerCase() !== "all") {
+    const ids = stepFromQs
+      .split(",")
+      .map(x => Number(x.trim()))
+      .filter(id => steps.some(s => Number(s.id) === id));
+
+    if (ids.length) {
+      selectedStepIds = ids;
+      panel.querySelector("#stepAllCheckbox").checked = false;
+
+      ids.forEach(id => {
+        const cb = panel.querySelector(`.step-filter-checkbox[value="${id}"]`);
+        if (cb) cb.checked = true;
+      });
+    }
   }
+
+  updateStepPickerText();
+
+  btn.addEventListener("click", () => {
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  });
+
+  panel.addEventListener("change", async (ev) => {
+    const target = ev.target;
+    const allCb = panel.querySelector("#stepAllCheckbox");
+    const stepCbs = Array.from(panel.querySelectorAll(".step-filter-checkbox"));
+
+    if (target.id === "stepAllCheckbox") {
+      if (target.checked) {
+        selectedStepIds = "all";
+        stepCbs.forEach(cb => cb.checked = false);
+      } else {
+        selectedStepIds = [];
+      }
+    } else if (target.classList.contains("step-filter-checkbox")) {
+      allCb.checked = false;
+
+      const checkedIds = stepCbs
+        .filter(cb => cb.checked)
+        .map(cb => Number(cb.value));
+
+      selectedStepIds = checkedIds.length ? checkedIds : "all";
+
+      if (selectedStepIds === "all") {
+        allCb.checked = true;
+      }
+    }
+
+    updateStepPickerText();
+    await triggerRefresh();
+  });
+
+  document.addEventListener("click", (ev) => {
+    if (!panel.contains(ev.target) && !btn.contains(ev.target)) {
+      panel.style.display = "none";
+    }
+  });
 }
 
 async function initMe() {
@@ -1028,7 +1166,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireDelegatedControls();
 
   document.getElementById("refreshBtn")?.addEventListener("click", triggerRefresh);
-  document.getElementById("stepSelect")?.addEventListener("change", triggerRefresh);
 
   if (ensureLoggedIn()) {
     try {

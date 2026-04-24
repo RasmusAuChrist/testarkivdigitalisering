@@ -200,6 +200,28 @@ def unclaim_step(
     finally:
         conn.close()
 
+def get_multi_step_queue(step_def_ids: Optional[List[int]]) -> List[Dict[str, Any]]:
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+
+        if step_def_ids is None:
+            step_ids_json = None
+        else:
+            step_ids_json = json.dumps(step_def_ids)
+
+        cur.execute(
+            """
+            EXEC dbo.usp_wf_get_multi_step_queue
+                 @StepDefIdsJson=%s
+            """,
+            (step_ids_json,),
+        )
+
+        return cur.fetchall() or []
+    finally:
+        conn.close()
+
 
 def get_step_form_schema(step_def_id: int) -> Optional[Dict[str, Any]]:
     conn = get_connection(autocommit=False)
