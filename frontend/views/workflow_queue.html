@@ -4,175 +4,198 @@
   <meta charset="UTF-8" />
   <title>Arbeidsflyt – Stegkø</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="stylesheet" href="/css/styles.css" />
   <link rel="stylesheet" href="/assets/navbar.css" />
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 </head>
+
 <body>
   <div id="navbar-container"></div>
 
   <div class="surface-light" style="max-width: 1500px; margin: 18px auto; padding: 0 14px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
-      <h2 style="margin: 12px 0;">Stegkø</h2>
-<div id="userMenu" style="position:relative;">
-  <button
-    id="userMenuBtn"
-    class="btn btn-outline"
-    type="button"
-    aria-haspopup="menu"
-    aria-expanded="false"
-    style="display:inline-flex; align-items:center; gap:8px;"
-  >
-    <span id="userMenuName" class="btn-text">Meny</span>
-    <span aria-hidden="true" style="font-weight:900;">▾</span>
-  </button>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <h2 style="margin:12px 0;">Stegkø</h2>
 
-  <div
-    id="userMenuDropdown"
-    role="menu"
-    style="
-      display:none;
-      position:absolute;
-      right:0;
-      top:calc(100% + 8px);
-      min-width:220px;
-      background:#fff;
-      border:1px solid #e5e7eb;
-      border-radius:12px;
-      box-shadow:0 12px 30px rgba(0,0,0,0.12);
-      overflow:hidden;
-      z-index:50;
-    "
-  >
-    <a
-      data-action="account"
-      href="/views/account.html"
-      role="menuitem"
-      style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
-      onmouseover="this.style.background='#f3f4f6'"
-      onmouseout="this.style.background='transparent'"
-    >
-      Min konto
-    </a>
-
-    <div id="userMenuAdminItem" style="display:none;">
-      <a
-        href="/views/admin_users.html"
-        role="menuitem"
-        style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
-        onmouseover="this.style.background='#f3f4f6'"
-        onmouseout="this.style.background='transparent'"
-      >
-        Administrer brukere
-      </a>
-    </div>
-
-    <div style="height:1px; background:#e5e7eb;"></div>
-
-    <a
-      id="userMenuLogout"
-      href="#"
-      role="menuitem"
-      style="display:block; padding:10px 12px; color:#b91c1c; text-decoration:none; font-weight:700;"
-      onmouseover="this.style.background='#fef2f2'"
-      onmouseout="this.style.background='transparent'"
-    >
-      Logg ut
-    </a>
-  </div>
-</div>
-    </div>
-
-    <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
-      <div style="display:flex; flex-wrap:wrap; gap: 10px; align-items:flex-end;">
-        <div style="min-width: 360px; position:relative;">
-  <label>Velg steg</label><br />
-
-  <button
-    id="stepPickerBtn"
-    class="btn btn-outline"
-    type="button"
-    style="width:100%; justify-content:space-between;"
-  >
-    <span id="stepPickerText">Alle steg</span>
-    <span aria-hidden="true">▾</span>
-  </button>
-
-  <div
-    id="stepPickerPanel"
-    style="
-      display:none;
-      position:absolute;
-      z-index:60;
-      margin-top:6px;
-      width:360px;
-      max-height:360px;
-      overflow:auto;
-      background:#fff;
-      color:#111827;
-      border:1px solid #cbd5e1;
-      border-radius:12px;
-      box-shadow:0 12px 30px rgba(0,0,0,0.18);
-      padding:10px;
-    "
-  ></div>
-  <div style="min-width: 260px;">
-  <label for="arkivIdentifikatorFilter">Arkividentifikator</label><br />
-  <input
-    id="arkivIdentifikatorFilter"
-    placeholder="F.eks. Bg"
-    style="width:100%;"
-  />
-</div>
-</div>
-        </div>
-
-      <div style="display:flex; gap:12px; align-items:center; padding:8px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:10px;">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-          <input id="chkShowStopped" type="checkbox" />
-          Vis stoppet
-        </label>
-
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-          <input id="chkShowPaused" type="checkbox" checked />
-          Vis på vent
-        </label>
-
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-          <input id="chkShowMineOnly" type="checkbox" />
-          Vis bare mine
-        </label>
-      </div>
-
-        <button id="refreshBtn" class="btn btn-primary" type="button">
-          <span class="btn-spinner" aria-hidden="true"></span>
-          <span class="btn-text">Oppdater</span>
+      <div id="userMenu" style="position:relative;">
+        <button
+          id="userMenuBtn"
+          class="btn btn-outline"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          style="display:inline-flex; align-items:center; gap:8px;"
+        >
+          <span id="userMenuName" class="btn-text">Meny</span>
+          <span aria-hidden="true" style="font-weight:900;">▾</span>
         </button>
 
-        <div id="countBox" style="margin-left:auto; color:#fff; opacity:0.9; white-space:pre-line;"></div>
+        <div
+          id="userMenuDropdown"
+          role="menu"
+          style="
+            display:none;
+            position:absolute;
+            right:0;
+            top:calc(100% + 8px);
+            min-width:220px;
+            background:#fff;
+            border:1px solid #e5e7eb;
+            border-radius:12px;
+            box-shadow:0 12px 30px rgba(0,0,0,0.12);
+            overflow:hidden;
+            z-index:50;
+          "
+        >
+          <a
+            data-action="account"
+            href="/views/account.html"
+            role="menuitem"
+            style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
+            onmouseover="this.style.background='#f3f4f6'"
+            onmouseout="this.style.background='transparent'"
+          >
+            Min konto
+          </a>
+
+          <div id="userMenuAdminItem" style="display:none;">
+            <a
+              href="/views/admin_users.html"
+              role="menuitem"
+              style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
+              onmouseover="this.style.background='#f3f4f6'"
+              onmouseout="this.style.background='transparent'"
+            >
+              Administrer brukere
+            </a>
+          </div>
+
+          <div style="height:1px; background:#e5e7eb;"></div>
+
+          <a
+            id="userMenuLogout"
+            href="#"
+            role="menuitem"
+            style="display:block; padding:10px 12px; color:#b91c1c; text-decoration:none; font-weight:700;"
+            onmouseover="this.style.background='#fef2f2'"
+            onmouseout="this.style.background='transparent'"
+          >
+            Logg ut
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="filters-dark dropdown-light" style="display:grid; gap:10px;">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+        <div style="min-width:360px; position:relative;">
+          <label>Velg steg</label><br />
+
+          <button
+            id="stepPickerBtn"
+            class="btn btn-outline"
+            type="button"
+            style="width:100%; justify-content:space-between;"
+          >
+            <span id="stepPickerText">Alle steg</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+
+          <div
+            id="stepPickerPanel"
+            style="
+              display:none;
+              position:absolute;
+              z-index:60;
+              margin-top:6px;
+              width:360px;
+              max-height:360px;
+              overflow:auto;
+              background:#fff;
+              color:#111827;
+              border:1px solid #cbd5e1;
+              border-radius:12px;
+              box-shadow:0 12px 30px rgba(0,0,0,0.18);
+              padding:10px;
+            "
+          ></div>
+        </div>
+
+        <div
+          style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:12px;
+            align-items:center;
+            padding:8px 10px;
+            border:1px solid rgba(255,255,255,0.2);
+            border-radius:10px;
+            flex:1;
+            min-width:520px;
+          "
+        >
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
+            <input id="chkShowStopped" type="checkbox" />
+            Vis stoppet
+          </label>
+
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
+            <input id="chkShowPaused" type="checkbox" checked />
+            Vis på vent
+          </label>
+
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
+            <input id="chkShowMineOnly" type="checkbox" />
+            Vis bare mine
+          </label>
+
+          <div style="display:flex; flex-direction:column; gap:3px; margin-left:8px;">
+            <label for="arkivIdentifikatorFilter" style="color:#fff; font-size:12px; font-weight:700;">
+              Arkividentifikator
+            </label>
+            <input
+              id="arkivIdentifikatorFilter"
+              placeholder="F.eks. RA-S-1001"
+              style="width:180px;"
+            />
+          </div>
+
+          <button
+            id="refreshBtn"
+            class="btn btn-primary"
+            type="button"
+            style="height:36px; padding:0 14px;"
+          >
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span class="btn-text">Oppdater</span>
+          </button>
+
+          <div id="countBox" style="margin-left:auto; color:#fff; opacity:0.9; white-space:pre-line;"></div>
+        </div>
       </div>
 
       <div id="msg" style="color:#fff; opacity:0.9;"></div>
     </div>
 
-<div style="margin-top: 14px;">
-  <div class="table-scroll-x">
-    <table class="arkiv-table queue-table" style="min-width: 1380px; width:100%; table-layout:fixed;">
-      <thead>
-        <tr>
-          <th style="width:140px;">Stegstatus</th>
-          <th style="width:620px;">Tittel</th>
-          <th style="width:180px;">Tildelt</th>
-          <th style="width:120px;">Detaljer</th>
-          <th style="width:320px;">Kontroller</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+    <div style="margin-top:14px;">
+      <div class="table-scroll-x">
+        <table class="arkiv-table queue-table" style="min-width:1380px; width:100%; table-layout:fixed;">
+          <thead>
+            <tr>
+              <th style="width:140px;">Stegstatus</th>
+              <th style="width:620px;">Tittel</th>
+              <th style="width:180px;">Tildelt</th>
+              <th style="width:120px;">Detaljer</th>
+              <th style="width:320px;">Kontroller</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
-</div>
 
   <script type="module" src="/js/workflow_queue.js"></script>
 </body>
