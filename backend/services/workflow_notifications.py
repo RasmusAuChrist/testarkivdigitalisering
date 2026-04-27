@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List
 
-from backend.services.email_service import send_email
+from backend.services.power_automate_email_service import send_email_via_power_automate
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,6 @@ Dette er en automatisk melding.
 """
 
         try:
-            send_email(to_email, subject, body)
+            send_email_via_power_automate(to_email, subject, body)
         except Exception:
             logger.exception("Failed to send workflow assignment email to %s", to_email)

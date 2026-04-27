@@ -77,6 +77,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     setMsg("Laster…");
     const me = await apiGet("/api/auth/me");
+
+    document.getElementById("notifyEmail").checked = !!me.notify_by_email;
+    document.getElementById("notifyTeams").checked = !!me.notify_by_teams;
     
     initUserMenu(me);
 
@@ -125,4 +128,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       setMsg(e.message || "Feil ved passordbytte.", true);
     }
   });
+});
+
+document.getElementById("saveNotifyPrefsBtn")?.addEventListener("click", async () => {
+  try {
+    setMsg("Lagrer varslingsvalg…");
+
+    await apiPost("/api/account/notification-preferences", {
+      notify_by_email: document.getElementById("notifyEmail").checked,
+      notify_by_teams: document.getElementById("notifyTeams").checked,
+    });
+
+    setMsg("Varslingsvalg lagret.");
+  } catch (e) {
+    setMsg(e.message || "Feil ved lagring av varslingsvalg.", true);
+  }
 });

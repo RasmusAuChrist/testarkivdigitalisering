@@ -31,6 +31,8 @@ class MeResponse(BaseModel):
     username: str
     roles: List[str]
     must_change_password: Optional[bool] = None
+    notify_by_email: Optional[bool] = None
+    notify_by_teams: Optional[bool] = None
 
 def _decode_token(token: str) -> dict:
     return jwt.decode(
@@ -123,8 +125,31 @@ def login(payload: LoginRequest):
 
 @router.get("/auth/me", response_model=MeResponse)
 def me(me: MeResponse = Depends(get_current_user)):
-    return me
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            """
+            SELECT NotifyByEmail, NotifyByTeams
+            FROM dbo.AppUsers
+            WHERE UserId = %s
+              AND IsActive = 1
+            """,
+            (me.user_id,),
+        )
+        row = cur.fetchone() or {}
 
+        return MeResponse(
+            user_id=me.user_id,
+            username=me.username,
+            roles=me.roles,
+            must_change_password=me.must_change_password,
+            notify_by_email=bool(row.get("NotifyByEmail", True)),
+            notify_by_teams=bool(row.get("NotifyByTeams", False)),
+        )
+    finally:
+        conn.close()
+        
 class ChangePasswordRequest(BaseModel):
     new_password: str
 

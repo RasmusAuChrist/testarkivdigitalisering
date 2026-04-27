@@ -17,6 +17,10 @@ class ChangePasswordRequest(BaseModel):
     old_password: str = Field(min_length=1)
     new_password: str = Field(min_length=6)
 
+class NotificationPreferencesRequest(BaseModel):
+    notify_by_email: bool
+    notify_by_teams: bool
+
 
 @router.post("/account/change-password")
 def change_password(payload: ChangePasswordRequest, me: MeResponse = Depends(get_current_user)):
@@ -59,6 +63,42 @@ def change_password(payload: ChangePasswordRequest, me: MeResponse = Depends(get
 
         conn.commit()
         return {"ok": True}
+
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/account/notification-preferences")
+def update_notification_preferences(
+    payload: NotificationPreferencesRequest,
+    me: MeResponse = Depends(get_current_user),
+):
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+
+        cur.execute(
+            """
+            EXEC dbo.usp_account_update_notification_preferences
+                 @UserId=%s,
+                 @NotifyByEmail=%s,
+                 @NotifyByTeams=%s
+            """,
+            (
+                me.user_id,
+                1 if payload.notify_by_email else 0,
+                1 if payload.notify_by_teams else 0,
+            ),
+        )
+
+        row = cur.fetchone()
+        conn.commit()
+        return row or {"ok": True}
 
     except HTTPException:
         conn.rollback()
