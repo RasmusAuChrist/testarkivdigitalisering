@@ -338,7 +338,9 @@ def set_step_assignees(
 ) -> Dict[str, Any]:
     result = repo.set_step_assignees(actor_user_id, order_step_id, target_user_ids) or {"ok": True}
 
+    print("ASSIGN RESULT:", result)
     newly_assigned = result.get("newly_assigned_users") or []
+    print("NEWLY ASSIGNED:", newly_assigned)
 
     if newly_assigned:
         try:
