@@ -2,7 +2,9 @@ import html
 import logging
 from typing import Any, Dict, List
 
-from backend.services.power_automate_email_service import send_email_via_power_automate
+from backend.services.power_automate_notification_service import (
+    send_notification_via_power_automate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +42,15 @@ def notify_new_step_assignees(
     step_name_safe = html.escape(step_name or "")
     identifikator_safe = html.escape(identifikator or "")
 
-    link_html = ""
+    task_url = ""
     if external_amid:
-        url = f"{FRONTEND_BASE_URL}/views/workflow_order.html?amid={external_amid}"
-        link_html = f"""
-          <p style="margin-top:18px;">
-            <a href="{html.escape(url)}"
-               style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:bold;">
-              Åpne oppgaven
-            </a>
-          </p>
-        """
+        task_url = f"{FRONTEND_BASE_URL}/views/workflow_order.html?amid={external_amid}"
+
+    task_url_safe = html.escape(task_url)
 
     subject = f"Ny oppgave tildelt: {step_name or 'Arbeidsflyt'}"
 
-    body = f"""
+    email_body_html = f"""
 <div style="font-family: Arial, sans-serif; font-size:14px; color:#111827; line-height:1.45;">
   <p>Hei,</p>
 
@@ -79,12 +75,28 @@ def notify_new_step_assignees(
     </tr>
   </table>
 
-  {link_html}
+  {f'''
+  <p style="margin-top:18px;">
+    <a href="{task_url_safe}"
+       style="display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:bold;">
+      Åpne oppgaven
+    </a>
+  </p>
+  ''' if task_url else ''}
 
   <p style="color:#6b7280; margin-top:22px;">
     Dette er en automatisk melding.
   </p>
 </div>
+"""
+
+    teams_message_html = f"""
+<b>Ny oppgave tildelt</b><br><br>
+<b>Steg:</b> {step_name_safe}<br>
+<b>Arkivnavn:</b> {order_title_safe}<br>
+<b>Identifikator:</b> {identifikator_safe}<br>
+<b>OrderStepId:</b> {order_step_id}<br>
+{f'<br><a href="{task_url_safe}">Åpne oppgaven</a>' if task_url else ''}
 """
 
     for user in assigned_users:
@@ -97,12 +109,24 @@ def notify_new_step_assignees(
         if user_id is not None and int(user_id) == int(actor_user_id):
             continue
 
-        if not _as_bool(user.get("NotifyByEmail"), default=True):
+        notify_email = _as_bool(user.get("NotifyByEmail"), default=True)
+        notify_teams = _as_bool(user.get("NotifyByTeams"), default=False)
+
+        if not notify_email and not notify_teams:
             continue
 
-        to_email = email_from_username(username)
+        recipient = email_from_username(username)
+
+        payload = {
+            "to": recipient,
+            "notify_email": notify_email,
+            "notify_teams": notify_teams,
+            "subject": subject,
+            "body_html": email_body_html,
+            "teams_message": teams_message_html,
+        }
 
         try:
-            send_email_via_power_automate(to_email, subject, body)
+            send_notification_via_power_automate(payload)
         except Exception:
-            logger.exception("Failed to send workflow assignment email to %s", to_email)
+            logger.exception("Failed to send workflow notification to %s", recipient)
