@@ -573,6 +573,10 @@ function isStoppedOrder(it) {
 function applyFilters(items) {
   const { showStopped, showPaused, showMineOnly } = readFilterState();
 
+  const arkivIdentifikatorFilter = (
+    document.getElementById("arkivIdentifikatorFilter")?.value || ""
+  ).trim().toLowerCase();
+
   return (items || []).filter(it => {
     if (!showStopped && isStoppedOrder(it)) return false;
     if (!showPaused && isPausedOrder(it)) return false;
@@ -581,7 +585,10 @@ function applyFilters(items) {
   if (!me) return false;
   if (!getAssignedUsers(it).some(u => u.UserId === me.user_id)) return false;
 }
-
+if (arkivIdentifikatorFilter) {
+  const arkivIdentifikator = String(it.ArkivIdentifikator || "").toLowerCase();
+  if (!arkivIdentifikator.includes(arkivIdentifikatorFilter)) return false;
+}
     return true;
   });
 }
@@ -848,8 +855,13 @@ function render(itemsAll) {
         <td style="vertical-align:top;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
             <div style="font-weight:700; overflow-wrap:anywhere; word-break:break-word;">
-              ${escapeHtml(it.Title ?? "")}
-            </div>
+  ${
+    it.ArkivIdentifikator
+      ? `<strong>${escapeHtml(it.ArkivIdentifikator)}</strong> – `
+      : ""
+  }
+  ${escapeHtml(it.Title ?? "")}
+</div>
 
             <div style="font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word;">
               <strong>Identifikator:</strong> ${escapeHtml(it.Identifikator ?? "")}
@@ -1224,6 +1236,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initStepSelect();
   restoreFilters();
   wireFilterCheckboxes();
+  document.getElementById("arkivIdentifikatorFilter")?.addEventListener("input", () => {
+  render(rawItems);
+});
   wireDelegatedControls();
 
   document.getElementById("refreshBtn")?.addEventListener("click", triggerRefresh);
