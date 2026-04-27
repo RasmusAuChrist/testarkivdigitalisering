@@ -477,3 +477,40 @@ def get_step_comment_history(order_step_id: int) -> List[Dict[str, Any]]:
         return cur.fetchall() or []
     finally:
         conn.close()
+
+def set_step_assignees(
+    actor_user_id: int,
+    order_step_id: int,
+    target_user_ids: List[int],
+) -> Optional[Dict[str, Any]]:
+    conn = get_connection(autocommit=False)
+    try:
+        cur = conn.cursor(as_dict=True)
+        cur.execute(
+            """
+            EXEC dbo.usp_wf_set_step_assignees
+                 @ActorUserId=%s,
+                 @OrderStepId=%s,
+                 @TargetUserIdsJson=%s
+            """,
+            (actor_user_id, order_step_id, json.dumps(target_user_ids)),
+        )
+
+        row = cur.fetchone()
+
+        newly_assigned_users = []
+        if cur.nextset():
+            newly_assigned_users = cur.fetchall() or []
+
+        conn.commit()
+
+        return {
+            **(row or {}),
+            "newly_assigned_users": newly_assigned_users,
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

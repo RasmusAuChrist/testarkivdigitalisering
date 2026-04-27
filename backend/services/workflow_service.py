@@ -3,6 +3,7 @@ import json
 from typing import Any, Dict, Optional, List
 
 from backend.repositories import workflow_repository as repo
+from backend.services.workflow_notifications import notify_new_step_assignees
 
 
 def rowver_from_client(v: Optional[str]) -> Optional[bytes]:
@@ -335,7 +336,25 @@ def set_step_assignees(
     order_step_id: int,
     target_user_ids: list[int],
 ) -> Dict[str, Any]:
-    return repo.set_step_assignees(actor_user_id, order_step_id, target_user_ids) or {"ok": True}
+    result = repo.set_step_assignees(actor_user_id, order_step_id, target_user_ids) or {"ok": True}
+
+    newly_assigned = result.get("newly_assigned_users") or []
+
+    if newly_assigned:
+        try:
+            notify_new_step_assignees(
+                actor_user_id=actor_user_id,
+                order_step_id=order_step_id,
+                assigned_users=newly_assigned,
+                order_title=result.get("OrderTitle"),
+                step_name=result.get("StepName"),
+                external_amid=result.get("ExternalAmid"),
+            )
+        except Exception:
+            # Do not fail assignment if email fails.
+            pass
+
+    return result
 
 def _parse_data_json(data_json: Optional[str]) -> Dict[str, Any]:
     if not data_json:
