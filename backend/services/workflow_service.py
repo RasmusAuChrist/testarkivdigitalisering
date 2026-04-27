@@ -345,13 +345,14 @@ def set_step_assignees(
     if newly_assigned:
         try:
             notify_new_step_assignees(
-                actor_user_id=actor_user_id,
-                order_step_id=order_step_id,
-                assigned_users=newly_assigned,
-                order_title=result.get("OrderTitle"),
-                step_name=result.get("StepName"),
-                external_amid=result.get("ExternalAmid"),
-            )
+    actor_user_id=actor_user_id,
+    order_step_id=order_step_id,
+    assigned_users=newly_assigned,
+    order_title=result.get("OrderTitle"),
+    step_name=result.get("StepName"),
+    external_amid=result.get("ExternalAmid"),
+    identifikator=result.get("Identifikator"),
+)
         except Exception as e:
             print("EMAIL ERROR:", repr(e))
             raise
