@@ -350,9 +350,9 @@ def set_step_assignees(
                 step_name=result.get("StepName"),
                 external_amid=result.get("ExternalAmid"),
             )
-        except Exception:
-            # Do not fail assignment if email fails.
-            pass
+        except Exception as e:
+            print("EMAIL ERROR:", repr(e))
+            raise
 
     return result
 
