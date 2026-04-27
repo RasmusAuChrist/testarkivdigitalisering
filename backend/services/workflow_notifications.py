@@ -54,6 +54,7 @@ Dette er en automatisk melding.
 """
 
         try:
-            send_email_via_power_automate(to_email, subject, body)
+            if user.get("NotifyByEmail"):
+                send_email_via_power_automate(to_email, subject, body)
         except Exception:
             logger.exception("Failed to send workflow assignment email to %s", to_email)

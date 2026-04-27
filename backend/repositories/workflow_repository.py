@@ -421,32 +421,6 @@ def send_step_back(
         conn.close()
 
 
-def set_step_assignees(
-    actor_user_id: int,
-    order_step_id: int,
-    target_user_ids: List[int],
-) -> Optional[Dict[str, Any]]:
-    conn = get_connection(autocommit=False)
-    try:
-        cur = conn.cursor(as_dict=True)
-        cur.execute(
-            """
-            EXEC dbo.usp_wf_set_step_assignees
-                 @ActorUserId=%s,
-                 @OrderStepId=%s,
-                 @TargetUserIdsJson=%s
-            """,
-            (actor_user_id, order_step_id, json.dumps(target_user_ids)),
-        )
-        row = cur.fetchone()
-        conn.commit()
-        return row
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
 def add_step_comment(
     actor_user_id: int,
     order_step_id: int,
