@@ -1524,14 +1524,14 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 
 .queue-arkiv-id {
   font-weight: 900;
-  color: #0ea5e9; /* or your accent color */
+  color: #000000; /* or your accent color */
 }
 
 /* 🔥 LINE CLAMP */
 .queue-title-text {
   display: -webkit-box;
-  -webkit-line-clamp: 2; 
-    line-clamp: 2; 
+  -webkit-line-clamp: 3; 
+    line-clamp: 3; 
   -webkit-box-orient: vertical;
 
   overflow: hidden;
