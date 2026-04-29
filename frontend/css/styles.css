@@ -1514,3 +1514,29 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .step-favourite-btn:hover {
   background: #fef3c7;
 }
+
+.queue-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.queue-arkiv-id {
+  font-weight: 900;
+  color: #0ea5e9; /* or your accent color */
+}
+
+/* 🔥 LINE CLAMP */
+.queue-title-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2; 
+    line-clamp: 2; 
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  line-height: 1.3;
+  max-height: calc(1.3em * 2); /* match line-clamp */
+}

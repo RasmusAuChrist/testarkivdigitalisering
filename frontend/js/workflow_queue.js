@@ -854,13 +854,18 @@ function render(itemsAll) {
 
         <td style="vertical-align:top;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
-            <div style="font-weight:700; overflow-wrap:anywhere; word-break:break-word;">
-  ${
-    it.ArkivIdentifikator
-      ? `<strong>${escapeHtml(it.ArkivIdentifikator)}</strong> – `
-      : ""
-  }
-  ${escapeHtml(it.Title ?? "")}
+            <div class="queue-title">
+  <div class="queue-arkiv-id">
+    ${
+      it.ArkivIdentifikator
+        ? `${escapeHtml(it.ArkivIdentifikator)} –`
+        : ""
+    }
+  </div>
+
+  <div class="queue-title-text">
+    ${escapeHtml(it.Title ?? "")}
+  </div>
 </div>
 
             <div style="font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word;">
