@@ -9,6 +9,7 @@ const REFRESH_MS = 15 * 60 * 1000;
 const el = {
   clock: document.getElementById("clockPill"),
   refresh: document.getElementById("refreshPill"),
+  loadingOverlay: document.getElementById("loadingOverlay"),
 
   kpiSeriesTotal: document.getElementById("kpiSeriesTotal"),
   kpiLowDigitized: document.getElementById("kpiLowDigitized"),
@@ -218,16 +219,24 @@ function normalize(arr) {
 
 async function refresh() {
   el.refresh.textContent = "Oppdaterer…";
+  el.loadingOverlay?.classList.add("show");
 
-  const data = await loadData();
+  try {
+    const data = await loadData();
 
-  renderKPIs(data.summary, data.candidates);
-  renderCandidates(data.candidates);
-  renderGap(data.candidates);
-  renderTime(data.time);
-  renderCategory(data.category);
+    renderKPIs(data.summary, data.candidates);
+    renderCandidates(data.candidates);
+    renderGap(data.candidates);
+    renderTime(data.time);
+    renderCategory(data.category);
 
-  el.refresh.textContent = "Oppdatert";
+    el.refresh.textContent = "Oppdatert";
+  } catch (err) {
+    console.error(err);
+    el.refresh.textContent = "Feil ved lasting";
+  } finally {
+    el.loadingOverlay?.classList.remove("show");
+  }
 }
 
 // --------------------------------------------------
