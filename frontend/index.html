@@ -86,13 +86,3 @@
   </div>
 
   <script src="/js/main.js" type="module"></script>
-
-<script>
-  fetch("/partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-container").innerHTML = html;
-    });
-</script>
-</body>
-</html>

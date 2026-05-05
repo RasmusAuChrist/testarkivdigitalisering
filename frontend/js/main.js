@@ -1,27 +1,21 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // Hide splash, show main content
+import { initProtectedPage } from "./page_auth.js";
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const me = await initProtectedPage();
+  if (!me) return;
+
   setTimeout(() => {
     const splash = document.getElementById("splash-screen");
     if (splash) splash.style.display = "none";
+
     const main = document.getElementById("main-content");
     if (main) main.style.display = "block";
   }, 2000);
 
   console.log("Dashboard loaded");
 
-  import { initProtectedPage } from "./page_auth.js";
-
-document.addEventListener("DOMContentLoaded", async () => {
-  const me = await initProtectedPage();
-  if (!me) return;
-
-  // existing page startup code here
-});
-
-  // ✅ Fullscreen chart tiles (matches CSS: body.dashboard-fullscreen + #chart-fullscreen-backdrop)
   setupChartFullscreen();
 
-  // Optional button action
   const goBtn = document.getElementById("go-to-location");
   if (goBtn) {
     goBtn.addEventListener("click", () => {
