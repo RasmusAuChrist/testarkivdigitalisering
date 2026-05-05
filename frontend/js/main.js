@@ -9,6 +9,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   console.log("Dashboard loaded");
 
+  import { initProtectedPage } from "./page_auth.js";
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const me = await initProtectedPage();
+  if (!me) return;
+
+  // existing page startup code here
+});
+
   // ✅ Fullscreen chart tiles (matches CSS: body.dashboard-fullscreen + #chart-fullscreen-backdrop)
   setupChartFullscreen();
 
