@@ -1,38 +1,59 @@
 <div class="navbar">
-  <a href="/" class="nav-logo">
-    <img src="/assets/logo.png" alt="ASK Logo">
-  </a>
+  <div class="nav-left">
+    <a href="/" class="nav-logo">
+      <img src="/assets/logo.png" alt="ASK Logo">
+    </a>
 
-  <a href="/views/validation.html">Validering</a>
+    <a href="/views/validation.html">Validering</a>
 
-  <div class="dropdown">
-    <button class="dropbtn">
-      Analyse <i class="fa fa-caret-down"></i>
-    </button>
-    <div class="dropdown-content">
-      <a href="/views/scatter.html">Digitalisering/Visninger</a>
-      <a href="/views/arkiv.html">Arkivoversikt</a>
-      <a href="/views/serie_hierarchy.html">Serieoversikt</a>
+    <div class="dropdown">
+      <button class="dropbtn">Analyse</button>
+      <div class="dropdown-content">
+        <a href="/views/scatter.html">Digitalisering/Visninger</a>
+        <a href="/views/arkiv.html">Arkivoversikt</a>
+        <a href="/views/serie_hierarchy.html">Serieoversikt</a>
+      </div>
     </div>
+
+    <div class="dropdown">
+      <button class="dropbtn">Hylleplasseringer</button>
+      <div class="dropdown-content">
+        <a href="/views/sah_items.html">Flytting Hamar</a>
+        <a href="/views/location.html">Kart</a>
+      </div>
+    </div>
+
+    <div class="dropdown">
+      <button class="dropbtn">Produksjonsstyring</button>
+      <div class="dropdown-content">
+        <a href="/views/workflow_overview.html">Oversikt</a>
+        <a href="/views/workflow_queue.html">Verdistrøm kø</a>
+      </div>
+    </div>
+
+    <a href="/views/status.html">Driftsstatus</a>
   </div>
 
-  <div class="dropdown">
-    <button class="dropbtn">
-      Hylleplasseringer <i class="fa fa-caret-down"></i>
+  <div id="userMenu" class="user-menu">
+    <button
+      id="userMenuBtn"
+      class="user-menu-btn"
+      type="button"
+      aria-haspopup="menu"
+      aria-expanded="false"
+    >
+      <span id="userMenuName">Meny</span>
+      <span aria-hidden="true">▾</span>
     </button>
-    <div class="dropdown-content">
-      <a href="/views/sah_items.html">Flytting Hamar</a>
-      <a href="/views/location.html">Kart</a>
+
+    <div id="userMenuDropdown" class="user-menu-dropdown" role="menu">
+      <a data-action="account" href="/views/account.html" role="menuitem">Min konto</a>
+
+      <div id="userMenuAdminItem" style="display:none;">
+        <a href="/views/admin_users.html" role="menuitem">Administrer brukere</a>
+      </div>
+
+      <a id="userMenuLogout" href="#" role="menuitem">Logg ut</a>
     </div>
   </div>
-  <div class="dropdown">
-    <button class="dropbtn">
-      Produksjonsstyring <i class="fa fa-caret-down"></i>
-    </button>
-    <div class="dropdown-content">
-      <a href="/views/workflow_overview.html">Oversikt</a>
-      <a href="/views/workflow_queue.html">Verdistrøm kø</a>
-    </div>
-  </div>
-  <a href="/views/status.html">Driftsstatus</a>
 </div>

@@ -1,9 +1,8 @@
-import { initProtectedPage } from "./page_auth.js";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const me = await initProtectedPage();
-  if (!me) return;
 
+  // 1. Always hide splash after 2 seconds
   setTimeout(() => {
     const splash = document.getElementById("splash-screen");
     if (splash) splash.style.display = "none";
@@ -11,6 +10,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const main = document.getElementById("main-content");
     if (main) main.style.display = "block";
   }, 2000);
+
+  // 2. THEN check login
+  const me = await initProtectedPage();
+  if (!me) return;
 
   console.log("Dashboard loaded");
 
@@ -27,70 +30,68 @@ document.addEventListener("DOMContentLoaded", async () => {
   const ctx = document.getElementById("statusChart")?.getContext("2d");
   if (!ctx) return;
 
-  fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/status-by-ordre")
-    .then(res => res.json())
-    .then(data => {
-      const sortOrder = [
-        "Analyse",
-        "Prioriteringsråd",
-        "Arkivkartlegging",
-        "Fysisk klargjøring",
-        "Klar til sending",
-        "Lager NHA",
-        "Skanning pågår",
-        "Etterarbeid skanning",
-        "Skape uttrekk",
-        "Kvalitetskontroll",
-        "Opplasting og innlemming",
-        "Metadata etterarbeid",
-        "Opprydning for destruksjon - gjelder både fysisk og digitalt",
-        "Opprydning for videresending"
-      ];
+apiGet("/api/status-by-ordre")
+  .then(data => {
+    const sortOrder = [
+      "Analyse",
+      "Prioriteringsråd",
+      "Arkivkartlegging",
+      "Fysisk klargjøring",
+      "Klar til sending",
+      "Lager NHA",
+      "Skanning pågår",
+      "Etterarbeid skanning",
+      "Skape uttrekk",
+      "Kvalitetskontroll",
+      "Opplasting og innlemming",
+      "Metadata etterarbeid",
+      "Opprydning for destruksjon - gjelder både fysisk og digitalt",
+      "Opprydning for videresending"
+    ];
 
-      const ordres = Array.from(new Set(data.map(d => d.ordre))).sort();
+    const ordres = Array.from(new Set(data.map(d => d.ordre))).sort();
 
-      const statusMap = {};
-      data.forEach(d => {
-        if (!statusMap[d.status]) statusMap[d.status] = {};
-        statusMap[d.status][d.ordre] = d.stykker;
-      });
+    const statusMap = {};
+    data.forEach(d => {
+      if (!statusMap[d.status]) statusMap[d.status] = {};
+      statusMap[d.status][d.ordre] = d.stykker;
+    });
 
-      const colors = d3.schemeSet3.concat(d3.schemeTableau10);
+    const colors = d3.schemeSet3.concat(d3.schemeTableau10);
 
-      const datasets = ordres.map((ordre, i) => ({
-        label: `Ordre ${ordre}`,
-        backgroundColor: colors[i % colors.length],
-        data: sortOrder.map(status => statusMap[status]?.[ordre] || 0)
-      }));
+    const datasets = ordres.map((ordre, i) => ({
+      label: `Ordre ${ordre}`,
+      backgroundColor: colors[i % colors.length],
+      data: sortOrder.map(status => statusMap[status]?.[ordre] || 0)
+    }));
 
-      new Chart(ctx, {
-        type: "bar",
-        data: { labels: sortOrder, datasets },
-        options: {
-          responsive: true,
-          plugins: {
-            title: { display: true, text: "Fordeling av stykker per status og ordre" },
-            tooltip: { mode: "index", intersect: false },
-            legend: { position: "bottom" }
+    new Chart(ctx, {
+      type: "bar",
+      data: { labels: sortOrder, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: true, text: "Fordeling av stykker per status og ordre" },
+          tooltip: { mode: "index", intersect: false },
+          legend: { position: "bottom" }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            ticks: { autoSkip: false, maxRotation: 45, minRotation: 30 }
           },
-          scales: {
-            x: {
-              stacked: true,
-              ticks: { autoSkip: false, maxRotation: 45, minRotation: 30 }
-            },
-            y: {
-              stacked: true,
-              beginAtZero: true,
-              title: { display: true, text: "Antall stykker" }
-            }
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            title: { display: true, text: "Antall stykker" }
           }
         }
-      });
-    })
-    .catch(err => console.error("Kunne ikke laste statusdata:", err));
-});
+      }
+    });
+  })
+  .catch(err => console.error("Kunne ikke laste statusdata:", err));
 
-/**
+});/**
  * Smooth fullscreen for .chart-box tiles using FLIP animation.
  * Matches CSS:
  * - body.no-scroll
