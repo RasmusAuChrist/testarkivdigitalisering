@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import locations, status, scatter_data, dashboard, validation_status, arkiv_overview, serie_hierarchy, auth, workflow, account, admin, arkiv_details, serie_insights
+from routers import locations, status, scatter_data, dashboard, validation_status, arkiv_overview, serie_hierarchy, auth, workflow, account, admin, arkiv_details, serie_insights, archive_insights
 app = FastAPI()
 
 # CORS
@@ -34,6 +34,7 @@ app.include_router(arkiv_overview.router, prefix="/api")
 app.include_router(arkiv_details.router, prefix="/api")
 app.include_router(serie_insights.router, prefix="/api")
 app.include_router(serie_hierarchy.router, prefix="/api")
+app.include_router(archive_insights.router, prefix="/api")
 
 
 @app.get("/debug/routes")
