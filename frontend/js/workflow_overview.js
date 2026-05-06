@@ -1,43 +1,4 @@
-import { getToken, clearToken } from "./auth.js";
-import { initUserMenu } from "./user_menu.js";
-
-const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
-
-function authHeaders() {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-async function apiGet(path) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
-
-  if (res.status === 401) {
-    clearToken();
-    window.location.assign("/views/login.html");
-    throw new Error("Ikke innlogget.");
-  }
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.detail || "Ukjent feil");
-  return data;
-}
-
-async function loadNavbar() {
-  const container = document.getElementById("navbar-container");
-  if (!container) return;
-
-  try {
-    const res = await fetch("/partials/navbar.html");
-    container.innerHTML = await res.text();
-  } catch {
-    try {
-      const res = await fetch("/navbar.html");
-      container.innerHTML = await res.text();
-    } catch {
-      container.innerHTML = "";
-    }
-  }
-}
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 function updateSummary(items) {
   const total = items.reduce((sum, x) => sum + Number(x.ItemCount || 0), 0);
@@ -110,7 +71,8 @@ async function refresh() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  await loadNavbar();
+  const me = await initProtectedPage();
+  if (!me) return;
 
   document.getElementById("refreshBtn")?.addEventListener("click", refresh);
 
