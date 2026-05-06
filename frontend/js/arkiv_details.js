@@ -1,6 +1,4 @@
-const API_BASE =
-  "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
-
+import { initProtectedPage, apiGet } from "./page_auth.js";
 function getUrlParam(name) {
   const v = new URLSearchParams(window.location.search).get(name);
   return v ? v.trim() : "";
@@ -24,12 +22,7 @@ function hideLoading() { if (el.loading) el.loading.style.display = "none"; }
 let chart;
 
 async function fetchHistory(arkivSk) {
-  const res = await fetch(
-    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/requisition-history`
-  );
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || data.error || `API error ${res.status}`);
-  return data;
+  return await apiGet(`/api/arkiv/${encodeURIComponent(arkivSk)}/requisition-history`);
 }
 
 function formatMMYYYY(isoDate) {
@@ -157,9 +150,12 @@ function buildChart(points) {
 }
 
 async function init() {
+  const me = await initProtectedPage();
+  if (!me) return;
+
   const arkivSk = getUrlParam("arkiv_sk");
   const ident = getUrlParam("ident");
-  const kind = getUrlParam("kind"); // "internal" or "ap" (optional)
+  const kind = getUrlParam("kind");
 
   el.subTitle.textContent = ident
     ? `Identifikator: ${ident} (arkiv_sk=${arkivSk})`
