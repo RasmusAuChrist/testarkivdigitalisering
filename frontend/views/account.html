@@ -4,89 +4,24 @@
   <meta charset="UTF-8" />
   <title>Min konto</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="stylesheet" href="/css/styles.css" />
   <link rel="stylesheet" href="/assets/navbar.css" />
+
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
-
 </head>
+
 <body>
   <div id="navbar-container"></div>
 
   <div class="surface-light" style="max-width: 900px; margin: 18px auto; padding: 0 14px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
       <h2 style="margin: 12px 0;">Min konto</h2>
-<div id="userMenu" style="position:relative;">
-  <button
-    id="userMenuBtn"
-    class="btn btn-outline"
-    type="button"
-    aria-haspopup="menu"
-    aria-expanded="false"
-    style="display:inline-flex; align-items:center; gap:8px;"
-  >
-    <span id="userMenuName" class="btn-text">Meny</span>
-    <span aria-hidden="true" style="font-weight:900;">▾</span>
-  </button>
-
-  <div
-    id="userMenuDropdown"
-    role="menu"
-    style="
-      display:none;
-      position:absolute;
-      right:0;
-      top:calc(100% + 8px);
-      min-width:220px;
-      background:#fff;
-      border:1px solid #e5e7eb;
-      border-radius:12px;
-      box-shadow:0 12px 30px rgba(0,0,0,0.12);
-      overflow:hidden;
-      z-index:50;
-    "
-  >
-    <a
-      data-action="account"
-      href="/views/account.html"
-      role="menuitem"
-      style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
-      onmouseover="this.style.background='#f3f4f6'"
-      onmouseout="this.style.background='transparent'"
-    >
-      Min konto
-    </a>
-
-    <div id="userMenuAdminItem" style="display:none;">
-      <a
-        href="/views/admin_users.html"
-        role="menuitem"
-        style="display:block; padding:10px 12px; color:#111827; text-decoration:none;"
-        onmouseover="this.style.background='#f3f4f6'"
-        onmouseout="this.style.background='transparent'"
-      >
-        Administrer brukere
-      </a>
     </div>
 
-    <div style="height:1px; background:#e5e7eb;"></div>
-
-      <a
-        id="userMenuLogout"
-        href="#"
-        role="menuitem"
-        style="display:block; padding:10px 12px; color:#b91c1c; text-decoration:none; font-weight:700;"
-        onmouseover="this.style.background='#fef2f2'"
-        onmouseout="this.style.background='transparent'"
-      >
-        Logg ut
-      </a>
-  </div>
-</div> 
-</div>
-
-    <div class="filters-dark dropdown-light" style="display:grid; gap: 10px;">
+    <div class="filters-dark dropdown-light" style="display:grid; gap:10px;">
       <div id="msg" style="color:#fff; opacity:0.95;"></div>
     </div>
 
@@ -97,46 +32,54 @@
       </div>
 
       <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
-  <h3>Varslinger</h3>
+        <h3>Varslinger</h3>
 
-  <label style="display:flex; gap:8px; align-items:center;">
-    <input id="notifyEmail" type="checkbox" />
-    E-post ved ny tildelt oppgave
-  </label>
+        <label style="display:flex; gap:8px; align-items:center;">
+          <input id="notifyEmail" type="checkbox" />
+          E-post ved ny tildelt oppgave
+        </label>
 
-  <label style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-    <input id="notifyTeams" type="checkbox" />
-    Teams-varsel ved ny tildelt oppgave
-  </label>
+        <label style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+          <input id="notifyTeams" type="checkbox" />
+          Teams-varsel ved ny tildelt oppgave
+        </label>
 
-  <div style="height:10px;"></div>
+        <div style="height:10px;"></div>
 
-  <button id="saveNotifyPrefsBtn" class="btn btn-primary" type="button">
-    <span class="btn-text">Lagre varslinger</span>
-  </button>
-</div>
+        <button id="saveNotifyPrefsBtn" class="btn btn-primary" type="button">
+          <span class="btn-text">Lagre varslinger</span>
+        </button>
+      </div>
 
       <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px;">
         <h3>Bytt passord</h3>
 
-        <label>Nåværende passord<br/>
+        <label>
+          Nåværende passord<br />
           <input id="oldPwd" type="password" style="width:100%;" autocomplete="current-password" />
         </label>
+
         <div style="height:8px;"></div>
 
-        <label>Nytt passord<br/>
+        <label>
+          Nytt passord<br />
           <input id="newPwd" type="password" style="width:100%;" autocomplete="new-password" />
         </label>
+
         <div style="height:8px;"></div>
 
-        <label>Gjenta nytt passord<br/>
+        <label>
+          Gjenta nytt passord<br />
           <input id="newPwd2" type="password" style="width:100%;" autocomplete="new-password" />
         </label>
 
         <div style="height:10px;"></div>
-        <button id="changePwdBtn" class="btn btn-primary" type="button"><span class="btn-text">Bytt passord</span></button>
 
-        <div id="mustChangeBox" class="warn" style="display:none; margin-top: 10px;">
+        <button id="changePwdBtn" class="btn btn-primary" type="button">
+          <span class="btn-text">Bytt passord</span>
+        </button>
+
+        <div id="mustChangeBox" class="warn" style="display:none; margin-top:10px;">
           Passordet er midlertidig. Du må bytte passord nå.
         </div>
       </div>

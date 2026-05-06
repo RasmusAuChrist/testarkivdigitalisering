@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       setMsg("Lagrer varslinger…");
 
-      await apiPost("/account/notification-preferences", {
+      await apiPost("/api/account/notification-preferences", {
         notify_by_email,
         notify_by_teams,
       });
