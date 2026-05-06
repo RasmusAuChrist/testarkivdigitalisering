@@ -53,7 +53,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       setMsg("Endrer passord…");
 
-      await apiPost("/account/change-password", {
+      await apiPost("api/account/change-password", {
         old_password,
         new_password,
       });
