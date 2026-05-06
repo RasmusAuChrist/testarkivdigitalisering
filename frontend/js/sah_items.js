@@ -1,4 +1,4 @@
-const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const arkivFilter = document.getElementById("arkivFilter");
 const searchInput = document.getElementById("searchInput");
@@ -101,23 +101,13 @@ function sortItemsByAstaSti(items) {
   });
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url);
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.error || `HTTP ${response.status}`);
-  }
-
-  if (data?.error) {
-    throw new Error(data.error);
-  }
-
-  return data;
+async function fetchJson(path) {
+  return await apiGet(path);
 }
 
+
 async function loadArkivNavnOptions() {
-  const names = await fetchJson(`${API_BASE}/api/sah-arkiv-navn`);
+  const names = await fetchJson("/api/sah-arkiv-navn");
   arkivFilter.innerHTML = `<option value="">Alle</option>`;
 
   names.forEach(name => {
@@ -148,7 +138,7 @@ async function loadItems(page = 1) {
     params.set("status", currentStatus);
   }
 
-  const result = await fetchJson(`${API_BASE}/api/sah-items?${params.toString()}`);
+  const result = await fetchJson(`/api/sah-items?${params.toString()}`);
 
   currentPage = result.page;
   currentTotalPages = result.total_pages;
@@ -302,6 +292,9 @@ const debouncedReload = debounce(async () => {
 
 async function init() {
   try {
+    const me = await initProtectedPage();
+    if (!me) return;
+
     updateStatusButtons();
     showLoading();
     await loadArkivNavnOptions();
