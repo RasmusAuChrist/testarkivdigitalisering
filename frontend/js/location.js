@@ -1,12 +1,11 @@
 import { createTooltip } from "./tooltip.js";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const canvas = document.getElementById("shelfCanvas");
 const ctx = canvas.getContext("2d");
 const depotSelect = document.getElementById("depotSelect");
 const roomSelect = document.getElementById("roomSelect");
 const pathFilterInput = document.getElementById("pathFilter");
-
-const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
 // Constants
 const baySpacing = 220;
@@ -33,10 +32,17 @@ let colorScale = null;
 let pillHitboxes = [];
 
 // Init
-setupZoom();
-setupEvents();
-createTooltip(canvas, () => ({ zoomX, zoomY, scale }), () => pillHitboxes);
-loadDepots();
+async function init() {
+  const me = await initProtectedPage();
+  if (!me) return;
+
+  setupZoom();
+  setupEvents();
+  createTooltip(canvas, () => ({ zoomX, zoomY, scale }), () => pillHitboxes);
+  loadDepots();
+}
+
+init();
 
 function throttle(fn, limit) {
   let inThrottle;
@@ -117,8 +123,7 @@ function hideLoading() {
 
 function loadDepots() {
   showLoading();
-  fetch(`${API_BASE}/api/depots`)
-    .then(res => res.json())
+    apiGet("/api/depots")
     .then(depots => {
       depotSelect.innerHTML = "";
       depots.sort().forEach(depot => {
@@ -144,8 +149,7 @@ function loadDepots() {
 function loadRooms(depot) {
   showLoading();
   roomSelect.innerHTML = "";
-  fetch(`${API_BASE}/api/rooms?depot=${encodeURIComponent(depot)}`)
-    .then(res => res.json())
+    apiGet(`/api/rooms?depot=${encodeURIComponent(depot)}`)
     .then(rooms => {
       rooms.sort().forEach(room => {
         const opt = document.createElement("option");
@@ -169,10 +173,10 @@ function loadRooms(depot) {
 
 function loadRoom(depot, room) {
   showLoading();
-  Promise.all([
-    fetch(`${API_BASE}/api/shelves?depot=${depot}&room=${room}`).then(r => r.json()),
-    fetch(`${API_BASE}/api/items?depot=${depot}&room=${room}`).then(r => r.json())
-  ])
+    Promise.all([
+      apiGet(`/api/shelves?depot=${encodeURIComponent(depot)}&room=${encodeURIComponent(room)}`),
+      apiGet(`/api/items?depot=${encodeURIComponent(depot)}&room=${encodeURIComponent(room)}`)
+    ])
     .then(([shelves, items]) => {
       globalShelves = shelves.map(d => {
         const parts = d.path.split("/");
