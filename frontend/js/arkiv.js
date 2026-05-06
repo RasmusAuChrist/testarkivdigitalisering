@@ -1,9 +1,7 @@
 /* =========================================================
    CONFIG
 ========================================================= */
-
-const API_BASE =
-  "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const SERIE_PAGE = "/views/serie_hierarchy.html";
 const DETAILS_PAGE = "/views/arkiv_details.html";
@@ -281,6 +279,9 @@ columns.forEach(c => {
 ========================================================= */
 
 async function init() {
+  const me = await initProtectedPage();
+  if (!me) return;
+
   showLoading();
 
   try {
@@ -320,9 +321,7 @@ async function init() {
 ========================================================= */
 
 async function fetchData() {
-  const res = await fetch(`${API_BASE}/api/arkiv-overview`);
-  if (!res.ok) throw new Error(`API error ${res.status}`);
-  return await res.json();
+  return await apiGet("/api/arkiv-overview");
 }
 
 function normalizeRows(rows) {

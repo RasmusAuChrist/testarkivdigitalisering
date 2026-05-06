@@ -137,15 +137,4 @@
 
 <!-- Page JS -->
 <script type="module" src="/js/arkiv.js"></script>
-
-<!-- Navbar loader -->
-<script>
-  fetch("/partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-container").innerHTML = html;
-    });
-</script>
-
-
 </html>
