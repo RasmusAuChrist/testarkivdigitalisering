@@ -1,0 +1,29 @@
+{
+  "routes": [
+    {
+      "route": "/views/arkiv_infoscreen.html",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/js/arkiv_infoscreen.js",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/assets/*",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["anonymous", "authenticated"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/aad",
+      "statusCode": 302
+    }
+  },
+  "globalHeaders": {
+    "Content-Security-Policy": "frame-ancestors 'self' https://*.sharepoint.com https://*.office.com;"
+  }
+}
