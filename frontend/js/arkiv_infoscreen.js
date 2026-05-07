@@ -1,4 +1,5 @@
-import { initProtectedPage, apiGet } from "./page_auth.js";
+const API_BASE =
+  "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
 
 const REFRESH_MS = 15 * 60 * 1000;
 const ROTATE_MS = 12 * 1000;
@@ -112,7 +113,15 @@ function setRefreshLabel(text) {
 }
 
 async function fetchOverview() {
-  const data = await apiGet("/api/arkiv-overview");
+  const res = await fetch(`${API_BASE}/api/arkiv-overview`, {
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ([]));
+
+  if (!res.ok) {
+    const message = data?.error || `API error ${res.status}`;
+    throw new Error(message);
+  }
 
   if (!Array.isArray(data)) {
     throw new Error("Uventet svar fra arkiv-overview.");
@@ -126,9 +135,15 @@ async function fetchViewsHistory(arkivSk) {
     return state.cache.viewsHistory.get(arkivSk);
   }
 
-  const data = await apiGet(
-    `/api/arkiv/${encodeURIComponent(arkivSk)}/dastats-views-history`
+  const res = await fetch(
+    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/dastats-views-history`,
+    { cache: "no-store" }
   );
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.detail || data?.error || `API error ${res.status}`);
+  }
 
   const points = Array.isArray(data?.points) ? data.points : [];
   state.cache.viewsHistory.set(arkivSk, points);
@@ -140,9 +155,15 @@ async function fetchRequisitionHistory(arkivSk) {
     return state.cache.requisitionHistory.get(arkivSk);
   }
 
-  const data = await apiGet(
-    `/api/arkiv/${encodeURIComponent(arkivSk)}/requisition-history`
+  const res = await fetch(
+    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/requisition-history`,
+    { cache: "no-store" }
   );
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data?.detail || data?.error || `API error ${res.status}`);
+  }
 
   const points = Array.isArray(data?.points) ? data.points : [];
   state.cache.requisitionHistory.set(arkivSk, points);
@@ -765,9 +786,6 @@ async function loadDashboard() {
 }
 
 async function init() {
-  const me = await initProtectedPage();
-  if (!me) return;
-
   await loadDashboard();
   startTimers();
 }
