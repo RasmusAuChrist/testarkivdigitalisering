@@ -1,4 +1,4 @@
-const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+import { initProtectedPage, apiGet, apiPost } from "./page_auth.js";
 const ARKIV_PAGE = "/views/arkiv.html";
 
 function getUrlParam(name) {
@@ -409,10 +409,10 @@ class MultiSelect {
 }
 
 async function fetchSuggest(field, q, limit = 20) {
-  const url = `${API_BASE}/api/serie-hierarchy/suggest/${encodeURIComponent(field)}?` + qs({ q, limit });
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Suggest ${field} failed: ${res.status}`);
-  const data = await res.json();
+  const data = await apiGet(
+    `/api/serie-hierarchy/suggest/${encodeURIComponent(field)}?${qs({ q, limit })}`
+  );
+
   return data.items || [];
 }
 
@@ -448,12 +448,8 @@ async function fetchPage() {
       identifikator_values: state.identValues,
     });
 
-    const res = await fetch(`${API_BASE}/api/serie-hierarchy?${query}`);
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
+    const data = await apiGet(`/api/serie-hierarchy?${query}`);
+    
     state.total = data.total ?? 0;
     state.items = data.items ?? [];
     render();
@@ -645,28 +641,19 @@ function promptOrderNo(actionLabel = "ordre") {
 }
 
 async function callOrderApi(type, amid, orderNo) {
-  const url =
+  const path =
     type === "add"
-      ? `${API_BASE}/api/orders/build`
-      : `${API_BASE}/api/orders/remove`;
+      ? "/api/orders/build"
+      : "/api/orders/remove";
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amid, order_no: orderNo }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data.detail || data.error || "Server error");
-  }
-
-  return data;
+  return await apiPost(path, { amid, order_no: orderNo });
 }
 
 
 async function init() {
+  const me = await initProtectedPage();
+  if (!me) return;
+
   buildHeader();
   setupHorizontalScrollSync();
 
