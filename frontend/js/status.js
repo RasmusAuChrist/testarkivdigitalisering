@@ -1,6 +1,9 @@
-const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  const me = await initProtectedPage();
+  if (!me) return;
+
   loadStatus();
 });
 
@@ -9,8 +12,7 @@ async function loadStatus() {
   const tableBody = document.getElementById("status-body");
 
   try {
-    const res = await fetch(`${API_BASE}/api/status`);
-    const data = await res.json();
+      const data = await apiGet("/api/status");
 
     if (!Array.isArray(data)) {
       console.error("Expected array from /api/status, got:", data);

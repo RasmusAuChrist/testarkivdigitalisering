@@ -8,6 +8,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ASK - Driftsstatus</title>
   <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/assets/navbar.css" />
+
   <style>
     table.status-table {
       width: 100%;
@@ -35,7 +37,6 @@
 </head>
 <body>
   <div id="navbar-container"></div>
-  <link rel="stylesheet" href="/assets/navbar.css" />
 <main>
   <h1>Driftsstatus</h1>
 
@@ -59,12 +60,4 @@
 
   <script type="module" src="/js/status.js"></script>
 </body>
-<script>
-  fetch("/partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-container").innerHTML = html;
-    });
-</script>
-
 </html>
