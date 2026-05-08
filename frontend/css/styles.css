@@ -1530,102 +1530,70 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 /* 🔥 LINE CLAMP */
 .queue-title-text {
   display: -webkit-box;
-  -webkit-line-clamp: 3; 
-    line-clamp: 3; 
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
-
   overflow: hidden;
   text-overflow: ellipsis;
-
   line-height: 1.3;
-  max-height: calc(1.3em * 2); /* match line-clamp */
+  max-height: calc(1.3em * 3);
 }
 
-/* Makes each queue item visually separated */
+/* Queue table cards */
 .queue-table {
   border-collapse: separate;
-  border-spacing: 0 16px;
+  border-spacing: 0 18px;
 }
 
-/* Each row becomes a card */
 .queue-table tbody tr {
   background: #ffffff;
   box-shadow:
-    0 6px 18px rgba(15, 23, 42, 0.10),
-    0 0 0 1px rgba(148, 163, 184, 0.22);
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
+    0 8px 20px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(148, 163, 184, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
-/* Rounded left side */
-.queue-table tbody tr td:first-child {
-  border-radius: 14px 0 0 14px;
-  border-left: 6px solid #d1d5db;
-}
-
-/* Rounded right side */
-.queue-table tbody tr td:last-child {
-  border-radius: 0 14px 14px 0;
-}
-
-/* More breathing room inside each item */
-.queue-table tbody tr td {
-  padding-top: 22px;
-  padding-bottom: 22px;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-/* Hover effect */
 .queue-table tbody tr:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
-}
-
-/* Green accent for active rows */
-.queue-table tbody tr:has(.Active),
-.queue-table tbody tr:has(.active) {
-  box-shadow: 0 6px 18px rgba(34, 197, 94, 0.14);
-}
-
-.queue-table tbody tr:has(.Active) td:first-child,
-.queue-table tbody tr:has(.active) td:first-child {
-  border-left-color: #16a34a;
-}
-
-/* Red accent for OnHold rows */
-.queue-table tbody tr:has(.OnHold),
-.queue-table tbody tr:has(.onhold) {
-  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.14);
-}
-
-.queue-table tbody tr:has(.OnHold) td:first-child,
-.queue-table tbody tr:has(.onhold) td:first-child {
-  border-left-color: #dc2626;
-}
-
-/* Makes header clearer */
-.queue-table thead th {
-  background: #f8fafc;
-  border-bottom: 2px solid #e2e8f0;
-  padding-top: 18px;
-  padding-bottom: 18px;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(100, 116, 139, 0.35);
 }
 
 .queue-table tbody td {
   background: #ffffff;
   padding-top: 24px !important;
   padding-bottom: 24px !important;
-
-  border-top: 1px solid #dbe3ec;
-  border-bottom: 1px solid #dbe3ec;
+  border-top: 2px solid #cbd5e1;
+  border-bottom: 2px solid #cbd5e1;
 }
 
 .queue-table tbody td:first-child {
   border-left: 6px solid #94a3b8;
+  border-radius: 14px 0 0 14px;
 }
 
 .queue-table tbody td:last-child {
-  border-right: 1px solid #cbd5e1;
+  border-right: 2px solid #cbd5e1;
+  border-radius: 0 14px 14px 0;
+}
+
+/* Green accent for active rows */
+.queue-table tbody tr:has(.Active) td:first-child,
+.queue-table tbody tr:has(.active) td:first-child {
+  border-left-color: #16a34a;
+}
+
+/* Red accent for OnHold rows */
+.queue-table tbody tr:has(.OnHold) td:first-child,
+.queue-table tbody tr:has(.onhold) td:first-child {
+  border-left-color: #dc2626;
+}
+
+/* Header */
+.queue-table thead th {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  padding-top: 18px;
+  padding-bottom: 18px;
 }
