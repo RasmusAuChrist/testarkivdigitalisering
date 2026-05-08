@@ -1623,9 +1623,9 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 }
 
 .queue-table tbody td:first-child {
-  border-left: 1px solid #dbe3ec;
+  border-left: 6px solid #94a3b8;
 }
 
 .queue-table tbody td:last-child {
-  border-right: 1px solid #dbe3ec;
+  border-right: 1px solid #cbd5e1;
 }
