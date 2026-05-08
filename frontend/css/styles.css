@@ -1550,8 +1550,12 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 /* Each row becomes a card */
 .queue-table tbody tr {
   background: #ffffff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.10);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.10),
+    0 0 0 1px rgba(148, 163, 184, 0.22);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 /* Rounded left side */
@@ -1607,4 +1611,21 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   border-bottom: 2px solid #e2e8f0;
   padding-top: 18px;
   padding-bottom: 18px;
+}
+
+.queue-table tbody td {
+  background: #ffffff;
+  padding-top: 24px !important;
+  padding-bottom: 24px !important;
+
+  border-top: 1px solid #dbe3ec;
+  border-bottom: 1px solid #dbe3ec;
+}
+
+.queue-table tbody td:first-child {
+  border-left: 1px solid #dbe3ec;
+}
+
+.queue-table tbody td:last-child {
+  border-right: 1px solid #dbe3ec;
 }
