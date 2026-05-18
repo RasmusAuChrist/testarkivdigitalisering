@@ -1,10 +1,13 @@
-document.addEventListener("DOMContentLoaded", () => {
+import { initProtectedPage, apiGet, apiPost } from "./page_auth.js";
+
+document.addEventListener("DOMContentLoaded", async () => {
   const container = document.getElementById("validation-container");
   const overlay = document.getElementById("loadingOverlay");
   const refreshBtn = document.getElementById("refreshBtn");
   const refreshStatus = document.getElementById("refreshStatus");
 
-  const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+  const me = await initProtectedPage();
+  if (!me) return;
 
   function setLoading(isLoading) {
     overlay.style.display = isLoading ? "flex" : "none";
@@ -105,8 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setLoading(true);
     setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/api/validation-status`);
-      const data = await res.json();
+      const data = await apiGet("/api/validation-status");
 
       if (data && data.error) {
         container.innerHTML = "<p style='color: red;'>Kunne ikke hente data. 😢</p>";
@@ -130,13 +132,12 @@ async function refreshValidation() {
   setLoading(true);
 
   try {
-    const res = await fetch(`${API_BASE}/api/validation-status/refresh`, { method: "POST" });
-    const out = await res.json();
+    const out = await apiPost("/api/validation-status/refresh", {});
 
-    if (!res.ok || out.ok !== true) {
-      setStatus(out?.error || `Refresh feilet (HTTP ${res.status})`, true);
-      return;
-    }
+if (out.ok !== true) {
+  setStatus(out?.error || "Refresh feilet", true);
+  return;
+}
 
     setStatus(`Oppdatert ✅`);
     await loadValidation();
