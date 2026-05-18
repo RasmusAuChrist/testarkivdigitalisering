@@ -69,20 +69,38 @@
             min-width:520px;
           "
         >
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-            <input id="chkShowStopped" type="checkbox" />
-            Vis stoppet
-          </label>
+          <div style="min-width:260px; position:relative;">
+            <label>Visning</label><br />
 
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-            <input id="chkShowPaused" type="checkbox" checked />
-            Vis på vent
-          </label>
+            <button
+              id="queueFilterBtn"
+              class="btn btn-outline"
+              type="button"
+              style="width:100%; justify-content:space-between;"
+            >
+              <span id="queueFilterText">Standard</span>
+              <span aria-hidden="true">▾</span>
+            </button>
 
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; margin:0;">
-            <input id="chkShowMineOnly" type="checkbox" />
-            Vis bare mine
-          </label>
+            <div
+              id="queueFilterPanel"
+              style="
+                display:none;
+                position:absolute;
+                z-index:60;
+                margin-top:6px;
+                width:300px;
+                max-height:300px;
+                overflow:auto;
+                background:#fff;
+                color:#111827;
+                border:1px solid #cbd5e1;
+                border-radius:12px;
+                box-shadow:0 12px 30px rgba(0,0,0,0.18);
+                padding:10px;
+              "
+            ></div>
+          </div>
 
           <div style="display:flex; flex-direction:column; gap:3px; margin-left:8px;">
             <label for="arkivIdentifikatorFilter" style="color:#fff; font-size:12px; font-weight:700;">

@@ -38,7 +38,36 @@ function canAssignOthers() {
 const LS_SHOW_STOPPED = "wfq_show_stopped";
 const LS_SHOW_PAUSED = "wfq_show_paused";
 const LS_SHOW_MINE_ONLY = "wfq_show_mine_only";
+const LS_SHOW_UNASSIGNED = "wfq_show_unassigned";
 const LS_FAVOURITE_STEPS = "wfq_favourite_steps";
+const LS_FAVOURITE_QUEUE_FILTERS = "wfq_favourite_queue_filters";
+
+const queueFilterOptions = [
+  {
+    id: "showStopped",
+    label: "Vis stoppet",
+    storageKey: LS_SHOW_STOPPED,
+    defaultChecked: false,
+  },
+  {
+    id: "showPaused",
+    label: "Vis på vent",
+    storageKey: LS_SHOW_PAUSED,
+    defaultChecked: true,
+  },
+  {
+    id: "showMineOnly",
+    label: "Vis bare mine",
+    storageKey: LS_SHOW_MINE_ONLY,
+    defaultChecked: false,
+  },
+  {
+    id: "showUnassignedOnly",
+    label: "Vis ufordelt",
+    storageKey: LS_SHOW_UNASSIGNED,
+    defaultChecked: false,
+  },
+];
 
 function ensureLoggedIn() {
   const token = getToken();
@@ -277,6 +306,42 @@ function toggleFavouriteStep(id) {
     : [...favs, stepId];
 
   setFavouriteStepIds(next);
+}
+
+function getFavouriteQueueFilterIds() {
+  try {
+    const raw = localStorage.getItem(LS_FAVOURITE_QUEUE_FILTERS);
+    const parsed = JSON.parse(raw || "[]");
+    const validIds = new Set(queueFilterOptions.map(option => option.id));
+
+    return Array.isArray(parsed)
+      ? parsed.filter(id => validIds.has(id))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function setFavouriteQueueFilterIds(ids) {
+  const validIds = new Set(queueFilterOptions.map(option => option.id));
+  localStorage.setItem(
+    LS_FAVOURITE_QUEUE_FILTERS,
+    JSON.stringify([...new Set((ids || []).filter(id => validIds.has(id)))])
+  );
+}
+
+function isFavouriteQueueFilter(id) {
+  return getFavouriteQueueFilterIds().includes(id);
+}
+
+function toggleFavouriteQueueFilter(id) {
+  const favs = getFavouriteQueueFilterIds();
+
+  const next = favs.includes(id)
+    ? favs.filter(x => x !== id)
+    : [...favs, id];
+
+  setFavouriteQueueFilterIds(next);
 }
 
 function stepLabel(it) {
@@ -586,16 +651,38 @@ function computeDisplayStatus(it) {
 }
 
 /* ---------- Filtering ---------- */
-function readFilterState() {
-  const chkShowStopped = document.getElementById("chkShowStopped");
-  const chkShowPaused = document.getElementById("chkShowPaused");
-  const chkShowMineOnly = document.getElementById("chkShowMineOnly");
+function getQueueFilterCheckbox(id) {
+  return document.querySelector(`.queue-filter-checkbox[data-filter-id="${id}"]`);
+}
 
+function readFilterState() {
   return {
-    showStopped: !!chkShowStopped?.checked,
-    showPaused: !!chkShowPaused?.checked,
-    showMineOnly: !!chkShowMineOnly?.checked,
+    showStopped: !!getQueueFilterCheckbox("showStopped")?.checked,
+    showPaused: !!getQueueFilterCheckbox("showPaused")?.checked,
+    showMineOnly: !!getQueueFilterCheckbox("showMineOnly")?.checked,
+    showUnassignedOnly: !!getQueueFilterCheckbox("showUnassignedOnly")?.checked,
   };
+}
+
+function updateQueueFilterText() {
+  const textEl = document.getElementById("queueFilterText");
+  if (!textEl) return;
+
+  const selectedLabels = queueFilterOptions
+    .filter(option => getQueueFilterCheckbox(option.id)?.checked)
+    .map(option => option.label);
+
+  if (!selectedLabels.length) {
+    textEl.textContent = "Standard";
+    return;
+  }
+
+  if (selectedLabels.length <= 2) {
+    textEl.textContent = selectedLabels.join(", ");
+    return;
+  }
+
+  textEl.textContent = `${selectedLabels.length} filtre valgt`;
 }
 
 function isPausedOrder(it) {
@@ -607,7 +694,12 @@ function isStoppedOrder(it) {
 }
 
 function applyFilters(items) {
-  const { showStopped, showPaused, showMineOnly } = readFilterState();
+  const {
+    showStopped,
+    showPaused,
+    showMineOnly,
+    showUnassignedOnly,
+  } = readFilterState();
 
   const arkivIdentifikatorFilter = (
     document.getElementById("arkivIdentifikatorFilter")?.value || ""
@@ -617,38 +709,56 @@ function applyFilters(items) {
     if (!showStopped && isStoppedOrder(it)) return false;
     if (!showPaused && isPausedOrder(it)) return false;
 
-    if (showMineOnly) {
-  if (!me) return false;
-  if (!getAssignedUsers(it).some(u => u.UserId === me.user_id)) return false;
-}
-if (arkivIdentifikatorFilter) {
-  const arkivIdentifikator = String(it.ArkivIdentifikator || "").toLowerCase();
-  if (!arkivIdentifikator.includes(arkivIdentifikatorFilter)) return false;
-}
+    const assignedUsers = getAssignedUsers(it);
+
+    if (showMineOnly || showUnassignedOnly) {
+      const isMine = !!me && assignedUsers.some(u => u.UserId === me.user_id);
+      const isUnassigned = assignedUsers.length === 0;
+
+      if (!((showMineOnly && isMine) || (showUnassignedOnly && isUnassigned))) {
+        return false;
+      }
+    }
+
+    if (arkivIdentifikatorFilter) {
+      const arkivIdentifikator = String(it.ArkivIdentifikator || "").toLowerCase();
+      if (!arkivIdentifikator.includes(arkivIdentifikatorFilter)) return false;
+    }
+
     return true;
   });
 }
 
 function persistFilters() {
-  const { showStopped, showPaused, showMineOnly } = readFilterState();
+  const state = readFilterState();
 
-  localStorage.setItem(LS_SHOW_STOPPED, showStopped ? "1" : "0");
-  localStorage.setItem(LS_SHOW_PAUSED, showPaused ? "1" : "0");
-  localStorage.setItem(LS_SHOW_MINE_ONLY, showMineOnly ? "1" : "0");
+  queueFilterOptions.forEach(option => {
+    localStorage.setItem(option.storageKey, state[option.id] ? "1" : "0");
+  });
 }
 
 function restoreFilters() {
-  const chkShowStopped = document.getElementById("chkShowStopped");
-  const chkShowPaused = document.getElementById("chkShowPaused");
-  const chkShowMineOnly = document.getElementById("chkShowMineOnly");
+  const hasStoredState = queueFilterOptions.some(option =>
+    localStorage.getItem(option.storageKey) !== null
+  );
+  const favouriteIds = getFavouriteQueueFilterIds();
+  const defaultIds = favouriteIds.length
+    ? favouriteIds
+    : queueFilterOptions
+      .filter(option => option.defaultChecked)
+      .map(option => option.id);
 
-  const sStopped = localStorage.getItem(LS_SHOW_STOPPED);
-  const sPaused = localStorage.getItem(LS_SHOW_PAUSED);
-  const sMineOnly = localStorage.getItem(LS_SHOW_MINE_ONLY);
+  queueFilterOptions.forEach(option => {
+    const checkbox = getQueueFilterCheckbox(option.id);
+    if (!checkbox) return;
 
-  if (chkShowStopped) chkShowStopped.checked = (sStopped === "1");
-  if (chkShowPaused) chkShowPaused.checked = (sPaused === null ? true : sPaused === "1");
-  if (chkShowMineOnly) chkShowMineOnly.checked = (sMineOnly === "1");
+    const stored = localStorage.getItem(option.storageKey);
+    checkbox.checked = hasStoredState
+      ? (stored === null ? option.defaultChecked : stored === "1")
+      : defaultIds.includes(option.id);
+  });
+
+  updateQueueFilterText();
 }
 
 /* ---------- Rendering ---------- */
@@ -1237,6 +1347,69 @@ if (stepFromQs && stepFromQs.toLowerCase() !== "all") {
   });
 }
 
+function initQueueFilterSelect() {
+  const btn = document.getElementById("queueFilterBtn");
+  const panel = document.getElementById("queueFilterPanel");
+  if (!btn || !panel) return;
+
+  panel.innerHTML = queueFilterOptions.map(option => `
+    <div class="step-picker-row">
+      <label class="assign-user-row step-picker-label">
+        <input
+          class="queue-filter-checkbox"
+          type="checkbox"
+          data-filter-id="${escapeHtml(option.id)}"
+        />
+        <span>${escapeHtml(option.label)}</span>
+      </label>
+
+      <button
+        type="button"
+        class="step-favourite-btn queue-filter-favourite-btn"
+        data-filter-id="${escapeHtml(option.id)}"
+        title="Sett som favoritt"
+        aria-label="Sett ${escapeHtml(option.label)} som favoritt"
+      >
+        ${isFavouriteQueueFilter(option.id) ? "★" : "☆"}
+      </button>
+    </div>
+  `).join("");
+
+  restoreFilters();
+
+  btn.addEventListener("click", () => {
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  });
+
+  panel.addEventListener("change", (ev) => {
+    const target = ev.target;
+    if (!target.classList?.contains("queue-filter-checkbox")) return;
+
+    persistFilters();
+    updateQueueFilterText();
+    render(rawItems);
+  });
+
+  panel.addEventListener("click", (ev) => {
+    const favBtn = ev.target.closest(".queue-filter-favourite-btn");
+    if (!favBtn) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const filterId = favBtn.getAttribute("data-filter-id");
+    toggleFavouriteQueueFilter(filterId);
+
+    favBtn.textContent = isFavouriteQueueFilter(filterId) ? "★" : "☆";
+  });
+
+  document.addEventListener("click", (ev) => {
+    if (!panel.contains(ev.target) && !btn.contains(ev.target)) {
+      panel.style.display = "none";
+    }
+  });
+}
+
 async function initMe() {
   me = await apiGet("/api/auth/me");
 }
@@ -1252,27 +1425,11 @@ async function triggerRefresh() {
   }
 }
 
-function wireFilterCheckboxes() {
-  const chkShowStopped = document.getElementById("chkShowStopped");
-  const chkShowPaused = document.getElementById("chkShowPaused");
-  const chkShowMineOnly = document.getElementById("chkShowMineOnly");
-
-  const onChange = () => {
-    persistFilters();
-    render(rawItems);
-  };
-
-  chkShowStopped?.addEventListener("change", onChange);
-  chkShowPaused?.addEventListener("change", onChange);
-  chkShowMineOnly?.addEventListener("change", onChange);
-}
-
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
   initStepSelect();
-  restoreFilters();
-  wireFilterCheckboxes();
+  initQueueFilterSelect();
   document.getElementById("arkivIdentifikatorFilter")?.addEventListener("input", () => {
   render(rawItems);
 });
