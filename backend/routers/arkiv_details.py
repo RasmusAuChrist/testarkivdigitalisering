@@ -133,7 +133,7 @@ def dastats_views_history(
             SELECT MIN(month_key) AS start_month_key
             FROM {DASTATS_TABLE}
             WHERE arkiv_sk = %s
-              AND (views_media > 0 OR views_digark > 0);
+              AND (views_media > 0 OR views_digark > 0 OR views_internal > 0);
             """,
             (arkiv_sk,),
         )
@@ -172,11 +172,16 @@ def dastats_views_history(
         ]
 
         sql = f"""
-            SELECT arkiv_sk, month_key, views_media, views_digark
-            FROM {DASTATS_TABLE}
-            WHERE {" AND ".join(where)}
-            ORDER BY month_key ASC;
-        """
+                    SELECT
+                        arkiv_sk,
+                        month_key,
+                        views_media,
+                        views_digark,
+                        views_internal
+                    FROM {DASTATS_TABLE}
+                    WHERE {" AND ".join(where)}
+                    ORDER BY month_key ASC;
+                """
         cur.execute(sql, tuple(params))
         rows = cur.fetchall() or []
 
