@@ -1,5 +1,4 @@
-const API_BASE =
-  "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 function getUrlParam(name) {
   const v = new URLSearchParams(window.location.search).get(name);
@@ -21,13 +20,9 @@ function showLoading() { if (el.loading) el.loading.style.display = "flex"; }
 function hideLoading() { if (el.loading) el.loading.style.display = "none"; }
 
 async function fetchHistory(arkivSk) {
-  const res = await fetch(
-    `${API_BASE}/api/arkiv/${encodeURIComponent(arkivSk)}/dastats-views-history`
-  );
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || data.error || `API error ${res.status}`);
-  return data;
+  return await apiGet(`/api/arkiv/${encodeURIComponent(arkivSk)}/dastats-views-history`);
 }
+
 
 function formatMMYYYY(isoDate) {
   const d = new Date(isoDate + "T00:00:00");
@@ -118,9 +113,12 @@ function buildChart(points) {
 }
 
 async function init() {
+  const me = await initProtectedPage();
+  if (!me) return;
+
   const arkivSk = getUrlParam("arkiv_sk");
   const ident = getUrlParam("ident");
-  const kind = getUrlParam("kind"); // "media" | "digark" | "internal_views" (optional)
+  const kind = getUrlParam("kind");
 
   el.subTitle.textContent = ident
     ? `Identifikator: ${ident} (arkiv_sk=${arkivSk})`
