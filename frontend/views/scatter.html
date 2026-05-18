@@ -1,8 +1,5 @@
 <!DOCTYPE html>
 <html lang="no">
-<!-- Navbar -->
-  <div id="navbar-container"></div>
-  <link rel="stylesheet" href="/assets/navbar.css" />
 <head>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
@@ -11,9 +8,12 @@
   <title>ASK - Digitaliseringsgrad</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/assets/navbar.css" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
+  <div id="navbar-container"></div>
+
   <div style="padding: 20px;">
     <h2>Digitaliseringsgrad vs Gj.snitt Medievisninger</h2>
 
@@ -44,11 +44,4 @@
 
   <script type="module" src="/js/scatter.js"></script>
 </body>
-<script>
-  fetch("/partials/navbar.html")
-    .then(res => res.text())
-    .then(html => {
-      document.getElementById("navbar-container").innerHTML = html;
-    });
-</script>
 </html>

@@ -1232,12 +1232,6 @@ function wireFilterCheckboxes() {
 document.addEventListener("DOMContentLoaded", async () => {
   await loadNavbar();
 
-  document.getElementById("userMenuLogout")?.addEventListener("click", (ev) => {
-  ev.preventDefault();
-  clearToken();
-  window.location.assign("/views/login.html");
-});
-
   initStepSelect();
   restoreFilters();
   wireFilterCheckboxes();

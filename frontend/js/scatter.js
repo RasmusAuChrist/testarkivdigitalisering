@@ -1,3 +1,5 @@
+import { initProtectedPage, apiGet } from "./page_auth.js";
+
 const canvas = document.getElementById("scatterCanvas");
 const tooltip = document.getElementById("customTooltip");
 const filter = document.getElementById("lokasjonFilter");
@@ -25,13 +27,19 @@ const zoom = d3.zoom()
 
 d3.select(canvas).call(zoom);
 
-fetch("https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsites.net/api/scatter-data")
-  .then(res => res.json())
-  .then(data => {
+document.addEventListener("DOMContentLoaded", async () => {
+  const me = await initProtectedPage();
+  if (!me) return;
+
+  try {
+    const data = await apiGet("/api/scatter-data");
     fullData = data.filter(d => d.percentage_digitized !== null && d.average_views_media !== null);
     populateFilter(fullData);
     applyFilter();
-  });
+  } catch (err) {
+    console.error("Kunne ikke laste scatter-data:", err);
+  }
+});
 
 function populateFilter(data) {
   const uniqueLocations = Array.from(new Set(data.map(d => d.lokasjon).filter(Boolean))).sort();
