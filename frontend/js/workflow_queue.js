@@ -1435,8 +1435,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
   wireDelegatedControls();
 
-  document.getElementById("refreshBtn")?.addEventListener("click", triggerRefresh);
-
   if (ensureLoggedIn()) {
     try {
       await initMe();
