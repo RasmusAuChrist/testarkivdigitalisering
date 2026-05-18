@@ -91,6 +91,42 @@ function getAssignedUsers(it) {
   }
 }
 
+const queueSortCollator = new Intl.Collator("no-NO", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function compareQueueNumber(a, b) {
+  const av = Number(a);
+  const bv = Number(b);
+  const aValid = Number.isFinite(av);
+  const bValid = Number.isFinite(bv);
+
+  if (aValid && bValid) return av - bv;
+  if (aValid) return -1;
+  if (bValid) return 1;
+  return 0;
+}
+
+function compareQueueText(a, b) {
+  const av = String(a ?? "").trim();
+  const bv = String(b ?? "").trim();
+
+  if (av && bv) return queueSortCollator.compare(av, bv);
+  if (av) return -1;
+  if (bv) return 1;
+  return 0;
+}
+
+function sortQueueItems(items) {
+  return [...(items || [])].sort((a, b) =>
+    compareQueueNumber(a?.StepDefId, b?.StepDefId) ||
+    compareQueueText(a?.ArkivIdentifikator, b?.ArkivIdentifikator) ||
+    compareQueueText(a?.Identifikator, b?.Identifikator) ||
+    compareQueueNumber(a?.OrderStepId, b?.OrderStepId)
+  );
+}
+
 const ASTA_GUI_BASE = "https://av.stiftelsen-asta.no/gui/";
 
 function buildAstaSeriesUrl(item) {
@@ -1068,12 +1104,14 @@ async function refresh() {
 
   const data = await apiGet(path);
 
-  rawItems = (data.items || []).map(it => ({
-    ...it,
-    AssignedUsers: Array.isArray(it.AssignedUsers)
-      ? it.AssignedUsers
-      : getAssignedUsers(it),
-  }));
+  rawItems = sortQueueItems(
+    (data.items || []).map(it => ({
+      ...it,
+      AssignedUsers: Array.isArray(it.AssignedUsers)
+        ? it.AssignedUsers
+        : getAssignedUsers(it),
+    }))
+  );
 
   render(rawItems);
   setMsg("OK");
