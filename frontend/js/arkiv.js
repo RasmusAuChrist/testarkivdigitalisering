@@ -225,7 +225,15 @@ const columns = [
   },
   { key: "_digPct", label: "Digitalisert (%)", numeric: true, fmt: v => v.toFixed(2) },
   { key: "stykke_count", label: "Stykke", numeric: true, fmt: int },
-  { key: "views_internal", label: "Visninger (Intern)", numeric: true, fmt: int },
+  {
+  key: "views_internal",
+  label: "Visninger (Intern)",
+  numeric: true,
+  render: (row) => ({
+    type: "html",
+    html: viewsLinkHtml(row.views_internal, row.arkiv_sk, row.identifikator, "internal_views")
+  })
+},
   {
     key: "views_media",
     label: "Visninger (Media)",

@@ -14,6 +14,7 @@ const el = {
   loading: document.getElementById("loadingOverlay"),
   toggleMedia: document.getElementById("toggleMedia"),
   toggleDigark: document.getElementById("toggleDigark"),
+  toggleInternalViews: document.getElementById("toggleInternalViews"),
 };
 
 function showLoading() { if (el.loading) el.loading.style.display = "flex"; }
@@ -42,11 +43,13 @@ function wireToggles() {
     if (!chart) return;
     chart.setDatasetVisibility(0, !!el.toggleMedia?.checked);
     chart.setDatasetVisibility(1, !!el.toggleDigark?.checked);
+    chart.setDatasetVisibility(2, !!el.toggleInternalViews?.checked);
     chart.update();
   };
 
   el.toggleMedia?.addEventListener("change", apply);
   el.toggleDigark?.addEventListener("change", apply);
+  el.toggleInternalViews?.addEventListener("change", apply);
   return apply;
 }
 
@@ -56,6 +59,7 @@ function buildChart(points) {
 
   const media = points.map(p => Number(p.media || 0));
   const digark = points.map(p => Number(p.digark || 0));
+  const internalViews = points.map(p => Number(p.internal_views || 0));
 
   if (chart) chart.destroy();
 
@@ -64,21 +68,28 @@ function buildChart(points) {
     data: {
       labels,
       datasets: [
-        {
-          label: "Media",
-          data: media,
-          tension: 0.25,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-        },
-        {
-          label: "Digark",
-          data: digark,
-          tension: 0.25,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-        },
-      ],
+  {
+    label: "Media",
+    data: media,
+    tension: 0.25,
+    pointRadius: 2,
+    pointHoverRadius: 4,
+  },
+  {
+    label: "Digark",
+    data: digark,
+    tension: 0.25,
+    pointRadius: 2,
+    pointHoverRadius: 4,
+  },
+  {
+    label: "Interne visninger",
+    data: internalViews,
+    tension: 0.25,
+    pointRadius: 2,
+    pointHoverRadius: 4,
+  },
+],
     },
     options: {
       responsive: true,
@@ -109,7 +120,7 @@ function buildChart(points) {
 async function init() {
   const arkivSk = getUrlParam("arkiv_sk");
   const ident = getUrlParam("ident");
-  const kind = getUrlParam("kind"); // "media" | "digark" (optional)
+  const kind = getUrlParam("kind"); // "media" | "digark" | "internal_views" (optional)
 
   el.subTitle.textContent = ident
     ? `Identifikator: ${ident} (arkiv_sk=${arkivSk})`
@@ -123,8 +134,20 @@ async function init() {
   }
 
   // If link came from a specific total cell, hide the other line by default
-  if (kind === "media" && el.toggleDigark) el.toggleDigark.checked = false;
-  if (kind === "digark" && el.toggleMedia) el.toggleMedia.checked = false;
+if (kind === "media") {
+  if (el.toggleDigark) el.toggleDigark.checked = false;
+  if (el.toggleInternalViews) el.toggleInternalViews.checked = false;
+}
+
+if (kind === "digark") {
+  if (el.toggleMedia) el.toggleMedia.checked = false;
+  if (el.toggleInternalViews) el.toggleInternalViews.checked = false;
+}
+
+if (kind === "internal_views") {
+  if (el.toggleMedia) el.toggleMedia.checked = false;
+  if (el.toggleDigark) el.toggleDigark.checked = false;
+}
 
   showLoading();
   try {
@@ -134,7 +157,7 @@ async function init() {
 
     if (!points.length) {
       el.statusLine.textContent = "Ingen historikk funnet.";
-      buildChart([{ date: "2000-01-01", media: 0, digark: 0 }]);
+      buildChart([{ date: "2000-01-01", media: 0, digark: 0, internal_views: 0 }]);
       return;
     }
 

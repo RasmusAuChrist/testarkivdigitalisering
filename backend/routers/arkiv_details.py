@@ -188,6 +188,7 @@ def dastats_views_history(
                 "date": yyyymmdd_to_date(mk).isoformat(),
                 "media": int(r.get("views_media") or 0),
                 "digark": int(r.get("views_digark") or 0),
+                "internal_views": int(r.get("views_internal") or 0),
             }
 
         # Fill missing months with zeros
@@ -197,7 +198,12 @@ def dastats_views_history(
         # iterate while d < end_exclusive
         while d < end_exclusive:
             mk = date_to_yyyymmdd(d)
-            points.append(by_key.get(mk, {"date": d.isoformat(), "media": 0, "digark": 0}))
+            points.append(by_key.get(mk, {
+    "date": d.isoformat(),
+    "media": 0,
+    "digark": 0,
+    "internal_views": 0,
+},))
             d = next_month_start(d)
 
         return {"arkiv_sk": arkiv_sk, "points": points}
