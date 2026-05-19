@@ -738,22 +738,23 @@ function persistFilters() {
 }
 
 function restoreFilters() {
+  const favouriteIds = getFavouriteQueueFilterIds();
+  const hasFavouriteState = favouriteIds.length > 0;
   const hasStoredState = queueFilterOptions.some(option =>
     localStorage.getItem(option.storageKey) !== null
   );
-  const favouriteIds = getFavouriteQueueFilterIds();
-  const defaultIds = favouriteIds.length
-    ? favouriteIds
-    : queueFilterOptions
-      .filter(option => option.defaultChecked)
-      .map(option => option.id);
+  const defaultIds = queueFilterOptions
+    .filter(option => option.defaultChecked)
+    .map(option => option.id);
 
   queueFilterOptions.forEach(option => {
     const checkbox = getQueueFilterCheckbox(option.id);
     if (!checkbox) return;
 
     const stored = localStorage.getItem(option.storageKey);
-    checkbox.checked = hasStoredState
+    checkbox.checked = hasFavouriteState
+      ? favouriteIds.includes(option.id)
+      : hasStoredState
       ? (stored === null ? option.defaultChecked : stored === "1")
       : defaultIds.includes(option.id);
   });
