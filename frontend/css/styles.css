@@ -1251,6 +1251,11 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   padding: 0;
 }
 
+.surface-light .queue-table .btn.btn-complete {
+  width: 69px;
+  min-width: 69px;
+}
+
 .surface-light .queue-table .btn .btn-icon {
   display: inline-flex;
   align-items: center;

@@ -396,7 +396,9 @@ function actionIcon(name) {
     `,
     unhold: `
       <svg ${common}>
-        <path ${stroke} d="M7 5l7 5-7 5V5z"></path>
+        <rect x="5.5" y="8.5" width="9" height="7" rx="1.4" ${stroke}></rect>
+        <path ${stroke} d="M7.25 8.5V6.8a3.25 3.25 0 0 1 6.2-1.35"></path>
+        <path ${stroke} d="M10 11.3v1.6"></path>
       </svg>
     `,
     close: `
@@ -902,7 +904,7 @@ function controlsCell(it) {
         action: "complete",
         icon: "complete",
         title: "Fullfør og gå videre",
-        className: "btn-success",
+        className: "btn-success btn-complete",
         dataAttrs: {
           "data-order-step-id": it.OrderStepId,
         },
