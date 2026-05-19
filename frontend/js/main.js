@@ -45,6 +45,66 @@ function shortStepLabel(label) {
     .replace("Opprydning for videresending", "Opprydning videresending");
 }
 
+function getAssignedUsers(item) {
+  if (Array.isArray(item?.AssignedUsers)) return item.AssignedUsers;
+
+  try {
+    const parsed = JSON.parse(item?.AssignedUsersJson || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+const workflowStatusGroups = [
+  { id: "assigned", label: "Tildelt", color: "#16a34a" },
+  { id: "onHold", label: "På vent", color: "#d97706" },
+  { id: "pending", label: "Ikke påbegynt", color: "#fdd835" },
+  { id: "blocked", label: "Blokkert", color: "#dc2626" },
+  { id: "completed", label: "Fullført", color: "#2563eb" },
+  { id: "stopped", label: "Stoppet", color: "#111827" },
+];
+
+function getWorkflowStatusGroup(item) {
+  if (item?.OrderStatus === "OnHold") return "onHold";
+  if (item?.OrderStatus === "Closed" || item?.OrderStatus === "Completed") return "stopped";
+  if (item?.StepStatus === "Stopped") return "stopped";
+  if (item?.StepStatus === "Completed") return "completed";
+  if (item?.StepStatus === "Blocked") return "blocked";
+  if (getAssignedUsers(item).length > 0) return "assigned";
+  return "pending";
+}
+
+const stackTotalLabelsPlugin = {
+  id: "stackTotalLabels",
+  afterDatasetsDraw(chart) {
+    const totals = chart.$stackTotals || [];
+    const { ctx, scales } = chart;
+    const xScale = scales.x;
+    const yScale = scales.y;
+
+    if (!xScale || !yScale || !totals.length) return;
+
+    ctx.save();
+    ctx.fillStyle = "#111827";
+    ctx.font = "700 11px Segoe UI, Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+
+    totals.forEach((total, index) => {
+      if (!total) return;
+
+      const x = typeof xScale.getPixelForTick === "function"
+        ? xScale.getPixelForTick(index)
+        : xScale.getPixelForValue(index);
+      const y = yScale.getPixelForValue(total);
+      ctx.fillText(formatNumber(total, 1), x, y - 5);
+    });
+
+    ctx.restore();
+  },
+};
+
 document.addEventListener("DOMContentLoaded", async () => {
 
   // 1. Always hide splash after 2 seconds
@@ -250,13 +310,19 @@ async function buildWorkflowHyllemeterChart() {
   try {
     const data = await apiGet("/api/wf/steps/queue");
     const items = Array.isArray(data?.items) ? data.items : [];
-    const hyllemeterByStep = new Map();
+    const hyllemeterByStatus = new Map();
     const nameByStep = new Map(workflowSteps.map(step => [step.id, step.name]));
+
+    workflowStatusGroups.forEach(group => {
+      hyllemeterByStatus.set(group.id, new Map());
+    });
 
     items.forEach(item => {
       const stepId = Number(item.StepDefId);
       if (!Number.isFinite(stepId)) return;
 
+      const statusGroup = getWorkflowStatusGroup(item);
+      const hyllemeterByStep = hyllemeterByStatus.get(statusGroup);
       const current = hyllemeterByStep.get(stepId) || 0;
       hyllemeterByStep.set(stepId, current + parseNumber(item.Hyllemeter));
 
@@ -267,42 +333,63 @@ async function buildWorkflowHyllemeterChart() {
 
     const stepIds = [...new Set([
       ...workflowSteps.map(step => step.id),
-      ...hyllemeterByStep.keys(),
+      ...[...hyllemeterByStatus.values()].flatMap(stepMap => [...stepMap.keys()]),
     ])].sort((a, b) => a - b);
 
     const labels = stepIds.map(stepId => shortStepLabel(nameByStep.get(stepId) || `Steg ${stepId}`));
-    const values = stepIds.map(stepId => Number((hyllemeterByStep.get(stepId) || 0).toFixed(2)));
+    const totals = stepIds.map(stepId =>
+      workflowStatusGroups.reduce((sum, group) => {
+        const value = hyllemeterByStatus.get(group.id)?.get(stepId) || 0;
+        return sum + value;
+      }, 0)
+    );
 
-    new Chart(ctx, {
+    const datasets = workflowStatusGroups.map(group => ({
+      label: group.label,
+      data: stepIds.map(stepId => Number((hyllemeterByStatus.get(group.id)?.get(stepId) || 0).toFixed(2))),
+      backgroundColor: group.color,
+      borderColor: "#ffffff",
+      borderWidth: 1,
+      stack: "workflowHyllemeter",
+    }));
+
+    const chart = new Chart(ctx, {
       type: "bar",
       data: {
         labels,
-        datasets: [{
-          label: "Hyllemeter",
-          data: values,
-          backgroundColor: "#fdd835",
-          borderColor: "#b8962e",
-          borderWidth: 1,
-        }],
+        datasets,
       },
+      plugins: [stackTotalLabelsPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: { top: 22 },
+        },
         plugins: {
-          title: { display: true, text: "Bekreftet hyllemeter per workflow-steg" },
-          legend: { display: false },
+          title: { display: true, text: "Bekreftet hyllemeter per workflow-steg og status" },
+          legend: { position: "bottom" },
           tooltip: {
+            mode: "index",
+            intersect: false,
             callbacks: {
-              label: context => `${formatNumber(context.parsed.y, 2)} hyllemeter`,
+              label: context => `${context.dataset.label}: ${formatNumber(context.parsed.y, 2)} hyllemeter`,
+              footer: contexts => {
+                const total = contexts.reduce((sum, context) => sum + Number(context.parsed.y || 0), 0);
+                return `Totalt: ${formatNumber(total, 2)} hyllemeter`;
+              },
             },
           },
         },
         scales: {
           x: {
+            stacked: true,
             ticks: { autoSkip: false, maxRotation: 45, minRotation: 30 },
           },
           y: {
+            stacked: true,
             beginAtZero: true,
+            grace: "12%",
             title: { display: true, text: "Hyllemeter" },
             ticks: {
               callback: value => formatNumber(value, 0),
@@ -311,6 +398,9 @@ async function buildWorkflowHyllemeterChart() {
         },
       },
     });
+
+    chart.$stackTotals = totals;
+    chart.update();
   } catch (err) {
     console.error("Kunne ikke laste hyllemeter per workflow-steg:", err);
   }
