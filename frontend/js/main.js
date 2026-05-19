@@ -1,5 +1,50 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
 
+const workflowSteps = [
+  { id: 1, name: "Analyse" },
+  { id: 2, name: "Prioriteringsråd" },
+  { id: 3, name: "Arkivkartlegging" },
+  { id: 4, name: "Fysisk klargjøring" },
+  { id: 5, name: "Klar til sending" },
+  { id: 6, name: "Lager NHA" },
+  { id: 7, name: "Skanning pågår" },
+  { id: 8, name: "Etterarbeid skanning" },
+  { id: 9, name: "Skape uttrekk" },
+  { id: 10, name: "Kvalitetskontroll" },
+  { id: 11, name: "Opplasting og innlemming" },
+  { id: 12, name: "Metadata etterarbeid" },
+  { id: 13, name: "Opprydning for destruksjon - gjelder både fysisk og digitalt" },
+  { id: 14, name: "Opprydning for videresending" },
+];
+
+function parseNumber(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  const normalized = String(value)
+    .trim()
+    .replace(/\s/g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatNumber(value, digits = 0) {
+  return new Intl.NumberFormat("nb-NO", {
+    maximumFractionDigits: digits,
+  }).format(Number(value || 0));
+}
+
+function shortStepLabel(label) {
+  return String(label || "")
+    .replace("Opprydning for destruksjon - gjelder både fysisk og digitalt", "Opprydning destruksjon")
+    .replace("Opplasting og innlemming", "Opplasting")
+    .replace("Etterarbeid skanning", "Etterarbeid")
+    .replace("Metadata etterarbeid", "Metadata")
+    .replace("Opprydning for videresending", "Opprydning videresending");
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
 
   // 1. Always hide splash after 2 seconds
@@ -26,70 +71,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Status chart: stacked per ordre
-  const ctx = document.getElementById("statusChart")?.getContext("2d");
-  if (!ctx) return;
-
-apiGet("/api/status-by-ordre")
-  .then(data => {
-    const sortOrder = [
-      "Analyse",
-      "Prioriteringsråd",
-      "Arkivkartlegging",
-      "Fysisk klargjøring",
-      "Klar til sending",
-      "Lager NHA",
-      "Skanning pågår",
-      "Etterarbeid skanning",
-      "Skape uttrekk",
-      "Kvalitetskontroll",
-      "Opplasting og innlemming",
-      "Metadata etterarbeid",
-      "Opprydning for destruksjon - gjelder både fysisk og digitalt",
-      "Opprydning for videresending"
-    ];
-
-    const ordres = Array.from(new Set(data.map(d => d.ordre))).sort();
-
-    const statusMap = {};
-    data.forEach(d => {
-      if (!statusMap[d.status]) statusMap[d.status] = {};
-      statusMap[d.status][d.ordre] = d.stykker;
-    });
-
-    const colors = d3.schemeSet3.concat(d3.schemeTableau10);
-
-    const datasets = ordres.map((ordre, i) => ({
-      label: `Ordre ${ordre}`,
-      backgroundColor: colors[i % colors.length],
-      data: sortOrder.map(status => statusMap[status]?.[ordre] || 0)
-    }));
-
-    new Chart(ctx, {
-      type: "bar",
-      data: { labels: sortOrder, datasets },
-      options: {
-        responsive: true,
-        plugins: {
-          title: { display: true, text: "Fordeling av stykker per status og ordre" },
-          tooltip: { mode: "index", intersect: false },
-          legend: { position: "bottom" }
-        },
-        scales: {
-          x: {
-            stacked: true,
-            ticks: { autoSkip: false, maxRotation: 45, minRotation: 30 }
-          },
-          y: {
-            stacked: true,
-            beginAtZero: true,
-            title: { display: true, text: "Antall stykker" }
-          }
-        }
-      }
-    });
-  })
-  .catch(err => console.error("Kunne ikke laste statusdata:", err));
+  await Promise.all([
+    buildWorkflowHyllemeterChart(),
+    buildSahSummaryChart(),
+  ]);
 
 });/**
  * Smooth fullscreen for .chart-box tiles using FLIP animation.
@@ -255,5 +240,128 @@ function setupChartFullscreen() {
         if (chart) chart.resize();
       }
     });
+  }
+}
+
+async function buildWorkflowHyllemeterChart() {
+  const ctx = document.getElementById("statusChart")?.getContext("2d");
+  if (!ctx) return;
+
+  try {
+    const data = await apiGet("/api/wf/steps/queue");
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const hyllemeterByStep = new Map();
+    const nameByStep = new Map(workflowSteps.map(step => [step.id, step.name]));
+
+    items.forEach(item => {
+      const stepId = Number(item.StepDefId);
+      if (!Number.isFinite(stepId)) return;
+
+      const current = hyllemeterByStep.get(stepId) || 0;
+      hyllemeterByStep.set(stepId, current + parseNumber(item.Hyllemeter));
+
+      if (item.StepName && !nameByStep.has(stepId)) {
+        nameByStep.set(stepId, item.StepName);
+      }
+    });
+
+    const stepIds = [...new Set([
+      ...workflowSteps.map(step => step.id),
+      ...hyllemeterByStep.keys(),
+    ])].sort((a, b) => a - b);
+
+    const labels = stepIds.map(stepId => shortStepLabel(nameByStep.get(stepId) || `Steg ${stepId}`));
+    const values = stepIds.map(stepId => Number((hyllemeterByStep.get(stepId) || 0).toFixed(2)));
+
+    new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Hyllemeter",
+          data: values,
+          backgroundColor: "#fdd835",
+          borderColor: "#b8962e",
+          borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: "Bekreftet hyllemeter per workflow-steg" },
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: context => `${formatNumber(context.parsed.y, 2)} hyllemeter`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { autoSkip: false, maxRotation: 45, minRotation: 30 },
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "Hyllemeter" },
+            ticks: {
+              callback: value => formatNumber(value, 0),
+            },
+          },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Kunne ikke laste hyllemeter per workflow-steg:", err);
+  }
+}
+
+async function buildSahSummaryChart() {
+  const ctx = document.getElementById("chart2")?.getContext("2d");
+  if (!ctx) return;
+
+  try {
+    const data = await apiGet("/api/sah-items?page=1&page_size=1");
+    const summary = data?.summary || {};
+    const moved = Number(summary.moved_correctly || 0);
+    const notMoved = Number(summary.not_moved || 0);
+    const deviations = Number(summary.deviations || 0);
+    const total = Number(summary.total_items || (moved + notMoved + deviations));
+    const progress = Number(summary.progress_percent || 0);
+
+    new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: ["Flyttet korrekt", "Ikke flyttet", "Avvik"],
+        datasets: [{
+          data: [moved, notMoved, deviations],
+          backgroundColor: ["#188038", "#fbbc04", "#c5221f"],
+          borderColor: "#ffffff",
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `SAH Hamar: ${formatNumber(total)} stykker, ${formatNumber(progress, 2)}% flyttet`,
+          },
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: context => {
+                const value = Number(context.parsed || 0);
+                const percent = total ? (value / total) * 100 : 0;
+                return `${context.label}: ${formatNumber(value)} (${formatNumber(percent, 1)}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Kunne ikke laste SAH Hamar-sammendrag:", err);
   }
 }
