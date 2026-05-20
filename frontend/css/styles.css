@@ -227,6 +227,42 @@ table.status-table th {
   height: 300px !important;
 }
 
+.chart-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-canvas-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+  transition: opacity 160ms ease;
+}
+
+.chart-canvas-wrap.is-loading canvas {
+  opacity: 0.18;
+}
+
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.86);
+  pointer-events: none;
+}
+
+.chart-canvas-wrap.is-loading .chart-loading {
+  display: flex;
+}
+
+.chart-loading .spinner {
+  width: 52px;
+  height: 52px;
+}
+
 /* =========================================================
    DASHBOARD: Smooth fullscreen + hide other tiles + backdrop
    (Does NOT affect Arkiv)
@@ -298,6 +334,10 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 .chart-box.is-fullscreen h3 {
   margin: 0;
   padding-right: 56px;
+}
+
+.chart-box.is-fullscreen .chart-canvas-wrap {
+  height: 100%;
 }
 
 .chart-box.is-fullscreen canvas {

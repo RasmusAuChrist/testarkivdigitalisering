@@ -45,6 +45,15 @@ function shortStepLabel(label) {
     .replace("Opprydning for videresending", "Opprydning videresending");
 }
 
+function setChartLoading(canvasId, isLoading) {
+  const canvas = document.getElementById(canvasId);
+  const wrap = canvas?.closest(".chart-canvas-wrap");
+  if (!wrap) return;
+
+  wrap.classList.toggle("is-loading", isLoading);
+  wrap.setAttribute("aria-busy", String(isLoading));
+}
+
 function getAssignedUsers(item) {
   if (Array.isArray(item?.AssignedUsers)) return item.AssignedUsers;
 
@@ -304,8 +313,11 @@ function setupChartFullscreen() {
 }
 
 async function buildWorkflowHyllemeterChart() {
-  const ctx = document.getElementById("statusChart")?.getContext("2d");
+  const canvasId = "statusChart";
+  const ctx = document.getElementById(canvasId)?.getContext("2d");
   if (!ctx) return;
+
+  setChartLoading(canvasId, true);
 
   try {
     const data = await apiGet("/api/wf/steps/queue");
@@ -403,12 +415,17 @@ async function buildWorkflowHyllemeterChart() {
     chart.update();
   } catch (err) {
     console.error("Kunne ikke laste hyllemeter per workflow-steg:", err);
+  } finally {
+    setChartLoading(canvasId, false);
   }
 }
 
 async function buildSahSummaryChart() {
-  const ctx = document.getElementById("chart2")?.getContext("2d");
+  const canvasId = "chart2";
+  const ctx = document.getElementById(canvasId)?.getContext("2d");
   if (!ctx) return;
+
+  setChartLoading(canvasId, true);
 
   try {
     const data = await apiGet("/api/sah-items?page=1&page_size=1");
@@ -453,5 +470,7 @@ async function buildSahSummaryChart() {
     });
   } catch (err) {
     console.error("Kunne ikke laste SAH Hamar-sammendrag:", err);
+  } finally {
+    setChartLoading(canvasId, false);
   }
 }

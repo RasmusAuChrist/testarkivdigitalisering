@@ -31,12 +31,22 @@
       <section id="dashboard-grid">
         <div class="chart-box">
           <h3>Hyllemeter per steg</h3>
-          <canvas id="statusChart"></canvas>
+          <div class="chart-canvas-wrap is-loading" aria-busy="true">
+            <canvas id="statusChart"></canvas>
+            <div class="chart-loading" aria-hidden="true">
+              <img src="/assets/spinner.png" alt="" class="spinner" />
+            </div>
+          </div>
         </div>
 
         <div class="chart-box">
           <h3>Flytting Hamar</h3>
-          <canvas id="chart2"></canvas>
+          <div class="chart-canvas-wrap is-loading" aria-busy="true">
+            <canvas id="chart2"></canvas>
+            <div class="chart-loading" aria-hidden="true">
+              <img src="/assets/spinner.png" alt="" class="spinner" />
+            </div>
+          </div>
         </div>
 
         <div class="chart-box">
