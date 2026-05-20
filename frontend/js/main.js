@@ -1,5 +1,7 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
 
+const CHART_LOAD_TIMEOUT_MS = 20000;
+
 const workflowSteps = [
   { id: 1, name: "Analyse" },
   { id: 2, name: "Prioriteringsråd" },
@@ -52,6 +54,18 @@ function setChartLoading(canvasId, isLoading) {
 
   wrap.classList.toggle("is-loading", isLoading);
   wrap.setAttribute("aria-busy", String(isLoading));
+}
+
+function apiGetWithTimeout(path, timeoutMs = CHART_LOAD_TIMEOUT_MS) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("Tidsavbrudd ved lasting av diagram.")), timeoutMs);
+  });
+
+  return Promise.race([
+    apiGet(path),
+    timeout,
+  ]).finally(() => window.clearTimeout(timeoutId));
 }
 
 function getAssignedUsers(item) {
@@ -320,7 +334,7 @@ async function buildWorkflowHyllemeterChart() {
   setChartLoading(canvasId, true);
 
   try {
-    const data = await apiGet("/api/wf/steps/queue");
+    const data = await apiGetWithTimeout("/api/wf/steps/queue");
     const items = Array.isArray(data?.items) ? data.items : [];
     const hyllemeterByStatus = new Map();
     const nameByStep = new Map(workflowSteps.map(step => [step.id, step.name]));
@@ -428,7 +442,7 @@ async function buildSahSummaryChart() {
   setChartLoading(canvasId, true);
 
   try {
-    const data = await apiGet("/api/sah-items?page=1&page_size=1");
+    const data = await apiGetWithTimeout("/api/sah-items?page=1&page_size=1");
     const summary = data?.summary || {};
     const moved = Number(summary.moved_correctly || 0);
     const notMoved = Number(summary.not_moved || 0);
