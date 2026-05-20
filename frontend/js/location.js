@@ -13,6 +13,10 @@ const shelfHeight = 25;
 const shelfWidth = 200;
 const pillHeight = 10;
 const pillPadding = 2;
+const naturalCollator = new Intl.Collator("nb-NO", {
+  numeric: true,
+  sensitivity: "base",
+});
 
 canvas.width = window.innerWidth * 2;
 canvas.height = window.innerHeight * 2;
@@ -65,6 +69,46 @@ function drawText(text, x, y, color = "black", size = 12, bold = false) {
 
 function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function normalizeSortText(value) {
+  return String(value ?? "").trim();
+}
+
+function compareNatural(a, b) {
+  return naturalCollator.compare(normalizeSortText(a), normalizeSortText(b));
+}
+
+function compareItemsByPath(a, b) {
+  return (
+    compareNatural(a.item_path, b.item_path) ||
+    compareNatural(a.item_id, b.item_id)
+  );
+}
+
+function getArkivKey(item) {
+  return normalizeSortText(item?.arkiv);
+}
+
+function sortShelfItems(items, continuingArkiv = "") {
+  const groups = d3.group(items || [], getArkivKey);
+  const arkivKeys = Array.from(groups.keys()).sort(compareNatural);
+  const continuingKey = normalizeSortText(continuingArkiv);
+
+  if (continuingKey && groups.has(continuingKey)) {
+    const index = arkivKeys.indexOf(continuingKey);
+    arkivKeys.splice(index, 1);
+    arkivKeys.unshift(continuingKey);
+  }
+
+  return arkivKeys.flatMap(arkivKey =>
+    groups.get(arkivKey).sort(compareItemsByPath)
+  );
+}
+
+function getLastArkiv(items) {
+  const lastItem = items?.[items.length - 1];
+  return lastItem ? getArkivKey(lastItem) : "";
 }
 
 function setupZoom() {
@@ -230,6 +274,7 @@ function draw() {
     sortedBays.forEach((bay, bayIndex) => {
       const shelves = bays.get(bay).sort((a, b) => a.shelf - b.shelf);
       const baseX = bayIndex * baySpacing + 100;
+      let continuingArkiv = "";
 
       drawText(`Fag ${bay}`, baseX + shelfWidth / 2 - 20, baseY - 5);
 
@@ -241,9 +286,8 @@ function draw() {
         ctx.fillRect(baseX, shelfY, shelfWidth, shelfHeight - 2);
         ctx.strokeRect(baseX, shelfY, shelfWidth, shelfHeight - 2);
 
-        const items = (itemsByShelf.get(shelf.path) || []).sort((a, b) =>
-          (a.item_id || "").localeCompare(b.item_id || "")
-        );
+        const items = sortShelfItems(itemsByShelf.get(shelf.path) || [], continuingArkiv);
+        continuingArkiv = getLastArkiv(items);
 
         const availableWidth = shelfWidth - pillPadding * 2;
         const pillWidth = Math.max(4, Math.min((availableWidth / items.length) - pillPadding, 16));
