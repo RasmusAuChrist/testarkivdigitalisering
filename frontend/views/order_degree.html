@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <title>ASK – Ordensgrad</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/assets/navbar.css" />
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+
+  <style>
+    .page { padding: 20px; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 16px 0;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .card-title { color:#666; font-size:13px; font-weight:700; }
+    .card-value { font-size:28px; font-weight:800; margin-top:6px; }
+    .charts {
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap:16px;
+      margin:16px 0;
+    }
+    .chart-box {
+      background:white;
+      border-radius:8px;
+      padding:16px;
+      box-shadow:0 1px 4px rgba(0,0,0,.08);
+    }
+    .filters {
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:end;
+      margin:16px 0;
+      background:white;
+      padding:14px;
+      border-radius:8px;
+    }
+    .filters input, .filters select, .filters button {
+      padding:8px 10px;
+      min-width:160px;
+    }
+    .badge {
+      display:inline-block;
+      padding:4px 9px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      background:#eef3f8;
+    }
+    .attention { background:#fce8e6; color:#c5221f; }
+    .ok { background:#e6f4ea; color:#188038; }
+    th { cursor:pointer; }
+  </style>
+</head>
+
+<body>
+  <div id="navbar-container"></div>
+
+  <div class="surface-light page">
+    <h2>Ordensgrad – arkivnivå</h2>
+    <p style="color:#555;margin-top:-6px;">
+      Oversikt over ordningsgrad, katalogisering og fysisk tilstand for arkiver.
+    </p>
+
+    <div class="filters">
+      <div>
+        <label>Lokasjon</label>
+        <input id="lokasjonInput" value="SAB" />
+      </div>
+
+      <div>
+        <label>Søk</label>
+        <input id="searchInput" placeholder="Navn eller identifikator" />
+      </div>
+
+      <div>
+        <label>Ordensgrad</label>
+        <select id="ordningsgradFilter">
+          <option value="">Alle</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Katalogisering</label>
+        <select id="katalogiseringFilter">
+          <option value="">Alle</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Vis</label>
+        <select id="attentionFilter">
+          <option value="">Alle</option>
+          <option value="attention">Trenger oppfølging</option>
+          <option value="ok">Ikke flagget</option>
+        </select>
+      </div>
+
+      <button id="reloadBtn" type="button">Last på nytt</button>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-title">Arkiver totalt</div>
+        <div id="archivesTotal" class="card-value">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Stykker totalt</div>
+        <div id="stykkeTotal" class="card-value">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Trenger oppfølging</div>
+        <div id="attentionTotal" class="card-value">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Gj.snitt digitalisert</div>
+        <div id="digitizedAvg" class="card-value">0%</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-box">
+        <h3>Arkiver per ordningsgrad</h3>
+        <canvas id="ordningsgradChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Stykker per ordningsgrad</h3>
+        <canvas id="stykkeChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Katalogisering</h3>
+        <canvas id="katalogiseringChart"></canvas>
+      </div>
+    </div>
+
+    <div id="stats" style="margin:12px 0;color:#555;"></div>
+
+    <div class="table-scroll-x">
+      <table class="arkiv-table">
+        <thead>
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="pagination" style="margin-top:12px;display:flex;gap:10px;align-items:center;"></div>
+  </div>
+
+  <div id="loadingOverlay">
+    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" src="/js/order_degree.js"></script>
+</body>
+</html>
