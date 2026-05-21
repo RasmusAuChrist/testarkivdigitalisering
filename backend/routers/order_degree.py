@@ -43,7 +43,7 @@ def attention_needed(row):
 
 @router.get("/order-degree/archives")
 def get_order_degree_archives(
-    lokasjon: str = Query(default="SAB"),
+    lokasjon = "SAB"
 ):
     conn = None
 
@@ -71,7 +71,6 @@ def get_order_degree_archives(
                 ft.value AS fysisktilstand_value,
 
                 COALESCE(g.stykke_count, 0) AS stykke_count,
-                COALESCE(g.percentage_digitized, a.percentage_digitized, 0) AS percentage_digitized,
                 g.tags,
                 g.serier,
                 g.last_refreshed_utc
@@ -108,7 +107,6 @@ def get_order_degree_archives(
 
         for row in rows:
             row["attention_needed"] = attention_needed(row)
-            row["percentage_digitized_percent"] = round(float(row.get("percentage_digitized") or 0) * 100, 2)
 
         return {
             "lokasjon": lokasjon,

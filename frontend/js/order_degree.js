@@ -1,7 +1,6 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const el = {
-  lokasjon: document.getElementById("lokasjonInput"),
   search: document.getElementById("searchInput"),
   ordningsgrad: document.getElementById("ordningsgradFilter"),
   katalogisering: document.getElementById("katalogiseringFilter"),
@@ -11,8 +10,7 @@ const el = {
   archivesTotal: document.getElementById("archivesTotal"),
   stykkeTotal: document.getElementById("stykkeTotal"),
   attentionTotal: document.getElementById("attentionTotal"),
-  digitizedAvg: document.getElementById("digitizedAvg"),
-
+ 
   stats: document.getElementById("stats"),
   head: document.getElementById("tableHead"),
   body: document.getElementById("tableBody"),
@@ -40,7 +38,6 @@ const columns = [
   { key: "katalogisering_value", label: "Katalogisering" },
   { key: "fysisktilstand_value", label: "Fysisk tilstand" },
   { key: "stykke_count", label: "Stykker", numeric: true },
-  { key: "percentage_digitized_percent", label: "Digitalisert %", numeric: true },
   { key: "serier", label: "Serier" },
 ];
 
@@ -81,11 +78,9 @@ async function loadData() {
   showLoading();
 
   try {
-    const lokasjon = el.lokasjon.value.trim() || "SAB";
-
     const [summary, archives] = await Promise.all([
-      apiGet(`/api/order-degree/summary?lokasjon=${encodeURIComponent(lokasjon)}`),
-      apiGet(`/api/order-degree/archives?lokasjon=${encodeURIComponent(lokasjon)}`),
+      apiGet("/api/order-degree/summary"),
+      apiGet("/api/order-degree/archives"),
     ]);
 
     state.raw = archives.items || [];
@@ -102,8 +97,7 @@ function renderSummary(summary) {
   el.archivesTotal.textContent = formatNumber(summary.archives_total);
   el.stykkeTotal.textContent = formatNumber(summary.stykke_total);
   el.attentionTotal.textContent = formatNumber(summary.attention_needed_count);
-  el.digitizedAvg.textContent = formatPercent(summary.average_digitized_percent);
-}
+  }
 
 function buildDropdowns() {
   fillSelect(el.ordningsgrad, unique(state.raw.map(r => r.ordningsgrad_value)));
@@ -235,8 +229,6 @@ function renderTable() {
 
       if (col.render) {
         td.innerHTML = col.render(row);
-      } else if (col.key === "percentage_digitized_percent") {
-        td.textContent = formatPercent(row[col.key]);
       } else if (col.numeric) {
         td.textContent = formatNumber(row[col.key]);
       } else {
@@ -352,10 +344,6 @@ function wireEvents() {
   el.katalogisering.addEventListener("change", applyFilters);
   el.attention.addEventListener("change", applyFilters);
   el.reload.addEventListener("click", loadData);
-
-  el.lokasjon.addEventListener("keydown", event => {
-    if (event.key === "Enter") loadData();
-  });
 }
 
 async function init() {
