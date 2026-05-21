@@ -27,8 +27,8 @@ const state = {
   filtered: [],
   page: 1,
   pageSize: 100,
-  sortKey: "attention_needed",
-  sortDir: "desc",
+  sortKey: "navn",
+  sortDir: "asc",
   charts: {},
 };
 
@@ -165,15 +165,32 @@ function applyFilters() {
 
 function sortRows() {
   const dir = state.sortDir === "asc" ? 1 : -1;
-  const col = columns.find(c => c.key === state.sortKey);
-  const sortKey = col?.sortBy || state.sortKey;
-  const numeric = col?.numeric || state.sortKey === "attention_needed";
 
   state.filtered.sort((a, b) => {
-    const av = a[sortKey];
-    const bv = b[sortKey];
+    const av = a[state.sortKey];
+    const bv = b[state.sortKey];
 
-    if (numeric) return (Number(av || 0) - Number(bv || 0)) * dir;
+    // Explicit code ordering
+    if (state.sortKey === "ordningsgrad_code") {
+      const order = ["A", "B", "C", "D", "E", "F"];
+      return (order.indexOf(av) - order.indexOf(bv)) * dir;
+    }
+
+    if (state.sortKey === "katalogisering_code") {
+      const order = ["A", "B", "C", "D", "E", "F"];
+      return (order.indexOf(av) - order.indexOf(bv)) * dir;
+    }
+
+    if (state.sortKey === "fysisktilstand_code") {
+      const order = ["0", "1", "2", "3", "4", "5"];
+      return (order.indexOf(String(av)) - order.indexOf(String(bv))) * dir;
+    }
+
+    const col = columns.find(c => c.key === state.sortKey);
+
+    if (col?.numeric || state.sortKey === "attention_needed") {
+      return (Number(av || 0) - Number(bv || 0)) * dir;
+    }
 
     return String(av || "").localeCompare(String(bv || ""), "no", {
       numeric: true,
@@ -344,8 +361,42 @@ function renderBarChart(canvasId, label, dataObject) {
     state.charts[canvasId].destroy();
   }
 
-  const labels = Object.keys(dataObject);
-  const values = Object.values(dataObject);
+  const orders = {
+    ordningsgradChart: [
+      "Ferdig ordnet",
+      "Delvis ordnet",
+      "Grovordnet",
+      "Under ordning",
+      "Uordnet",
+      "Uordnet i uordnet aksesjon",
+      "Ukjent"
+    ],
+
+    stykkeChart: [
+      "Ferdig ordnet",
+      "Delvis ordnet",
+      "Grovordnet",
+      "Under ordning",
+      "Uordnet",
+      "Uordnet i uordnet aksesjon",
+      "Ukjent"
+    ],
+
+    katalogiseringChart: [
+      "Ferdig katalog",
+      "Arkivliste",
+      "Avleveringsliste",
+      "Katalog under arbeid",
+      "Uten katalog eller liste",
+      "Serieliste",
+      "Ukjent"
+    ]
+  };
+
+  const order = orders[canvasId] || [];
+
+  const labels = order.filter(name => Object.prototype.hasOwnProperty.call(dataObject, name));
+  const values = labels.map(name => dataObject[name]);
 
   state.charts[canvasId] = new Chart(canvas, {
     type: "bar",
