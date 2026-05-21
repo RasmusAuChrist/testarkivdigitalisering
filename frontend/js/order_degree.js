@@ -36,9 +36,18 @@ const columns = [
   { key: "attention_needed", label: "Status", render: statusBadge },
   { key: "navn", label: "Navn" },
   { key: "identifikator", label: "Identifikator" },
-  { key: "startaar", label: "Startår", numeric: true },
-  { key: "sluttar", label: "Sluttår", numeric: true },
 {
+  key: "startaar",
+  label: "Startår",
+  numeric: true,
+  render: row => row.startaar ?? ""
+},
+{
+  key: "sluttar",
+  label: "Sluttår",
+  numeric: true,
+  render: row => row.sluttar ?? ""
+},{
   key: "ordningsgrad_code",
   label: "Ordningsgrad",
   sortBy: "ordningsgrad_code",
@@ -292,10 +301,17 @@ function renderTable() {
       td.style.textAlign = col.numeric ? "right" : "left";
 
       if (col.render) {
-        td.innerHTML = col.render(row);
-      } else if (col.numeric) {
-        td.textContent = formatNumber(row[col.key]);
-      } else {
+  const out = col.render(row);
+
+  if (typeof out === "string") {
+    td.textContent = out;
+  } else {
+    td.innerHTML = out;
+  }
+
+} else if (col.numeric) {
+  td.textContent = formatNumber(row[col.key]);
+} else {
         td.textContent = row[col.key] ?? "";
       }
 
