@@ -123,9 +123,9 @@ def get_order_degree_archives(
 
 
 @router.get("/order-degree/summary")
-def get_order_degree_summary(
-    lokasjon: str = Query(default="SAB"),
-):
+def get_order_degree_summary():
+    lokasjon = "SAB"
+
     conn = None
 
     try:
@@ -145,8 +145,7 @@ def get_order_degree_summary(
                 a.fysisktilstand AS fysisktilstand_code,
                 ft.value AS fysisktilstand_value,
 
-                COALESCE(g.stykke_count, 0) AS stykke_count,
-                COALESCE(g.percentage_digitized, a.percentage_digitized, 0) AS percentage_digitized
+                COALESCE(g.stykke_count, 0) AS stykke_count
 
             FROM {ARKIV_TABLE} a
 
@@ -175,12 +174,10 @@ def get_order_degree_summary(
 
         attention_count = 0
         total_stykke = 0
-        digitized_sum = 0
 
         for row in rows:
             stykke_count = to_int(row.get("stykke_count"))
             total_stykke += stykke_count
-            digitized_sum += float(row.get("percentage_digitized") or 0)
 
             if attention_needed(row):
                 attention_count += 1
@@ -192,7 +189,9 @@ def get_order_degree_summary(
             by_ordningsgrad[ord_key] = by_ordningsgrad.get(ord_key, 0) + 1
             by_katalogisering[kat_key] = by_katalogisering.get(kat_key, 0) + 1
             by_fysisktilstand[fys_key] = by_fysisktilstand.get(fys_key, 0) + 1
-            stykke_by_ordningsgrad[ord_key] = stykke_by_ordningsgrad.get(ord_key, 0) + stykke_count
+            stykke_by_ordningsgrad[ord_key] = (
+                stykke_by_ordningsgrad.get(ord_key, 0) + stykke_count
+            )
 
         total_archives = len(rows)
 
@@ -201,7 +200,6 @@ def get_order_degree_summary(
             "archives_total": total_archives,
             "stykke_total": total_stykke,
             "attention_needed_count": attention_count,
-            "average_digitized_percent": round((digitized_sum / total_archives) * 100, 2) if total_archives else 0,
             "by_ordningsgrad": by_ordningsgrad,
             "by_katalogisering": by_katalogisering,
             "by_fysisktilstand": by_fysisktilstand,
@@ -214,7 +212,6 @@ def get_order_degree_summary(
     finally:
         if conn:
             conn.close()
-
 
 @router.get("/order-degree/code-values")
 def get_order_degree_code_values():
