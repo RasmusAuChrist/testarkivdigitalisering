@@ -139,14 +139,18 @@
 
     <div id="stats" style="margin:12px 0;color:#555;"></div>
 
-    <div class="table-scroll-x">
-      <table class="arkiv-table">
-        <thead>
-          <tr id="tableHead"></tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
-    </div>
+<div class="table-scroll-x table-scroll-x-top" id="tableScrollTop">
+  <div class="table-scroll-x-spacer" id="tableScrollTopSpacer"></div>
+</div>
+
+<div class="table-scroll-x" id="tableScrollMain">
+  <table class="arkiv-table">
+    <thead>
+      <tr id="tableHead"></tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
 
     <div id="pagination" style="margin-top:12px;display:flex;gap:10px;align-items:center;"></div>
   </div>

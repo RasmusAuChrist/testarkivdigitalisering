@@ -16,6 +16,10 @@ const el = {
   body: document.getElementById("tableBody"),
   pagination: document.getElementById("pagination"),
   loading: document.getElementById("loadingOverlay"),
+
+  scrollTop: document.getElementById("tableScrollTop"),
+  scrollTopSpacer: document.getElementById("tableScrollTopSpacer"),
+  scrollMain: document.getElementById("tableScrollMain"),
 };
 
 const state = {
@@ -34,12 +38,26 @@ const columns = [
   { key: "identifikator", label: "Identifikator" },
   { key: "startaar", label: "Startår", numeric: true },
   { key: "sluttar", label: "Sluttår", numeric: true },
-  { key: "ordningsgrad_value", label: "Ordningsgrad" },
-  { key: "katalogisering_value", label: "Katalogisering" },
-  { key: "fysisktilstand_value", label: "Fysisk tilstand" },
+{
+  key: "ordningsgrad_code",
+  label: "Ordningsgrad",
+  sortBy: "ordningsgrad_code",
+  render: row => `${row.ordningsgrad_code || ""} – ${row.ordningsgrad_value || "Ukjent"}`
+},
+{
+  key: "katalogisering_code",
+  label: "Katalogisering",
+  sortBy: "katalogisering_code",
+  render: row => `${row.katalogisering_code || ""} – ${row.katalogisering_value || "Ukjent"}`
+},
+{
+  key: "fysisktilstand_code",
+  label: "Fysisk tilstand",
+  sortBy: "fysisktilstand_code",
+  render: row => `${row.fysisktilstand_code || ""} – ${row.fysisktilstand_value || "Ukjent"}`
+},
   { key: "stykke_count", label: "Stykker", numeric: true },
-  { key: "serier", label: "Serier" },
-];
+  ];
 
 function showLoading() {
   if (el.loading) el.loading.style.display = "flex";
@@ -148,11 +166,12 @@ function applyFilters() {
 function sortRows() {
   const dir = state.sortDir === "asc" ? 1 : -1;
   const col = columns.find(c => c.key === state.sortKey);
+  const sortKey = col?.sortBy || state.sortKey;
   const numeric = col?.numeric || state.sortKey === "attention_needed";
 
   state.filtered.sort((a, b) => {
-    const av = a[state.sortKey];
-    const bv = b[state.sortKey];
+    const av = a[sortKey];
+    const bv = b[sortKey];
 
     if (numeric) return (Number(av || 0) - Number(bv || 0)) * dir;
 
@@ -175,11 +194,39 @@ function toggleSort(key) {
   render();
 }
 
+function setupHorizontalScrollSync() {
+  if (!el.scrollTop || !el.scrollTopSpacer || !el.scrollMain) return;
+
+  let syncing = false;
+
+  el.scrollTop.addEventListener("scroll", () => {
+    if (syncing) return;
+    syncing = true;
+    el.scrollMain.scrollLeft = el.scrollTop.scrollLeft;
+    syncing = false;
+  });
+
+  el.scrollMain.addEventListener("scroll", () => {
+    if (syncing) return;
+    syncing = true;
+    el.scrollTop.scrollLeft = el.scrollMain.scrollLeft;
+    syncing = false;
+  });
+}
+
+function updateTopScrollbarSpacer() {
+  if (!el.scrollTopSpacer || !el.scrollMain) return;
+  const table = el.scrollMain.querySelector("table");
+  if (!table) return;
+  el.scrollTopSpacer.style.width = table.scrollWidth + "px";
+}
+
 function render() {
   renderHeader();
   renderStats();
   renderTable();
   renderPagination();
+  updateTopScrollbarSpacer();
 }
 
 function renderHeader() {
@@ -349,6 +396,9 @@ function wireEvents() {
 async function init() {
   const me = await initProtectedPage();
   if (!me) return;
+
+setupHorizontalScrollSync();
+window.addEventListener("resize", debounce(updateTopScrollbarSpacer, 150));
 
   wireEvents();
   await loadData();
