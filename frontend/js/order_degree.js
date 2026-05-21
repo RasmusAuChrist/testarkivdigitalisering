@@ -303,10 +303,10 @@ function renderTable() {
       if (col.render) {
   const out = col.render(row);
 
-  if (typeof out === "string") {
-    td.textContent = out;
-  } else {
+  if (col.key === "attention_needed") {
     td.innerHTML = out;
+  } else {
+    td.textContent = out;
   }
 
 } else if (col.numeric) {
