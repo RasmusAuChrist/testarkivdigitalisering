@@ -42,19 +42,19 @@ const columns = [
   key: "ordningsgrad_code",
   label: "Ordningsgrad",
   sortBy: "ordningsgrad_code",
-  render: row => `${row.ordningsgrad_code || ""} – ${row.ordningsgrad_value || "Ukjent"}`
+  render: row => row.ordningsgrad_value || "Ukjent"
 },
 {
   key: "katalogisering_code",
   label: "Katalogisering",
   sortBy: "katalogisering_code",
-  render: row => `${row.katalogisering_code || ""} – ${row.katalogisering_value || "Ukjent"}`
+  render: row => row.katalogisering_value || "Ukjent"
 },
 {
   key: "fysisktilstand_code",
   label: "Fysisk tilstand",
   sortBy: "fysisktilstand_code",
-  render: row => `${row.fysisktilstand_code || ""} – ${row.fysisktilstand_value || "Ukjent"}`
+  render: row => row.fysisktilstand_value || "Ukjent"
 },
   { key: "stykke_count", label: "Stykker", numeric: true },
   ];
