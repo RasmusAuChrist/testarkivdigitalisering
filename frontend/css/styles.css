@@ -1538,7 +1538,7 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 
 .workflow-sim-control-panel {
   display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr)) minmax(220px, 2fr);
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
   gap: 12px;
   align-items: end;
   margin-top: 12px;
@@ -1553,11 +1553,12 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   color: #ffffff;
   font-size: 13px;
   min-height: 22px;
+  grid-column: 1 / -1;
 }
 
 .workflow-sim-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
 }
@@ -1707,11 +1708,27 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
 }
 
 .workflow-sim-table input {
-  width: 94px;
+  width: 104px;
 }
 
 .workflow-sim-step-label {
   min-width: 210px;
+  display: grid;
+  gap: 3px;
+}
+
+.workflow-sim-step-label span,
+.workflow-sim-table small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.workflow-sim-result-good {
+  color: #15803d !important;
+}
+
+.workflow-sim-result-bad {
+  color: #b91c1c !important;
 }
 
 @media (max-width: 980px) {

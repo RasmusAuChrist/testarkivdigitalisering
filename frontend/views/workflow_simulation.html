@@ -18,12 +18,11 @@
   <main class="surface-light workflow-sim-page">
     <header class="workflow-sim-header">
       <div>
-        <h2>Arbeidsflyt - simulering</h2>
-        <p>Juster kapasitet, innkomst og behandlingstid for a se hvor koen bygger seg opp.</p>
+        <h2>Arbeidsflyt - hyllemeter</h2>
+        <p>Simuler ukentlig kapasitet, tidlig bortvalg og fysisk lagerflyt.</p>
       </div>
 
       <div class="workflow-sim-actions">
-        <button id="loadCurrentBtn" class="btn btn-outline" type="button">Hent dagens ko</button>
         <button id="resetBtn" class="btn btn-outline" type="button">Tilbakestill</button>
         <button id="runBtn" class="btn btn-primary" type="button">
           <span class="btn-spinner" aria-hidden="true"></span>
@@ -34,18 +33,38 @@
 
     <section class="filters-dark workflow-sim-control-panel">
       <label>
-        Dager
-        <input id="daysInput" type="number" min="1" max="365" step="1" />
+        Uker
+        <input id="weeksInput" type="number" min="1" max="104" step="1" />
       </label>
 
       <label>
-        Timer per dag
-        <input id="hoursInput" type="number" min="1" max="24" step="0.25" />
+        Maal hm/uke
+        <input id="targetInput" type="number" min="0" max="10000" step="0.5" />
       </label>
 
       <label>
-        Nye saker per dag
-        <input id="arrivalsInput" type="number" min="0" max="1000" step="0.1" />
+        Timer per uke
+        <input id="hoursInput" type="number" min="1" max="168" step="0.25" />
+      </label>
+
+      <label>
+        Batch hm
+        <input id="batchInput" type="number" min="0.1" max="200" step="0.5" />
+      </label>
+
+      <label>
+        Steg 5 lager
+        <input id="step5CapacityInput" type="number" min="1" max="10000" step="1" value="200" disabled />
+      </label>
+
+      <label>
+        Steg 6 lager
+        <input id="step6CapacityInput" type="number" min="1" max="10000" step="1" />
+      </label>
+
+      <label>
+        Destruksjon %
+        <input id="cleanupShareInput" type="number" min="0" max="100" step="1" />
       </label>
 
       <label>
@@ -58,28 +77,36 @@
 
     <section class="workflow-sim-kpis">
       <div>
-        <span>Gjennomfort</span>
-        <strong id="completedKpi">-</strong>
+        <span>Maal</span>
+        <strong id="targetKpi">-</strong>
       </div>
       <div>
-        <span>Gjennomstromning per dag</span>
-        <strong id="throughputKpi">-</strong>
+        <span>Brutto inn</span>
+        <strong id="grossKpi">-</strong>
       </div>
       <div>
-        <span>Snitt ledetid</span>
-        <strong id="cycleKpi">-</strong>
+        <span>Skannet</span>
+        <strong id="scannedKpi">-</strong>
+      </div>
+      <div>
+        <span>Frigitt</span>
+        <strong id="releasedKpi">-</strong>
+      </div>
+      <div>
+        <span>Gap</span>
+        <strong id="gapKpi">-</strong>
       </div>
       <div>
         <span>P95 ledetid</span>
-        <strong id="cycleP95Kpi">-</strong>
+        <strong id="cycleKpi">-</strong>
       </div>
     </section>
 
     <section class="workflow-sim-panel">
       <div class="workflow-sim-panel-head">
         <div>
-          <h3>Grafisk flyt</h3>
-          <p>Farge viser utnyttelse. Morkere rod betyr hoyere belastning.</p>
+          <h3>Flyt</h3>
+          <p>Steg 6 holder fysisk materiale helt til opprydding frigir lageret.</p>
         </div>
         <div id="bottleneckText" class="workflow-sim-bottleneck">Ingen simulering kjort.</div>
       </div>
@@ -91,8 +118,8 @@
       <div class="workflow-sim-panel">
         <div class="workflow-sim-panel-head">
           <div>
-            <h3>Variabler per steg</h3>
-            <p>Arbeidere er parallell kapasitet. Variasjon er spredning rundt snittid.</p>
+            <h3>Regler per steg</h3>
+            <p>Kapasitet er hyllemeter per uke. Behold % brukes i steg 1-3.</p>
           </div>
         </div>
 
@@ -101,10 +128,10 @@
             <thead>
               <tr>
                 <th>Steg</th>
-                <th>Arbeidere</th>
-                <th>Snitt timer</th>
+                <th>Kapasitet hm/uke</th>
+                <th>Behold %</th>
                 <th>Variasjon</th>
-                <th>Startko</th>
+                <th>Start hm</th>
               </tr>
             </thead>
             <tbody id="stepConfigBody"></tbody>
@@ -116,7 +143,7 @@
         <div class="workflow-sim-panel-head">
           <div>
             <h3>Resultater</h3>
-            <p>Ventetid og arbeid-i-prosess viser hvor flaskehalsen samler ko.</p>
+            <p>Frigitt hyllemeter er ferdig skannet og ryddet ut av steg 6.</p>
           </div>
         </div>
 
@@ -125,9 +152,11 @@
             <thead>
               <tr>
                 <th>Steg</th>
-                <th>Utnyttelse</th>
-                <th>Snitt vent</th>
-                <th>P95 vent</th>
+                <th>Behov</th>
+                <th>Kapasitet</th>
+                <th>Ut</th>
+                <th>Utn.</th>
+                <th>Vent/blokk</th>
                 <th>WIP</th>
               </tr>
             </thead>

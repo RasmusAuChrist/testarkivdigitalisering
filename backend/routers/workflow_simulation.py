@@ -11,47 +11,64 @@ router = APIRouter()
 
 
 DEFAULT_STEPS = [
-    {"step_id": 1, "name": "Analyse", "workers": 1, "mean_hours": 2.0, "variability": 0.35},
-    {"step_id": 2, "name": "Prioriteringsrad", "workers": 1, "mean_hours": 1.5, "variability": 0.30},
-    {"step_id": 3, "name": "Arkivkartlegging", "workers": 2, "mean_hours": 4.0, "variability": 0.45},
-    {"step_id": 4, "name": "Fysisk klargjoring", "workers": 2, "mean_hours": 5.0, "variability": 0.45},
-    {"step_id": 5, "name": "Klar til sending", "workers": 1, "mean_hours": 1.0, "variability": 0.25},
-    {"step_id": 6, "name": "Lager NHA", "workers": 1, "mean_hours": 2.0, "variability": 0.35},
-    {"step_id": 7, "name": "Skanning pagar", "workers": 2, "mean_hours": 6.0, "variability": 0.50},
-    {"step_id": 8, "name": "Etterarbeid skanning", "workers": 2, "mean_hours": 3.5, "variability": 0.40},
-    {"step_id": 9, "name": "Skape uttrekk", "workers": 1, "mean_hours": 4.0, "variability": 0.45},
-    {"step_id": 10, "name": "Kvalitetskontroll", "workers": 2, "mean_hours": 3.0, "variability": 0.35},
-    {"step_id": 11, "name": "Opplasting og innlemming", "workers": 1, "mean_hours": 2.5, "variability": 0.35},
-    {"step_id": 12, "name": "Metadata etterarbeid", "workers": 1, "mean_hours": 2.0, "variability": 0.30},
-    {"step_id": 13, "name": "Opprydning for destruksjon", "workers": 1, "mean_hours": 1.5, "variability": 0.30},
-    {"step_id": 14, "name": "Opprydning for videresending", "workers": 1, "mean_hours": 1.5, "variability": 0.30},
+    {"step_id": 1, "name": "Analyse", "kind": "process", "capacity_hm_per_week": 36.0, "keep_pct": 85.0, "variability": 0.20},
+    {"step_id": 2, "name": "Prioriteringsrad", "kind": "process", "capacity_hm_per_week": 32.0, "keep_pct": 90.0, "variability": 0.20},
+    {"step_id": 3, "name": "Arkivkartlegging", "kind": "process", "capacity_hm_per_week": 26.0, "keep_pct": 95.0, "variability": 0.25},
+    {"step_id": 4, "name": "Fysisk klargjoring", "kind": "process", "capacity_hm_per_week": 24.0, "keep_pct": 100.0, "variability": 0.25},
+    {"step_id": 5, "name": "Klar til sending", "kind": "storage", "capacity_hm_per_week": 0.0, "keep_pct": 100.0, "variability": 0.0},
+    {"step_id": 6, "name": "Lager NHA", "kind": "storage", "capacity_hm_per_week": 0.0, "keep_pct": 100.0, "variability": 0.0},
+    {"step_id": 7, "name": "Skanning pagar", "kind": "process", "capacity_hm_per_week": 20.0, "keep_pct": 100.0, "variability": 0.15},
+    {"step_id": 8, "name": "Etterarbeid skanning", "kind": "process", "capacity_hm_per_week": 24.0, "keep_pct": 100.0, "variability": 0.20},
+    {"step_id": 9, "name": "Skape uttrekk", "kind": "process", "capacity_hm_per_week": 22.0, "keep_pct": 100.0, "variability": 0.20},
+    {"step_id": 10, "name": "Kvalitetskontroll", "kind": "process", "capacity_hm_per_week": 20.0, "keep_pct": 100.0, "variability": 0.20},
+    {"step_id": 11, "name": "Opplasting og innlemming", "kind": "process", "capacity_hm_per_week": 25.0, "keep_pct": 100.0, "variability": 0.15},
+    {"step_id": 12, "name": "Metadata etterarbeid", "kind": "process", "capacity_hm_per_week": 25.0, "keep_pct": 100.0, "variability": 0.15},
+    {"step_id": 13, "name": "Opprydning for destruksjon", "kind": "cleanup", "capacity_hm_per_week": 18.0, "keep_pct": 100.0, "variability": 0.20},
+    {"step_id": 14, "name": "Opprydning for videresending", "kind": "cleanup", "capacity_hm_per_week": 18.0, "keep_pct": 100.0, "variability": 0.20},
 ]
+
+PRE_STORAGE_STEPS = [1, 2, 3, 4]
+POST_STORAGE_STEPS = [7, 8, 9, 10, 11, 12]
+CLEANUP_STEPS = [13, 14]
 
 
 class SimulationStep(BaseModel):
     step_id: int = Field(ge=1)
     name: str = Field(min_length=1, max_length=120)
-    workers: int = Field(default=1, ge=1, le=100)
-    mean_hours: float = Field(default=2.0, gt=0, le=1000)
-    variability: float = Field(default=0.35, ge=0, le=3)
-    initial_backlog: int = Field(default=0, ge=0, le=20000)
+    kind: str = Field(default="process", max_length=20)
+    capacity_hm_per_week: float = Field(default=20.0, ge=0, le=10000)
+    keep_pct: float = Field(default=100.0, ge=0, le=100)
+    variability: float = Field(default=0.20, ge=0, le=3)
+    initial_backlog_hm: float = Field(default=0.0, ge=0, le=10000)
 
 
 class SimulationRequest(BaseModel):
-    days: int = Field(default=30, ge=1, le=365)
-    hours_per_day: float = Field(default=7.5, gt=0, le=24)
-    arrivals_per_day: float = Field(default=4.0, ge=0, le=1000)
+    weeks: int = Field(default=12, ge=1, le=104)
+    hours_per_week: float = Field(default=37.5, gt=0, le=168)
+    target_hm_per_week: float = Field(default=20.0, ge=0, le=10000)
+    batch_hm: float = Field(default=5.0, gt=0, le=200)
+    step5_capacity_hm: float = Field(default=200.0, gt=0, le=10000)
+    step6_capacity_hm: float = Field(default=50.0, gt=0, le=10000)
+    cleanup_destruction_share: float = Field(default=0.50, ge=0, le=1)
     random_seed: Optional[int] = Field(default=42)
     steps: List[SimulationStep] = Field(default_factory=lambda: [SimulationStep(**s) for s in DEFAULT_STEPS])
 
 
 class StepRuntime:
-    def __init__(self):
-        self.entered = 0
-        self.completed = 0
+    def __init__(self, kind: str):
+        self.kind = kind
+        self.entered_hm = 0.0
+        self.processed_hm = 0.0
+        self.output_hm = 0.0
+        self.discarded_hm = 0.0
         self.busy_time = 0.0
         self.wait_times: list[float] = []
         self.service_times: list[float] = []
+        self.blocked_hours = 0.0
+        self.max_wip_hm = 0.0
+        self.current_level_hm = 0.0
+        self.level_area = 0.0
+        self.last_level_update = 0.0
 
 
 def _percentile(values: list[float], pct: float) -> float:
@@ -62,21 +79,115 @@ def _percentile(values: list[float], pct: float) -> float:
     return ordered[index]
 
 
-def _duration(rng: random.Random, mean_hours: float, variability: float) -> float:
+def _service_hours(
+    rng: random.Random,
+    hyllemeter: float,
+    capacity_hm_per_week: float,
+    hours_per_week: float,
+    variability: float,
+) -> float:
+    if capacity_hm_per_week <= 0:
+        return math.inf
+
+    base = hyllemeter / (capacity_hm_per_week / hours_per_week)
     if variability <= 0:
-        return mean_hours
+        return max(0.01, base)
 
     sigma = math.sqrt(math.log((variability * variability) + 1))
-    mu = math.log(mean_hours) - (sigma * sigma / 2)
+    mu = math.log(base) - (sigma * sigma / 2)
     return max(0.01, rng.lognormvariate(mu, sigma))
+
+
+def _update_storage_runtime(runtime: StepRuntime, env: simpy.Environment, level: float):
+    runtime.level_area += runtime.current_level_hm * (env.now - runtime.last_level_update)
+    runtime.last_level_update = env.now
+    runtime.current_level_hm = level
+    runtime.max_wip_hm = max(runtime.max_wip_hm, level)
+
+
+def _required_input_for_target(target_hm_per_week: float, steps: dict[int, SimulationStep]) -> float:
+    keep_factor = 1.0
+    for step_id in [1, 2, 3]:
+        keep_factor *= max(steps[step_id].keep_pct / 100, 0)
+    if keep_factor <= 0:
+        return 0.0
+    return target_hm_per_week / keep_factor
+
+
+def _required_by_step(payload: SimulationRequest, steps: dict[int, SimulationStep]) -> dict[int, float]:
+    target = payload.target_hm_per_week
+    required: dict[int, float] = {}
+
+    for step_id in PRE_STORAGE_STEPS:
+        keep_factor = 1.0
+        for keep_step_id in [1, 2, 3]:
+            if keep_step_id >= step_id:
+                keep_factor *= max(steps[keep_step_id].keep_pct / 100, 0)
+        required[step_id] = target / keep_factor if keep_factor > 0 else 0.0
+
+    for step_id in [5, 6, *POST_STORAGE_STEPS]:
+        required[step_id] = target
+
+    required[13] = target * payload.cleanup_destruction_share
+    required[14] = target * (1 - payload.cleanup_destruction_share)
+    return required
+
+
+def _summarize_step(
+    step: SimulationStep,
+    runtime: StepRuntime,
+    weeks: int,
+    horizon: float,
+    required_hm_per_week: float,
+    storage_capacity_hm: Optional[float] = None,
+) -> dict:
+    if storage_capacity_hm:
+        runtime.level_area += runtime.current_level_hm * (horizon - runtime.last_level_update)
+        avg_level = runtime.level_area / horizon if horizon > 0 else 0.0
+        utilization = avg_level / storage_capacity_hm if storage_capacity_hm > 0 else 0.0
+        wip = runtime.current_level_hm
+        max_wip = runtime.max_wip_hm
+        capacity_hm_per_week = None
+        capacity_gap = storage_capacity_hm - max_wip
+    else:
+        utilization = runtime.busy_time / horizon if horizon > 0 else 0.0
+        wip = max(0.0, runtime.entered_hm - runtime.processed_hm)
+        max_wip = max(runtime.max_wip_hm, wip)
+        capacity_hm_per_week = step.capacity_hm_per_week
+        capacity_gap = step.capacity_hm_per_week - required_hm_per_week
+
+    return {
+        "step_id": step.step_id,
+        "name": step.name,
+        "kind": step.kind,
+        "capacity_hm_per_week": capacity_hm_per_week,
+        "storage_capacity_hm": storage_capacity_hm,
+        "required_hm_per_week": round(required_hm_per_week, 2),
+        "entered_hm_per_week": round(runtime.entered_hm / weeks, 2),
+        "output_hm_per_week": round(runtime.output_hm / weeks, 2),
+        "discarded_hm_per_week": round(runtime.discarded_hm / weeks, 2),
+        "capacity_gap_hm": round(capacity_gap, 2),
+        "keep_pct": step.keep_pct,
+        "initial_backlog_hm": step.initial_backlog_hm,
+        "wip_hm": round(wip, 2),
+        "max_wip_hm": round(max_wip, 2),
+        "avg_wait_hours": round(mean(runtime.wait_times), 2) if runtime.wait_times else 0.0,
+        "p95_wait_hours": round(_percentile(runtime.wait_times, 95), 2),
+        "blocked_hours": round(runtime.blocked_hours, 2),
+        "utilization": round(min(utilization, 2.0), 4),
+    }
 
 
 @router.get("/wf/simulation/defaults")
 def get_simulation_defaults():
     return {
-        "days": 30,
-        "hours_per_day": 7.5,
-        "arrivals_per_day": 4.0,
+        "weeks": 12,
+        "hours_per_week": 37.5,
+        "target_hm_per_week": 20.0,
+        "batch_hm": 5.0,
+        "step5_capacity_hm": 200.0,
+        "step6_capacity_hm": 50.0,
+        "cleanup_destruction_share": 0.50,
         "random_seed": 42,
         "steps": DEFAULT_STEPS,
     }
@@ -87,89 +198,207 @@ def run_workflow_simulation(payload: SimulationRequest):
     if not payload.steps:
         raise HTTPException(status_code=400, detail="Minst ett steg ma defineres.")
 
+    steps = {step.step_id: step for step in payload.steps}
+    missing = [step_id for step_id in [*PRE_STORAGE_STEPS, 5, 6, *POST_STORAGE_STEPS, *CLEANUP_STEPS] if step_id not in steps]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Mangler steg: {', '.join(map(str, missing))}.")
+
     rng = random.Random(payload.random_seed)
     env = simpy.Environment()
-    horizon = payload.days * payload.hours_per_day
-    steps = payload.steps
-    resources = [simpy.Resource(env, capacity=step.workers) for step in steps]
-    runtime = [StepRuntime() for _ in steps]
+    horizon = payload.weeks * payload.hours_per_week
+    runtime = {step_id: StepRuntime(steps[step_id].kind) for step_id in steps}
+    resources = {
+        step_id: simpy.Resource(env, capacity=1)
+        for step_id in steps
+        if steps[step_id].kind != "storage"
+    }
+    step5_storage = simpy.Container(env, capacity=payload.step5_capacity_hm, init=0)
+    step6_storage = simpy.Container(env, capacity=payload.step6_capacity_hm, init=0)
     cycle_times: list[float] = []
-    created_count = 0
+    gross_created_hm = 0.0
+    scanned_hm = 0.0
+    released_hm = 0.0
 
-    def process_item(start_index: int, created_at: float):
-        for step_index in range(start_index, len(steps)):
-            stats = runtime[step_index]
-            step = steps[step_index]
-            stats.entered += 1
-            queue_entered = env.now
+    def service_step(step_id: int, hyllemeter: float):
+        step = steps[step_id]
+        stats = runtime[step_id]
+        stats.entered_hm += hyllemeter
+        stats.max_wip_hm = max(stats.max_wip_hm, stats.entered_hm - stats.processed_hm)
 
-            with resources[step_index].request() as request:
-                yield request
-                wait = env.now - queue_entered
-                service = _duration(rng, step.mean_hours, step.variability)
-                stats.wait_times.append(wait)
-                stats.busy_time += min(service, max(0.0, horizon - env.now))
+        queue_entered = env.now
+        with resources[step_id].request() as request:
+            yield request
+            wait = env.now - queue_entered
+            service = _service_hours(
+                rng,
+                hyllemeter,
+                step.capacity_hm_per_week,
+                payload.hours_per_week,
+                step.variability,
+            )
+            stats.wait_times.append(wait)
 
-                yield env.timeout(service)
+            if math.isinf(service):
+                stats.blocked_hours += max(0.0, horizon - env.now)
+                yield env.timeout(max(0.0, horizon - env.now))
+                return 0.0
 
-                stats.service_times.append(service)
-                stats.completed += 1
+            stats.busy_time += min(service, max(0.0, horizon - env.now))
+            yield env.timeout(service)
+            stats.service_times.append(service)
+            stats.processed_hm += hyllemeter
 
-        cycle_times.append(env.now - created_at)
+        kept = hyllemeter * (step.keep_pct / 100)
+        stats.output_hm += kept
+        stats.discarded_hm += max(0.0, hyllemeter - kept)
+        return kept
 
-    for step_index, step in enumerate(steps):
-        for _ in range(step.initial_backlog):
-            env.process(process_item(step_index, 0.0))
-            created_count += 1
+    def move_to_scanning_storage(hyllemeter: float):
+        step5_stats = runtime[5]
 
-    def arrival_generator():
-        nonlocal created_count
-        if payload.arrivals_per_day <= 0:
+        wait_start = env.now
+        yield step5_storage.put(hyllemeter)
+        blocked = env.now - wait_start
+        step5_stats.blocked_hours += blocked
+        step5_stats.wait_times.append(blocked)
+        step5_stats.entered_hm += hyllemeter
+        _update_storage_runtime(step5_stats, env, step5_storage.level)
+
+        yield env.process(enter_scanning_storage(hyllemeter))
+        yield step5_storage.get(hyllemeter)
+        step5_stats.output_hm += hyllemeter
+        _update_storage_runtime(step5_stats, env, step5_storage.level)
+
+    def enter_scanning_storage(hyllemeter: float):
+        step6_stats = runtime[6]
+        wait_start = env.now
+        yield step6_storage.put(hyllemeter)
+        blocked = env.now - wait_start
+        step6_stats.blocked_hours += blocked
+        step6_stats.wait_times.append(blocked)
+        step6_stats.entered_hm += hyllemeter
+        _update_storage_runtime(step6_stats, env, step6_storage.level)
+
+    def release_scanning_storage(hyllemeter: float):
+        nonlocal released_hm
+        yield step6_storage.get(hyllemeter)
+        runtime[6].output_hm += hyllemeter
+        _update_storage_runtime(runtime[6], env, step6_storage.level)
+        released_hm += hyllemeter
+
+    def process_material(hyllemeter: float, created_at: float, start_step_id: int = 1):
+        nonlocal scanned_hm
+
+        current_hm = hyllemeter
+
+        if start_step_id <= 4:
+            for step_id in [step for step in PRE_STORAGE_STEPS if step >= start_step_id]:
+                current_hm = yield env.process(service_step(step_id, current_hm))
+                if current_hm <= 0:
+                    return
+            yield env.process(move_to_scanning_storage(current_hm))
+            next_post_step = 7
+        elif start_step_id == 5:
+            yield env.process(move_to_scanning_storage(current_hm))
+            next_post_step = 7
+        elif start_step_id == 6:
+            yield env.process(enter_scanning_storage(current_hm))
+            next_post_step = 7
+        elif start_step_id in POST_STORAGE_STEPS:
+            yield env.process(enter_scanning_storage(current_hm))
+            next_post_step = start_step_id
+        elif start_step_id in CLEANUP_STEPS:
+            yield env.process(enter_scanning_storage(current_hm))
+            current_hm = yield env.process(service_step(start_step_id, current_hm))
+            yield env.process(release_scanning_storage(current_hm))
+            cycle_times.append(env.now - created_at)
+            return
+        else:
             return
 
-        arrival_rate_per_hour = payload.arrivals_per_day / payload.hours_per_day
-        while env.now < horizon:
-            yield env.timeout(rng.expovariate(arrival_rate_per_hour))
-            if env.now > horizon:
-                break
-            env.process(process_item(0, env.now))
-            created_count += 1
+        for step_id in [step for step in POST_STORAGE_STEPS if step >= next_post_step]:
+            current_hm = yield env.process(service_step(step_id, current_hm))
+            if step_id == 7:
+                scanned_hm += current_hm
 
+        cleanup_step = 13 if rng.random() < payload.cleanup_destruction_share else 14
+        current_hm = yield env.process(service_step(cleanup_step, current_hm))
+        yield env.process(release_scanning_storage(current_hm))
+        cycle_times.append(env.now - created_at)
+
+    def add_initial_backlogs():
+        for step_id, step in steps.items():
+            backlog = step.initial_backlog_hm
+            if backlog <= 0:
+                continue
+            env.process(process_material(backlog, 0.0, step_id))
+
+    def arrival_generator():
+        nonlocal gross_created_hm
+        gross_input_hm_per_week = _required_input_for_target(payload.target_hm_per_week, steps)
+        if gross_input_hm_per_week <= 0:
+            return
+
+        gross_per_hour = gross_input_hm_per_week / payload.hours_per_week
+        interval = payload.batch_hm / gross_per_hour
+        while env.now < horizon:
+            gross_created_hm += payload.batch_hm
+            env.process(process_material(payload.batch_hm, env.now))
+            yield env.timeout(interval)
+
+    add_initial_backlogs()
     env.process(arrival_generator())
     env.run(until=horizon)
 
+    required = _required_by_step(payload, steps)
     step_results = []
-    for step, stats in zip(steps, runtime):
-        utilization = stats.busy_time / (horizon * step.workers) if horizon > 0 and step.workers else 0
-        avg_wait = mean(stats.wait_times) if stats.wait_times else 0.0
-        avg_service = mean(stats.service_times) if stats.service_times else 0.0
-        step_results.append({
-            "step_id": step.step_id,
-            "name": step.name,
-            "workers": step.workers,
-            "mean_hours": step.mean_hours,
-            "initial_backlog": step.initial_backlog,
-            "entered": stats.entered,
-            "completed": stats.completed,
-            "wip": max(0, stats.entered - stats.completed),
-            "avg_wait_hours": round(avg_wait, 2),
-            "p95_wait_hours": round(_percentile(stats.wait_times, 95), 2),
-            "avg_service_hours": round(avg_service, 2),
-            "utilization": round(min(utilization, 1.5), 4),
-        })
+    for step_id in sorted(steps):
+        storage_capacity = None
+        if step_id == 5:
+            storage_capacity = payload.step5_capacity_hm
+        elif step_id == 6:
+            storage_capacity = payload.step6_capacity_hm
+
+        step_results.append(
+            _summarize_step(
+                steps[step_id],
+                runtime[step_id],
+                payload.weeks,
+                horizon,
+                required.get(step_id, payload.target_hm_per_week),
+                storage_capacity,
+            )
+        )
 
     bottlenecks = sorted(
         step_results,
-        key=lambda item: (item["utilization"], item["p95_wait_hours"], item["wip"]),
+        key=lambda item: (
+            item["capacity_gap_hm"] < 0,
+            item["utilization"],
+            item["blocked_hours"],
+            item["p95_wait_hours"],
+            item["max_wip_hm"],
+        ),
         reverse=True,
     )[:3]
 
-    completed_pipeline = len(cycle_times)
+    gross_needed = _required_input_for_target(payload.target_hm_per_week, steps)
+    released_per_week = released_hm / payload.weeks
+    scanned_per_week = scanned_hm / payload.weeks
+    target_gap = released_per_week - payload.target_hm_per_week
+
     return {
         "horizon_hours": round(horizon, 2),
-        "created_items": created_count,
-        "completed_items": completed_pipeline,
-        "throughput_per_day": round(completed_pipeline / payload.days, 2),
+        "weeks": payload.weeks,
+        "target_hm_per_week": round(payload.target_hm_per_week, 2),
+        "gross_needed_hm_per_week": round(gross_needed, 2),
+        "gross_created_hm": round(gross_created_hm, 2),
+        "scanned_hm": round(scanned_hm, 2),
+        "released_hm": round(released_hm, 2),
+        "scanned_hm_per_week": round(scanned_per_week, 2),
+        "released_hm_per_week": round(released_per_week, 2),
+        "target_gap_hm_per_week": round(target_gap, 2),
+        "target_met": released_per_week >= payload.target_hm_per_week * 0.98,
         "avg_cycle_time_hours": round(mean(cycle_times), 2) if cycle_times else 0.0,
         "p95_cycle_time_hours": round(_percentile(cycle_times, 95), 2),
         "bottlenecks": bottlenecks,
