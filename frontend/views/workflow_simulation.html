@@ -102,6 +102,28 @@
       </div>
     </section>
 
+    <section class="workflow-sim-panel workflow-sim-playback">
+      <div class="workflow-sim-panel-head">
+        <div>
+          <h3>Ukevis avspilling</h3>
+          <p>Se hvordan lager, skanning og opprydding utvikler seg gjennom simuleringen.</p>
+        </div>
+        <strong id="weekLabel" class="workflow-sim-week-label">Uke -</strong>
+      </div>
+
+      <div class="workflow-sim-playback-controls">
+        <button id="prevWeekBtn" class="btn btn-outline" type="button">Forrige</button>
+        <button id="playWeeksBtn" class="btn btn-outline" type="button">Spill av</button>
+        <button id="nextWeekBtn" class="btn btn-outline" type="button">Neste</button>
+        <button id="finalWeekBtn" class="btn btn-outline" type="button">Siste</button>
+      </div>
+
+      <div class="workflow-sim-slider-row">
+        <input id="weekSlider" type="range" min="0" max="0" step="1" value="0" />
+        <div id="weekSummary" class="workflow-sim-week-summary">Ingen simulering kjort.</div>
+      </div>
+    </section>
+
     <section class="workflow-sim-panel">
       <div class="workflow-sim-panel-head">
         <div>

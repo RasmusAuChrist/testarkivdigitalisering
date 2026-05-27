@@ -22,10 +22,20 @@ const el = {
   releasedKpi: document.getElementById("releasedKpi"),
   gapKpi: document.getElementById("gapKpi"),
   cycleKpi: document.getElementById("cycleKpi"),
+  prevWeekBtn: document.getElementById("prevWeekBtn"),
+  playWeeksBtn: document.getElementById("playWeeksBtn"),
+  nextWeekBtn: document.getElementById("nextWeekBtn"),
+  finalWeekBtn: document.getElementById("finalWeekBtn"),
+  weekSlider: document.getElementById("weekSlider"),
+  weekLabel: document.getElementById("weekLabel"),
+  weekSummary: document.getElementById("weekSummary"),
 };
 
 let defaults = null;
 let steps = [];
+let snapshots = [];
+let selectedSnapshotIndex = 0;
+let playbackTimer = null;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -55,6 +65,14 @@ function setMsg(text, isError = false) {
 function setLoading(isLoading) {
   el.runBtn?.classList.toggle("is-loading", isLoading);
   if (el.runBtn) el.runBtn.disabled = isLoading;
+}
+
+function stopPlayback() {
+  if (playbackTimer) {
+    clearInterval(playbackTimer);
+    playbackTimer = null;
+  }
+  if (el.playWeeksBtn) el.playWeeksBtn.textContent = "Spill av";
 }
 
 function heatClass(utilization) {
@@ -158,6 +176,23 @@ function renderKpis(result) {
   el.cycleKpi.textContent = `${formatNumber(result.p95_cycle_time_hours, 1)} t`;
 }
 
+function renderTimeline(snapshot) {
+  if (!snapshot || !snapshots.length) return;
+
+  el.weekSlider.max = String(Math.max(0, snapshots.length - 1));
+  el.weekSlider.value = String(selectedSnapshotIndex);
+  el.weekLabel.textContent = `Uke ${snapshot.week} av ${snapshot.weeks}`;
+  el.prevWeekBtn.disabled = selectedSnapshotIndex <= 0;
+  el.nextWeekBtn.disabled = selectedSnapshotIndex >= snapshots.length - 1;
+  el.finalWeekBtn.disabled = selectedSnapshotIndex >= snapshots.length - 1;
+
+  const top = snapshot.bottlenecks?.[0];
+  const bottleneck = top ? `${top.step_id}. ${top.name}` : "ingen flaskehals";
+  el.weekSummary.textContent =
+    `Frigitt ${formatHm(snapshot.released_hm)} totalt, skannet ${formatHm(snapshot.scanned_hm)} totalt, ` +
+    `brutto inn ${formatHm(snapshot.gross_created_hm)}. Mest press: ${bottleneck}.`;
+}
+
 function renderBottleneck(result) {
   const top = result.bottlenecks?.[0];
   if (!top) {
@@ -202,9 +237,12 @@ function renderFlow(result) {
 }
 
 function renderResults(result) {
+  if (!result) return;
+
   renderKpis(result);
   renderBottleneck(result);
   renderFlow(result);
+  renderTimeline(result);
 
   el.stepResultBody.innerHTML = (result.steps || []).map(step => {
     const capacityText = step.storage_capacity_hm
@@ -231,12 +269,47 @@ function renderResults(result) {
   }).join("");
 }
 
+function selectSnapshot(index, shouldStopPlayback = true) {
+  if (!snapshots.length) return;
+  if (shouldStopPlayback) stopPlayback();
+
+  selectedSnapshotIndex = Math.min(Math.max(Number(index) || 0, 0), snapshots.length - 1);
+  renderResults(snapshots[selectedSnapshotIndex]);
+}
+
+function togglePlayback() {
+  if (!snapshots.length) return;
+
+  if (playbackTimer) {
+    stopPlayback();
+    return;
+  }
+
+  if (selectedSnapshotIndex >= snapshots.length - 1) {
+    selectedSnapshotIndex = 0;
+    renderResults(snapshots[selectedSnapshotIndex]);
+  }
+
+  el.playWeeksBtn.textContent = "Pause";
+  playbackTimer = setInterval(() => {
+    if (selectedSnapshotIndex >= snapshots.length - 1) {
+      stopPlayback();
+      return;
+    }
+    selectedSnapshotIndex += 1;
+    renderResults(snapshots[selectedSnapshotIndex]);
+  }, 650);
+}
+
 async function runSimulation() {
   try {
     setLoading(true);
+    stopPlayback();
     setMsg("Kjorer simulering...");
     const result = await apiPost("/api/wf/simulation/run", buildPayload());
-    renderResults(result);
+    snapshots = Array.isArray(result.snapshots) && result.snapshots.length ? result.snapshots : [result];
+    selectedSnapshotIndex = 0;
+    renderResults(snapshots[selectedSnapshotIndex]);
     setMsg(
       result.target_met
         ? `Maalet nas med ${formatHm(result.released_hm_per_week)} per uke.`
@@ -260,7 +333,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   el.runBtn.addEventListener("click", runSimulation);
+  el.prevWeekBtn.addEventListener("click", () => selectSnapshot(selectedSnapshotIndex - 1));
+  el.nextWeekBtn.addEventListener("click", () => selectSnapshot(selectedSnapshotIndex + 1));
+  el.finalWeekBtn.addEventListener("click", () => selectSnapshot(snapshots.length - 1));
+  el.playWeeksBtn.addEventListener("click", togglePlayback);
+  el.weekSlider.addEventListener("input", event => selectSnapshot(event.target.value));
   el.resetBtn.addEventListener("click", () => {
+    stopPlayback();
     if (defaults) setDefaults(defaults);
     setMsg("Tilbakestilt.");
   });

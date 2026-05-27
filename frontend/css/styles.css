@@ -1600,6 +1600,37 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   font-weight: 800;
 }
 
+.workflow-sim-playback {
+  display: grid;
+  gap: 12px;
+}
+
+.workflow-sim-week-label {
+  color: #111827;
+  font-size: 18px;
+}
+
+.workflow-sim-playback-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workflow-sim-slider-row {
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-sim-slider-row input[type="range"] {
+  width: 100%;
+}
+
+.workflow-sim-week-summary {
+  min-height: 22px;
+  color: #374151;
+  font-size: 13px;
+}
+
 .workflow-sim-flow {
   display: flex;
   align-items: stretch;

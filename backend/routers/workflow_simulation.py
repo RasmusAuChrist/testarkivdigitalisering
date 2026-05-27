@@ -69,6 +69,7 @@ class StepRuntime:
         self.current_level_hm = 0.0
         self.level_area = 0.0
         self.last_level_update = 0.0
+        self.active_since: Optional[float] = None
 
 
 def _percentile(values: list[float], pct: float) -> float:
@@ -136,21 +137,25 @@ def _required_by_step(payload: SimulationRequest, steps: dict[int, SimulationSte
 def _summarize_step(
     step: SimulationStep,
     runtime: StepRuntime,
-    weeks: int,
-    horizon: float,
+    elapsed_weeks: float,
+    elapsed_hours: float,
     required_hm_per_week: float,
     storage_capacity_hm: Optional[float] = None,
 ) -> dict:
+    elapsed_weeks = max(elapsed_weeks, 0.0001)
+    elapsed_hours = max(elapsed_hours, 0.0001)
+
     if storage_capacity_hm:
-        runtime.level_area += runtime.current_level_hm * (horizon - runtime.last_level_update)
-        avg_level = runtime.level_area / horizon if horizon > 0 else 0.0
+        level_area = runtime.level_area + runtime.current_level_hm * max(0.0, elapsed_hours - runtime.last_level_update)
+        avg_level = level_area / elapsed_hours
         utilization = avg_level / storage_capacity_hm if storage_capacity_hm > 0 else 0.0
         wip = runtime.current_level_hm
         max_wip = runtime.max_wip_hm
         capacity_hm_per_week = None
         capacity_gap = storage_capacity_hm - max_wip
     else:
-        utilization = runtime.busy_time / horizon if horizon > 0 else 0.0
+        active_time = max(0.0, elapsed_hours - runtime.active_since) if runtime.active_since is not None else 0.0
+        utilization = (runtime.busy_time + active_time) / elapsed_hours
         wip = max(0.0, runtime.entered_hm - runtime.processed_hm)
         max_wip = max(runtime.max_wip_hm, wip)
         capacity_hm_per_week = step.capacity_hm_per_week
@@ -163,9 +168,9 @@ def _summarize_step(
         "capacity_hm_per_week": capacity_hm_per_week,
         "storage_capacity_hm": storage_capacity_hm,
         "required_hm_per_week": round(required_hm_per_week, 2),
-        "entered_hm_per_week": round(runtime.entered_hm / weeks, 2),
-        "output_hm_per_week": round(runtime.output_hm / weeks, 2),
-        "discarded_hm_per_week": round(runtime.discarded_hm / weeks, 2),
+        "entered_hm_per_week": round(runtime.entered_hm / elapsed_weeks, 2),
+        "output_hm_per_week": round(runtime.output_hm / elapsed_weeks, 2),
+        "discarded_hm_per_week": round(runtime.discarded_hm / elapsed_weeks, 2),
         "capacity_gap_hm": round(capacity_gap, 2),
         "keep_pct": step.keep_pct,
         "initial_backlog_hm": step.initial_backlog_hm,
@@ -218,6 +223,66 @@ def run_workflow_simulation(payload: SimulationRequest):
     gross_created_hm = 0.0
     scanned_hm = 0.0
     released_hm = 0.0
+    snapshots: list[dict] = []
+    required = _required_by_step(payload, steps)
+
+    def build_snapshot(week: int, elapsed_hours: float):
+        elapsed_weeks = max(elapsed_hours / payload.hours_per_week, 0.0001)
+        step_results = []
+        for step_id in sorted(steps):
+            storage_capacity = None
+            if step_id == 5:
+                storage_capacity = payload.step5_capacity_hm
+            elif step_id == 6:
+                storage_capacity = payload.step6_capacity_hm
+
+            step_results.append(
+                _summarize_step(
+                    steps[step_id],
+                    runtime[step_id],
+                    elapsed_weeks,
+                    elapsed_hours,
+                    required.get(step_id, payload.target_hm_per_week),
+                    storage_capacity,
+                )
+            )
+
+        bottlenecks = sorted(
+            step_results,
+            key=lambda item: (
+                item["capacity_gap_hm"] < 0,
+                item["utilization"],
+                item["blocked_hours"],
+                item["p95_wait_hours"],
+                item["max_wip_hm"],
+            ),
+            reverse=True,
+        )[:3]
+
+        gross_needed = _required_input_for_target(payload.target_hm_per_week, steps)
+        released_per_week = released_hm / elapsed_weeks
+        scanned_per_week = scanned_hm / elapsed_weeks
+        target_gap = released_per_week - payload.target_hm_per_week
+
+        return {
+            "week": week,
+            "elapsed_hours": round(elapsed_hours, 2),
+            "horizon_hours": round(horizon, 2),
+            "weeks": payload.weeks,
+            "target_hm_per_week": round(payload.target_hm_per_week, 2),
+            "gross_needed_hm_per_week": round(gross_needed, 2),
+            "gross_created_hm": round(gross_created_hm, 2),
+            "scanned_hm": round(scanned_hm, 2),
+            "released_hm": round(released_hm, 2),
+            "scanned_hm_per_week": round(scanned_per_week, 2),
+            "released_hm_per_week": round(released_per_week, 2),
+            "target_gap_hm_per_week": round(target_gap, 2),
+            "target_met": released_per_week >= payload.target_hm_per_week * 0.98,
+            "avg_cycle_time_hours": round(mean(cycle_times), 2) if cycle_times else 0.0,
+            "p95_cycle_time_hours": round(_percentile(cycle_times, 95), 2),
+            "bottlenecks": bottlenecks,
+            "steps": step_results,
+        }
 
     def service_step(step_id: int, hyllemeter: float):
         step = steps[step_id]
@@ -243,8 +308,10 @@ def run_workflow_simulation(payload: SimulationRequest):
                 yield env.timeout(max(0.0, horizon - env.now))
                 return 0.0
 
-            stats.busy_time += min(service, max(0.0, horizon - env.now))
+            stats.active_since = env.now
             yield env.timeout(service)
+            stats.busy_time += max(0.0, env.now - stats.active_since)
+            stats.active_since = None
             stats.service_times.append(service)
             stats.processed_hm += hyllemeter
 
@@ -348,59 +415,14 @@ def run_workflow_simulation(payload: SimulationRequest):
 
     add_initial_backlogs()
     env.process(arrival_generator())
-    env.run(until=horizon)
 
-    required = _required_by_step(payload, steps)
-    step_results = []
-    for step_id in sorted(steps):
-        storage_capacity = None
-        if step_id == 5:
-            storage_capacity = payload.step5_capacity_hm
-        elif step_id == 6:
-            storage_capacity = payload.step6_capacity_hm
+    for week in range(1, payload.weeks + 1):
+        mark = week * payload.hours_per_week
+        env.run(until=mark)
+        snapshots.append(build_snapshot(week, mark))
 
-        step_results.append(
-            _summarize_step(
-                steps[step_id],
-                runtime[step_id],
-                payload.weeks,
-                horizon,
-                required.get(step_id, payload.target_hm_per_week),
-                storage_capacity,
-            )
-        )
-
-    bottlenecks = sorted(
-        step_results,
-        key=lambda item: (
-            item["capacity_gap_hm"] < 0,
-            item["utilization"],
-            item["blocked_hours"],
-            item["p95_wait_hours"],
-            item["max_wip_hm"],
-        ),
-        reverse=True,
-    )[:3]
-
-    gross_needed = _required_input_for_target(payload.target_hm_per_week, steps)
-    released_per_week = released_hm / payload.weeks
-    scanned_per_week = scanned_hm / payload.weeks
-    target_gap = released_per_week - payload.target_hm_per_week
-
+    final_snapshot = snapshots[-1] if snapshots else build_snapshot(payload.weeks, horizon)
     return {
-        "horizon_hours": round(horizon, 2),
-        "weeks": payload.weeks,
-        "target_hm_per_week": round(payload.target_hm_per_week, 2),
-        "gross_needed_hm_per_week": round(gross_needed, 2),
-        "gross_created_hm": round(gross_created_hm, 2),
-        "scanned_hm": round(scanned_hm, 2),
-        "released_hm": round(released_hm, 2),
-        "scanned_hm_per_week": round(scanned_per_week, 2),
-        "released_hm_per_week": round(released_per_week, 2),
-        "target_gap_hm_per_week": round(target_gap, 2),
-        "target_met": released_per_week >= payload.target_hm_per_week * 0.98,
-        "avg_cycle_time_hours": round(mean(cycle_times), 2) if cycle_times else 0.0,
-        "p95_cycle_time_hours": round(_percentile(cycle_times, 95), 2),
-        "bottlenecks": bottlenecks,
-        "steps": step_results,
+        **final_snapshot,
+        "snapshots": snapshots,
     }
