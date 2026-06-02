@@ -1835,9 +1835,44 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   max-width: 100%;
 }
 
+.queue-title-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
 .queue-arkiv-id {
+  min-width: 0;
   font-weight: 900;
   color: #000000; /* or your accent color */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.queue-validation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  cursor: help;
+}
+
+.queue-validation-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.queue-validation-icon:focus {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
 }
 
 /* 🔥 LINE CLAMP */

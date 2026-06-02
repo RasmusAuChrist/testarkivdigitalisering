@@ -25,6 +25,8 @@ let me = null;
 let rawItems = [];
 let assignableUsers = null;
 let selectedStepIds = "all";
+let validationIndex = createEmptyValidationIndex();
+let validationStatusLoadError = null;
 
 function hasAnyRole(...roles) {
   const mine = new Set(me?.roles || []);
@@ -110,6 +112,10 @@ function escapeHtml(v) {
     .replaceAll("'", "&#039;");
 }
 
+function escapeAttr(v) {
+  return escapeHtml(v).replaceAll("\n", "&#10;");
+}
+
 function getAssignedUsers(it) {
   if (Array.isArray(it?.AssignedUsers)) return it.AssignedUsers;
 
@@ -154,6 +160,176 @@ function sortQueueItems(items) {
     compareQueueText(a?.Identifikator, b?.Identifikator) ||
     compareQueueNumber(a?.OrderStepId, b?.OrderStepId)
   );
+}
+
+function createEmptyValidationIndex() {
+  return {
+    byOrdre: new Map(),
+    bySeriePath: new Map(),
+    bySerieLeaf: new Map(),
+    byMissingItem: new Map(),
+  };
+}
+
+function normalizeValidationKey(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function addValidationIndexEntry(map, key, entry) {
+  const normalized = normalizeValidationKey(key);
+  if (!normalized) return;
+
+  if (!map.has(normalized)) {
+    map.set(normalized, []);
+  }
+
+  map.get(normalized).push(entry);
+}
+
+function getSerieLeaf(value) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "";
+
+  const parts = normalized
+    .split(/[>\\/|]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  return parts.length ? parts[parts.length - 1] : normalized;
+}
+
+function buildValidationIndex(entries) {
+  const index = createEmptyValidationIndex();
+
+  (entries || []).forEach(entry => {
+    if (!hasValidationIssue(entry)) return;
+
+    addValidationIndexEntry(index.byOrdre, entry.ordre, entry);
+    addValidationIndexEntry(index.bySeriePath, entry.serie_path, entry);
+    addValidationIndexEntry(index.bySerieLeaf, getSerieLeaf(entry.serie_path), entry);
+
+    (entry.missing_items || []).forEach(item => {
+      addValidationIndexEntry(index.byMissingItem, item?.identifikator, entry);
+    });
+  });
+
+  return index;
+}
+
+function hasValidationIssue(entry) {
+  return (
+    Number(entry?.missing_count || 0) > 0 ||
+    entry?.ordre_startdato_ok === false ||
+    entry?.ordre_sluttdato_ok === false ||
+    entry?.ordre_hyllemeter_ok === false
+  );
+}
+
+function collectValidationMatchesFrom(map, keys, seen, out) {
+  keys
+    .map(normalizeValidationKey)
+    .filter(Boolean)
+    .forEach(key => {
+      (map.get(key) || []).forEach(entry => {
+        const entryKey = `${entry.ordre ?? ""}|${entry.serie_path ?? ""}`;
+        if (seen.has(entryKey)) return;
+
+        seen.add(entryKey);
+        out.push(entry);
+      });
+    });
+}
+
+function validationEntriesForItem(it) {
+  const out = [];
+  const seen = new Set();
+
+  const orderKeys = [
+    it?.ordre,
+    it?.Ordre,
+    it?.OrderId,
+    it?.OrderNumber,
+    it?.OrderNo,
+    it?.ExternalOrderId,
+    it?.ArkivIdentifikator,
+  ];
+
+  const serieKeys = [
+    it?.Identifikator,
+    it?.SerieIdentifikator,
+    it?.Title,
+    it?.ExternalAmid,
+  ];
+
+  collectValidationMatchesFrom(validationIndex.byOrdre, orderKeys, seen, out);
+  collectValidationMatchesFrom(validationIndex.bySeriePath, serieKeys, seen, out);
+  collectValidationMatchesFrom(validationIndex.bySerieLeaf, serieKeys, seen, out);
+  collectValidationMatchesFrom(validationIndex.byMissingItem, serieKeys, seen, out);
+
+  return out;
+}
+
+function validationMessagesForEntry(entry) {
+  const issues = [];
+
+  if (entry.ordre_startdato_ok === false) issues.push("Startdato mangler på serienivå");
+  if (entry.ordre_sluttdato_ok === false) issues.push("Sluttdato mangler på serienivå");
+  if (entry.ordre_hyllemeter_ok === false) issues.push("Hyllemeter mangler på serienivå");
+
+  const missingCount = Number(entry.missing_count || 0);
+  if (missingCount > 0) {
+    issues.push(`${missingCount} stykker mangler start-/sluttdato`);
+
+    const missingIds = (entry.missing_items || [])
+      .map(item => String(item?.identifikator ?? "").trim())
+      .filter(Boolean)
+      .sort((a, b) => queueSortCollator.compare(a, b));
+
+    if (missingIds.length) {
+      const visibleIds = missingIds.slice(0, 8);
+      const extraCount = missingIds.length - visibleIds.length;
+
+      issues.push(
+        `Mangler dato: ${visibleIds.join(", ")}${extraCount > 0 ? `, +${extraCount} til` : ""}`
+      );
+    }
+  }
+
+  if (!issues.length) return [];
+
+  const header = [
+    entry.ordre ? `Ordre ${entry.ordre}` : "",
+    entry.serie_path || "",
+  ].filter(Boolean).join(": ");
+
+  return [`${header || "Validering"} - ${issues.join("; ")}`];
+}
+
+function validationWarningIcon(it) {
+  const messages = validationEntriesForItem(it).flatMap(validationMessagesForEntry);
+  if (!messages.length) return "";
+
+  const title = messages.join("\n");
+
+  return `
+    <span
+      class="queue-validation-icon"
+      title="${escapeAttr(title)}"
+      aria-label="${escapeAttr(`Valideringsavvik: ${title}`)}"
+      role="img"
+      tabindex="0"
+    >
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M10 3.25 17.25 16H2.75L10 3.25Z" fill="currentColor" opacity="0.18"></path>
+        <path d="M10 3.25 17.25 16H2.75L10 3.25Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path>
+        <path d="M10 7.6v4.35" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        <circle cx="10" cy="14.25" r="0.9" fill="currentColor"></circle>
+      </svg>
+    </span>
+  `;
 }
 
 const ASTA_GUI_BASE = "https://av.stiftelsen-asta.no/gui/";
@@ -462,6 +638,23 @@ async function apiPost(path, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || "Ukjent feil");
   return data;
+}
+
+async function loadValidationStatusIndex() {
+  try {
+    const data = await apiGet("/api/validation-status");
+
+    if (!Array.isArray(data)) {
+      throw new Error(data?.error || "Ugyldig valideringsrespons");
+    }
+
+    validationIndex = buildValidationIndex(data);
+    validationStatusLoadError = null;
+  } catch (err) {
+    console.warn("Kunne ikke hente valideringsstatus", err);
+    validationIndex = createEmptyValidationIndex();
+    validationStatusLoadError = err;
+  }
 }
 
 async function loadNavbar() {
@@ -1004,12 +1197,16 @@ function render(itemsAll) {
         <td style="vertical-align:top;">
           <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
             <div class="queue-title">
-  <div class="queue-arkiv-id">
-    ${
-      it.ArkivIdentifikator
-        ? `${escapeHtml(it.ArkivIdentifikator)} –`
-        : ""
-    }
+  <div class="queue-title-head">
+    <div class="queue-arkiv-id">
+      ${
+        it.ArkivIdentifikator
+          ? `${escapeHtml(it.ArkivIdentifikator)} –`
+          : ""
+      }
+    </div>
+
+    ${validationWarningIcon(it)}
   </div>
 
   <div class="queue-title-text">
@@ -1215,7 +1412,10 @@ async function refresh() {
     path += `?step_def_ids=${encodeURIComponent(selectedStepIds.join(","))}`;
   }
 
-  const data = await apiGet(path);
+  const [data] = await Promise.all([
+    apiGet(path),
+    loadValidationStatusIndex(),
+  ]);
 
   rawItems = sortQueueItems(
     (data.items || []).map(it => ({
@@ -1227,7 +1427,7 @@ async function refresh() {
   );
 
   render(rawItems);
-  setMsg("OK");
+  setMsg(validationStatusLoadError ? "Kø hentet. Valideringsstatus kunne ikke hentes." : "OK");
 }
 
 function initStepSelect() {
