@@ -37,8 +37,8 @@ function canAssignOthers() {
   return hasAnyRole("Admin", "Koordinator");
 }
 
-const LS_SHOW_STOPPED = "wfq_show_stopped";
-const LS_SHOW_PAUSED = "wfq_show_paused";
+const LS_ONLY_STOPPED = "wfq_only_stopped";
+const LS_ONLY_PAUSED = "wfq_only_paused";
 const LS_SHOW_MINE_ONLY = "wfq_show_mine_only";
 const LS_SHOW_UNASSIGNED = "wfq_show_unassigned";
 const LS_FAVOURITE_STEPS = "wfq_favourite_steps";
@@ -46,16 +46,16 @@ const LS_FAVOURITE_QUEUE_FILTERS = "wfq_favourite_queue_filters";
 
 const queueFilterOptions = [
   {
-    id: "showStopped",
-    label: "Vis stoppet",
-    storageKey: LS_SHOW_STOPPED,
+    id: "onlyStopped",
+    label: "Bare stoppet",
+    storageKey: LS_ONLY_STOPPED,
     defaultChecked: false,
   },
   {
-    id: "showPaused",
-    label: "Vis på vent",
-    storageKey: LS_SHOW_PAUSED,
-    defaultChecked: true,
+    id: "onlyPaused",
+    label: "Bare på vent",
+    storageKey: LS_ONLY_PAUSED,
+    defaultChecked: false,
   },
   {
     id: "showMineOnly",
@@ -877,8 +877,8 @@ function getQueueFilterCheckbox(id) {
 
 function readFilterState() {
   return {
-    showStopped: !!getQueueFilterCheckbox("showStopped")?.checked,
-    showPaused: !!getQueueFilterCheckbox("showPaused")?.checked,
+    onlyStopped: !!getQueueFilterCheckbox("onlyStopped")?.checked,
+    onlyPaused: !!getQueueFilterCheckbox("onlyPaused")?.checked,
     showMineOnly: !!getQueueFilterCheckbox("showMineOnly")?.checked,
     showUnassignedOnly: !!getQueueFilterCheckbox("showUnassignedOnly")?.checked,
   };
@@ -915,8 +915,8 @@ function isStoppedOrder(it) {
 
 function applyFilters(items) {
   const {
-    showStopped,
-    showPaused,
+    onlyStopped,
+    onlyPaused,
     showMineOnly,
     showUnassignedOnly,
   } = readFilterState();
@@ -926,8 +926,15 @@ function applyFilters(items) {
   ).trim().toLowerCase();
 
   return (items || []).filter(it => {
-    if (!showStopped && isStoppedOrder(it)) return false;
-    if (!showPaused && isPausedOrder(it)) return false;
+    const isStopped = isStoppedOrder(it);
+    const isPaused = isPausedOrder(it);
+    const hasStatusFilter = onlyStopped || onlyPaused;
+
+    if (hasStatusFilter) {
+      if (!((onlyStopped && isStopped) || (onlyPaused && isPaused))) return false;
+    } else if (isStopped || isPaused) {
+      return false;
+    }
 
     const assignedUsers = getAssignedUsers(it);
 
