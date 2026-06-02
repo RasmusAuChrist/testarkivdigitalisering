@@ -330,12 +330,7 @@ function validationMessagesForEntry(entry) {
 
   if (!issues.length) return [];
 
-  const header = [
-    entry.ordre ? `Ordre ${entry.ordre}` : "",
-    entry.serie_path || "",
-  ].filter(Boolean).join(": ");
-
-  return [`${header || "Validering"} - ${issues.join("; ")}`];
+  return issues;
 }
 
 function validationWarningIcon(it) {
