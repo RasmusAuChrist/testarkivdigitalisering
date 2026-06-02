@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional, List
 from backend.repositories import workflow_repository as repo
 from backend.services.workflow_notifications import notify_new_step_assignees
 
+STEP3_METADATA_FIELD_KEY = "relevante_metadatafelt"
+
 
 def rowver_from_client(v: Optional[str]) -> Optional[bytes]:
     if not v:
@@ -58,6 +60,12 @@ def build_step3_payload(
                 "type": "status_comment_list",
                 "items": [],
             },
+            {
+                "key": STEP3_METADATA_FIELD_KEY,
+                "label": "Relevante metadatafelt",
+                "type": "metadata_field_list",
+                "items": [],
+            },
         ],
     }
 
@@ -68,6 +76,7 @@ def build_step3_payload(
         },
         "sjekkliste": {},
         "egenskaper": {},
+        STEP3_METADATA_FIELD_KEY: [],
     }
 
     for row in sjekkliste or []:
@@ -233,12 +242,7 @@ def save_step_form_data(
 
     ctx, _ = repo.get_step3_context(order_step_id)
     if ctx and ctx.get("StepDefId") == 3:
-        return repo.save_step3_form_data(
-            actor_user_id,
-            order_step_id,
-            data_json,
-            expected_rowver,
-        ) or {"ok": True}
+        return save_step3_form_data(actor_user_id, order_step_id, payload_data, expected_row_ver)
 
     return repo.save_step_form_data(
         actor_user_id,
@@ -271,6 +275,21 @@ def get_step3_form(order_step_id: int) -> Optional[Dict[str, Any]]:
 
     _, serie, sjekkliste, egenskaper = repo.get_step_external_data(order_step_id)
     payload = build_step3_payload(amid, serie, sjekkliste, egenskaper)
+    saved_row = repo.get_step_form_data(order_step_id)
+    saved_data = _parse_data_json(saved_row.get("DataJson") if saved_row else None)
+    metadata_value = saved_data.get(STEP3_METADATA_FIELD_KEY)
+
+    if metadata_value is None:
+        metadata_value = next(
+            (
+                value
+                for key, value in saved_data.items()
+                if "metadata" in str(key).lower()
+            ),
+            [],
+        )
+
+    payload["data"][STEP3_METADATA_FIELD_KEY] = metadata_value or []
 
     return {
         "orderStepId": order_step_id,
@@ -288,7 +307,10 @@ def save_step3_form_data(
 ) -> Dict[str, Any]:
     data_json = json.dumps(payload_data, ensure_ascii=False)
     expected_rowver = rowver_from_client(expected_row_ver)
-    return repo.save_step3_form_data(actor_user_id, order_step_id, data_json, expected_rowver) or {"ok": True}
+    result = repo.save_step3_form_data(actor_user_id, order_step_id, data_json, expected_rowver) or {"ok": True}
+    _, current_rowver = repo.get_step3_context(order_step_id)
+    repo.save_step_form_data(actor_user_id, order_step_id, data_json, current_rowver)
+    return result
 
 
 def get_send_back_targets(order_step_id: int) -> Dict[str, Any]:

@@ -1194,12 +1194,24 @@ async function renderCurrentStepDetails(order) {
     return;
   }
 
-const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
-const rawSchemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
+let rawSchemaObj = {};
+let currentValues = {};
+let rowVer = null;
+const isStep3 = Number(step.StepDefId) === 3;
 
-const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
-const currentValues = safeParseJson(dataRow.DataJson, {});
-const rowVer = dataRow.RowVer || null;
+if (isStep3) {
+  const step3Payload = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/step3-form`);
+  rawSchemaObj = step3Payload.schema || {};
+  currentValues = step3Payload.data || {};
+  rowVer = step3Payload.rowVer || null;
+} else {
+  const schemaRow = await apiGet(`/api/wf/steps/def/${encodeURIComponent(step.StepDefId)}/form-schema`);
+  rawSchemaObj = safeParseJson(schemaRow.SchemaJson, schemaRow.SchemaJson);
+
+  const dataRow = await apiGet(`/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`);
+  currentValues = safeParseJson(dataRow.DataJson, {});
+  rowVer = dataRow.RowVer || null;
+}
 
 const schemaObj = normalizeSchemaForValues(rawSchemaObj, currentValues);
 
@@ -1291,36 +1303,20 @@ renderPriorStepsInline(allData.items || [], step.Sequence, labelMapsByStep);
 
       setCurrentStepMsg("Lagrer…");
 
+      const savePath = isStep3
+        ? `/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/step3-form`
+        : `/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`;
+
       await apiPost(
-        `/api/wf/steps/${encodeURIComponent(step.OrderStepId)}/form-data`,
+        savePath,
         {
           data: values,
           expected_row_ver: rowVer,
         }
       );
 
+      await renderCurrentStepDetails(order);
       setCurrentStepMsg("Lagret ✔️");
-
-      const allData2 = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
-
-const labelMapsByStep2 = {};
-for (const item of (allData2.items || [])) {
-  const stepMeta = (order.steps || []).find(s => String(s.OrderStepId) === String(item.OrderStepId));
-  if (!stepMeta?.StepDefId) continue;
-
-  try {
-    const schemaRowForPrior = await apiGet(`/api/wf/steps/def/${encodeURIComponent(stepMeta.StepDefId)}/form-schema`);
-    const rawPriorSchema = safeParseJson(schemaRowForPrior.SchemaJson, schemaRowForPrior.SchemaJson);
-    const dataObj = safeParseJson(item.DataJson, {});
-    const normalizedPriorSchema = normalizeSchemaForValues(rawPriorSchema, dataObj);
-
-    labelMapsByStep2[String(item.OrderStepId)] = buildFieldItemLabelMap(normalizedPriorSchema);
-  } catch {
-    labelMapsByStep2[String(item.OrderStepId)] = {};
-  }
-}
-
-renderPriorStepsInline(allData2.items || [], step.Sequence, labelMapsByStep2);
     } catch (e) {
       setCurrentStepMsg(e.message || "Feil ved lagring.", true);
     }
