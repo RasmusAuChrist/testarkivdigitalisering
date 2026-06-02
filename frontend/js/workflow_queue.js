@@ -39,6 +39,7 @@ function canAssignOthers() {
 
 const LS_ONLY_STOPPED = "wfq_only_stopped";
 const LS_ONLY_PAUSED = "wfq_only_paused";
+const LS_ONLY_WITH_PROBLEMS = "wfq_only_with_problems";
 const LS_SHOW_MINE_ONLY = "wfq_show_mine_only";
 const LS_SHOW_UNASSIGNED = "wfq_show_unassigned";
 const LS_FAVOURITE_STEPS = "wfq_favourite_steps";
@@ -55,6 +56,12 @@ const queueFilterOptions = [
     id: "onlyPaused",
     label: "Bare på vent",
     storageKey: LS_ONLY_PAUSED,
+    defaultChecked: false,
+  },
+  {
+    id: "onlyWithProblems",
+    label: "Bare med avvik",
+    storageKey: LS_ONLY_WITH_PROBLEMS,
     defaultChecked: false,
   },
   {
@@ -333,8 +340,16 @@ function validationMessagesForEntry(entry) {
   return issues;
 }
 
+function validationMessagesForItem(it) {
+  return validationEntriesForItem(it).flatMap(validationMessagesForEntry);
+}
+
+function hasValidationProblems(it) {
+  return validationMessagesForItem(it).length > 0;
+}
+
 function validationWarningIcon(it) {
-  const messages = validationEntriesForItem(it).flatMap(validationMessagesForEntry);
+  const messages = validationMessagesForItem(it);
   if (!messages.length) return "";
 
   const title = messages.join("\n");
@@ -879,6 +894,7 @@ function readFilterState() {
   return {
     onlyStopped: !!getQueueFilterCheckbox("onlyStopped")?.checked,
     onlyPaused: !!getQueueFilterCheckbox("onlyPaused")?.checked,
+    onlyWithProblems: !!getQueueFilterCheckbox("onlyWithProblems")?.checked,
     showMineOnly: !!getQueueFilterCheckbox("showMineOnly")?.checked,
     showUnassignedOnly: !!getQueueFilterCheckbox("showUnassignedOnly")?.checked,
   };
@@ -917,6 +933,7 @@ function applyFilters(items) {
   const {
     onlyStopped,
     onlyPaused,
+    onlyWithProblems,
     showMineOnly,
     showUnassignedOnly,
   } = readFilterState();
@@ -935,6 +952,8 @@ function applyFilters(items) {
     } else if (isStopped || isPaused) {
       return false;
     }
+
+    if (onlyWithProblems && !hasValidationProblems(it)) return false;
 
     const assignedUsers = getAssignedUsers(it);
 
