@@ -166,7 +166,6 @@ function createEmptyValidationIndex() {
   return {
     bySeriePath: new Map(),
     bySerieLeaf: new Map(),
-    bySeriePart: new Map(),
   };
 }
 
@@ -227,11 +226,9 @@ function buildValidationIndex(entries) {
     addValidationIndexEntry(index.bySeriePath, entry.serie_path, entry);
     addValidationIndexEntry(index.bySerieLeaf, getSerieLeaf(entry.serie_path), entry);
 
-    getSeriePathParts(entry.serie_path)
-      .flatMap(getSeriePartKeys)
-      .forEach(part => {
-        addValidationIndexEntry(index.bySeriePart, part, entry);
-      });
+    getSeriePartKeys(getSerieLeaf(entry.serie_path)).forEach(part => {
+      addValidationIndexEntry(index.bySerieLeaf, part, entry);
+    });
   });
 
   return index;
@@ -270,20 +267,39 @@ function queueItemSerieKeys(it) {
   ].map(normalizeValidationKey).filter(Boolean);
 }
 
+function queueItemArchiveKeys(it) {
+  return [
+    it?.ArkivIdentifikator,
+    it?.ArkivIdentifier,
+    it?.ArkivId,
+    it?.ArchiveIdentifier,
+  ].map(normalizeValidationKey).filter(Boolean);
+}
+
+function validationEntryArchiveMatchesItem(entry, it) {
+  const archiveKeys = queueItemArchiveKeys(it);
+  if (!archiveKeys.length) return true;
+
+  const pathParts = getSeriePathParts(entry?.serie_path)
+    .flatMap(getSeriePartKeys)
+    .map(normalizeValidationKey);
+
+  return archiveKeys.some(key => pathParts.includes(key));
+}
+
 function validationEntryMatchesItem(entry, it) {
   const serieKeys = queueItemSerieKeys(it);
   if (!serieKeys.length) return false;
 
   const path = normalizeValidationKey(entry?.serie_path);
-  const leaf = normalizeValidationKey(getSerieLeaf(entry?.serie_path));
-  const parts = getSeriePathParts(entry?.serie_path)
-    .flatMap(getSeriePartKeys)
+  const leafKeys = getSeriePartKeys(getSerieLeaf(entry?.serie_path))
     .map(normalizeValidationKey);
+
+  if (!validationEntryArchiveMatchesItem(entry, it)) return false;
 
   const serieMatches = serieKeys.some(key =>
     key === path ||
-    key === leaf ||
-    parts.includes(key)
+    leafKeys.includes(key)
   );
 
   return serieMatches;
@@ -296,7 +312,6 @@ function validationEntriesForItem(it) {
 
   collectValidationMatchesFrom(validationIndex.bySeriePath, serieKeys, seen, out);
   collectValidationMatchesFrom(validationIndex.bySerieLeaf, serieKeys, seen, out);
-  collectValidationMatchesFrom(validationIndex.bySeriePart, serieKeys, seen, out);
 
   return out.filter(entry => validationEntryMatchesItem(entry, it));
 }
