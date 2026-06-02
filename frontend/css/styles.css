@@ -956,6 +956,44 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   left: 23px;
 }
 
+.step3-collapsible-section {
+  margin-bottom: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.step3-collapsible-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f8fafc;
+  font-weight: 900;
+}
+
+.step3-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.step3-collapsible-chevron {
+  flex: 0 0 auto;
+  transition: transform 0.16s ease;
+}
+
+.step3-collapsible-section[open] .step3-collapsible-chevron {
+  transform: rotate(180deg);
+}
+
+.step3-collapsible-body {
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
 /* =========================
    Step 3 checklist UI
 ========================= */

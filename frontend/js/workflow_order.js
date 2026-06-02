@@ -512,6 +512,32 @@ function normalizeSchemaForValues(schemaObj, values) {
   };
 }
 
+function isStep3CollapsedField(field) {
+  const key = String(field?.key || "").toLowerCase();
+  const label = String(field?.label || "").toLowerCase();
+  const text = `${key} ${label}`;
+
+  return (
+    text.includes("sjekkliste") ||
+    text.includes("egenskaper") ||
+    text.includes("metadata")
+  );
+}
+
+function renderCollapsibleStep3Section(title, bodyHtml, { required = false, collapsed = true } = {}) {
+  return `
+    <details class="step3-collapsible-section" ${collapsed ? "" : "open"}>
+      <summary class="step3-collapsible-summary">
+        <span>${escapeHtml(title)}${required ? " *" : ""}</span>
+        <span class="step3-collapsible-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <div class="step3-collapsible-body">
+        ${bodyHtml}
+      </div>
+    </details>
+  `;
+}
+
 function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
   const fields = getRenderableFormFields(schemaObj);
   if (!fields.length) {
@@ -523,16 +549,30 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
 
   hostEl.innerHTML = fields.map(f => {
     const key = escapeHtml(f.key);
-    const label = escapeHtml(f.label || f.key);
+    const labelText = f.label || f.key;
+    const label = escapeHtml(labelText);
     const required = !!f.required;
+    const shouldCollapse = isStep3CollapsedField(f);
+    const inlineLabel = shouldCollapse
+      ? ""
+      : `<label style="font-weight:800;">${label}${required ? " *" : ""}</label><br/>`;
+    const sliderInlineLabel = shouldCollapse
+      ? ""
+      : `<label style="font-weight:800;">${label}${required ? " *" : ""}</label>`;
 
     if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
-  return `
-    <div style="margin-bottom:12px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
-      <div style="font-weight:800; margin-bottom:8px;">${label}${required ? " *" : ""}</div>
+  const content = `
       ${renderStatusCommentListField(f, values?.[f.key] || {}, canEdit)}
-    </div>
   `;
+
+  return shouldCollapse
+    ? renderCollapsibleStep3Section(labelText, content, { required })
+    : `
+      <div style="margin-bottom:12px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
+        <div style="font-weight:800; margin-bottom:8px;">${label}${required ? " *" : ""}</div>
+        ${content}
+      </div>
+    `;
 }
 
     if (f.type === "checklist") {
@@ -549,12 +589,16 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
         `;
       }).join("");
 
-      return `
-        <div style="margin-bottom:12px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
-          <div style="font-weight:800; margin-bottom:6px;">${label}${required ? " *" : ""}</div>
-          ${items || `<div style="color:#6b7280;">Ingen sjekkpunkter definert.</div>`}
-        </div>
-      `;
+      const content = items || `<div style="color:#6b7280;">Ingen sjekkpunkter definert.</div>`;
+
+      return shouldCollapse
+        ? renderCollapsibleStep3Section(labelText, content, { required })
+        : `
+          <div style="margin-bottom:12px; border:1px solid #e5e7eb; border-radius:10px; padding:10px;">
+            <div style="font-weight:800; margin-bottom:6px;">${label}${required ? " *" : ""}</div>
+            ${content}
+          </div>
+        `;
     }
 
     const val = values?.[f.key];
@@ -566,9 +610,8 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const step = Number(f.step ?? 1);
     const current = Number(val ?? min);
 
-    return `
-      <div style="margin-bottom:12px;">
-        <label style="font-weight:800;">${label}${required ? " *" : ""}</label>
+    const content = `
+        ${sliderInlineLabel}
         <div style="display:grid; grid-template-columns: 1fr 70px; gap:10px; align-items:center; margin-top:6px;">
           <input
             ${common}
@@ -591,17 +634,22 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
             style="width:70px; height:38px;"
           />
         </div>
-      </div>
     `;
+
+    return shouldCollapse
+      ? renderCollapsibleStep3Section(labelText, content, { required })
+      : `<div style="margin-bottom:12px;">${content}</div>`;
   }
     
     if (f.type === "textarea") {
-      return `
-        <div style="margin-bottom:10px;">
-          <label style="font-weight:800;">${label}${required ? " *" : ""}</label><br/>
+      const content = `
+          ${inlineLabel}
           <textarea ${common} style="width:100%; min-height:90px;">${escapeHtml(val ?? "")}</textarea>
-        </div>
       `;
+
+      return shouldCollapse
+        ? renderCollapsibleStep3Section(labelText, content, { required })
+        : `<div style="margin-bottom:10px;">${content}</div>`;
     }
 
     if (f.type === "select") {
@@ -610,15 +658,17 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
         return `<option ${sel} value="${escapeHtml(o)}">${escapeHtml(o)}</option>`;
       }).join("");
 
-      return `
-        <div style="margin-bottom:10px;">
-          <label style="font-weight:800;">${label}${required ? " *" : ""}</label><br/>
+      const content = `
+          ${inlineLabel}
           <select ${common} style="width:100%; height:38px;">
             <option value=""></option>
             ${opts}
           </select>
-        </div>
       `;
+
+      return shouldCollapse
+        ? renderCollapsibleStep3Section(labelText, content, { required })
+        : `<div style="margin-bottom:10px;">${content}</div>`;
     }
 
     const inputType =
@@ -630,12 +680,14 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const checked = inputType === "checkbox" && !!val ? "checked" : "";
     const valueAttr = inputType !== "checkbox" ? `value="${escapeHtml(val ?? "")}"` : "";
 
-    return `
-      <div style="margin-bottom:10px;">
-        <label style="font-weight:800;">${label}${required ? " *" : ""}</label><br/>
+    const content = `
+        ${inlineLabel}
         <input ${common} type="${inputType}" ${valueAttr} ${checked} style="width:100%; height:38px;" />
-      </div>
     `;
+
+    return shouldCollapse
+      ? renderCollapsibleStep3Section(labelText, content, { required })
+      : `<div style="margin-bottom:10px;">${content}</div>`;
   }).join("");
 }
 
@@ -882,8 +934,6 @@ function renderStep3ExternalData(externalData) {
   const sjekkliste = externalData?.sjekkliste || [];
   const egenskaper = externalData?.egenskaper || [];
 
-  const tabsId = `exttabs_${Math.random().toString(36).slice(2, 8)}`;
-
   host.innerHTML = `
     <div style="display:grid; gap:12px;">
       <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
@@ -891,49 +941,11 @@ function renderStep3ExternalData(externalData) {
         ${renderKeyValueGrid(buildSerieSummaryItems(serie))}
       </div>
 
-      <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-        <div style="font-weight:900; margin-bottom:10px;">Metadata</div>
-        ${renderKeyValueGrid(metadata)}
-      </div>
-
-      <div style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
-        <div style="display:flex; gap:8px; padding:10px 12px; background:#f8fafc; border-bottom:1px solid #e5e7eb;">
-          <button type="button" class="btn btn-outline" data-tab-group="${tabsId}" data-tab-target="sjekkliste">Sjekkliste</button>
-          <button type="button" class="btn btn-outline" data-tab-group="${tabsId}" data-tab-target="egenskaper">Egenskaper</button>
-        </div>
-
-        <div data-tab-panel-group="${tabsId}">
-          <div data-tab-panel="sjekkliste" style="padding:12px;">
-            ${renderChecklistRows(sjekkliste)}
-          </div>
-          <div data-tab-panel="egenskaper" style="padding:12px; display:none;">
-            ${renderEgenskaperTable(egenskaper)}
-          </div>
-        </div>
-      </div>
+      ${renderCollapsibleStep3Section("Metadata", renderKeyValueGrid(metadata))}
+      ${renderCollapsibleStep3Section("Sjekkliste", renderChecklistRows(sjekkliste))}
+      ${renderCollapsibleStep3Section("Egenskaper", renderEgenskaperTable(egenskaper))}
     </div>
   `;
-
-  const tabButtons = host.querySelectorAll(`[data-tab-group="${tabsId}"]`);
-  const tabPanels = host.querySelectorAll(`[data-tab-panel-group="${tabsId}"] [data-tab-panel]`);
-
-  function activateTab(target) {
-    tabPanels.forEach(panel => {
-      panel.style.display = panel.getAttribute("data-tab-panel") === target ? "block" : "none";
-    });
-    tabButtons.forEach(btn => {
-      const active = btn.getAttribute("data-tab-target") === target;
-      btn.style.background = active ? "#475569" : "";
-      btn.style.color = active ? "#fff" : "";
-      btn.style.borderColor = active ? "#475569" : "";
-    });
-  }
-
-  tabButtons.forEach(btn => {
-    btn.addEventListener("click", () => activateTab(btn.getAttribute("data-tab-target")));
-  });
-
-  activateTab("sjekkliste");
 }
 
 function renderStepCommentFieldInto(hostEl, field, values, canEdit) {
