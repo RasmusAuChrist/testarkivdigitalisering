@@ -513,15 +513,35 @@ function normalizeSchemaForValues(schemaObj, values) {
 }
 
 function isStep3CollapsedField(field) {
+  return (
+    isStep3ChecklistField(field) ||
+    isStep3EgenskaperField(field) ||
+    isStep3MetadataField(field)
+  );
+}
+
+function isStep3ChecklistField(field) {
   const key = String(field?.key || "").toLowerCase();
   const label = String(field?.label || "").toLowerCase();
   const text = `${key} ${label}`;
 
-  return (
-    text.includes("sjekkliste") ||
-    text.includes("egenskaper") ||
-    text.includes("metadata")
-  );
+  return text.includes("sjekkliste");
+}
+
+function isStep3EgenskaperField(field) {
+  const key = String(field?.key || "").toLowerCase();
+  const label = String(field?.label || "").toLowerCase();
+  const text = `${key} ${label}`;
+
+  return text.includes("egenskaper");
+}
+
+function isStep3MetadataField(field) {
+  const key = String(field?.key || "").toLowerCase();
+  const label = String(field?.label || "").toLowerCase();
+  const text = `${key} ${label}`;
+
+  return text.includes("metadata");
 }
 
 function renderCollapsibleStep3Section(title, bodyHtml, { required = false, collapsed = true } = {}) {
@@ -536,6 +556,139 @@ function renderCollapsibleStep3Section(title, bodyHtml, { required = false, coll
       </div>
     </details>
   `;
+}
+
+function normalizeMetadataFieldValue(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => {
+        if (typeof item === "string") return { name: item.trim() };
+        return {
+          name: String(item?.name ?? item?.label ?? item?.felt ?? item?.field ?? "").trim(),
+        };
+      })
+      .filter(item => item.name);
+  }
+
+  if (value && typeof value === "object") {
+    const nested = value.fields || value.items || value.metadataFields;
+    if (Array.isArray(nested)) return normalizeMetadataFieldValue(nested);
+
+    return Object.entries(value)
+      .map(([key, val]) => {
+        if (typeof val === "string" && val.trim()) return { name: val.trim() };
+        return { name: key.trim() };
+      })
+      .filter(item => item.name);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n|,/)
+      .map(name => ({ name: name.trim() }))
+      .filter(item => item.name);
+  }
+
+  return [];
+}
+
+function renderMetadataFieldRow(fieldKey, name, canEdit) {
+  const dis = canEdit ? "" : "disabled";
+
+  return `
+    <div class="step3-metadata-row">
+      <input
+        type="text"
+        data-field="${escapeHtml(fieldKey)}"
+        data-role="metadata-name"
+        value="${escapeHtml(name ?? "")}"
+        placeholder="Feltnavn"
+        ${dis}
+      />
+      <button
+        type="button"
+        class="btn btn-outline step3-metadata-delete"
+        data-action="delete-metadata-field"
+        title="Slett metadatafelt"
+        aria-label="Slett metadatafelt"
+        ${dis}
+      >
+        ×
+      </button>
+    </div>
+  `;
+}
+
+function renderMetadataFieldEditor(field, value, canEdit) {
+  const rows = normalizeMetadataFieldValue(value);
+  const fieldKey = String(field.key);
+  const dis = canEdit ? "" : "disabled";
+
+  return `
+    <div class="step3-metadata-editor" data-metadata-editor="${escapeHtml(fieldKey)}">
+      <div class="step3-metadata-list" data-metadata-list="${escapeHtml(fieldKey)}">
+        ${rows.length
+          ? rows.map(item => renderMetadataFieldRow(fieldKey, item.name, canEdit)).join("")
+          : `<div class="step3-metadata-empty">Ingen metadatafelt lagt til.</div>`}
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-outline step3-metadata-add"
+        data-action="add-metadata-field"
+        data-field="${escapeHtml(fieldKey)}"
+        ${dis}
+      >
+        + Legg til felt
+      </button>
+    </div>
+  `;
+}
+
+function findMetadataList(hostEl, fieldKey) {
+  return Array.from(hostEl.querySelectorAll("[data-metadata-list]"))
+    .find(el => el.getAttribute("data-metadata-list") === String(fieldKey));
+}
+
+function syncMetadataEmptyState(listEl) {
+  const hasRows = !!listEl.querySelector(".step3-metadata-row");
+  const emptyEl = listEl.querySelector(".step3-metadata-empty");
+
+  if (hasRows && emptyEl) {
+    emptyEl.remove();
+  } else if (!hasRows && !emptyEl) {
+    listEl.innerHTML = `<div class="step3-metadata-empty">Ingen metadatafelt lagt til.</div>`;
+  }
+}
+
+function wireMetadataFieldEditors(hostEl, canEdit) {
+  if (!canEdit) return;
+
+  hostEl.addEventListener("click", ev => {
+    const addBtn = ev.target.closest('[data-action="add-metadata-field"]');
+    if (addBtn) {
+      const fieldKey = addBtn.getAttribute("data-field");
+      const listEl = findMetadataList(hostEl, fieldKey);
+      if (!listEl) return;
+
+      const emptyEl = listEl.querySelector(".step3-metadata-empty");
+      if (emptyEl) emptyEl.remove();
+
+      listEl.insertAdjacentHTML("beforeend", renderMetadataFieldRow(fieldKey, "", true));
+      const inputs = listEl.querySelectorAll('[data-role="metadata-name"]');
+      inputs[inputs.length - 1]?.focus();
+      syncMetadataEmptyState(listEl);
+      return;
+    }
+
+    const deleteBtn = ev.target.closest('[data-action="delete-metadata-field"]');
+    if (deleteBtn) {
+      const row = deleteBtn.closest(".step3-metadata-row");
+      const listEl = row?.closest("[data-metadata-list]");
+      row?.remove();
+      if (listEl) syncMetadataEmptyState(listEl);
+    }
+  });
 }
 
 function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
@@ -559,6 +712,12 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
     const sliderInlineLabel = shouldCollapse
       ? ""
       : `<label style="font-weight:800;">${label}${required ? " *" : ""}</label>`;
+
+    if (isStep3MetadataField(f)) {
+      const content = renderMetadataFieldEditor(f, values?.[f.key], canEdit);
+
+      return renderCollapsibleStep3Section(labelText, content, { required });
+    }
 
     if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
   const content = `
@@ -689,6 +848,8 @@ function renderDynamicFormInto(hostEl, schemaObj, values, canEdit) {
       ? renderCollapsibleStep3Section(labelText, content, { required })
       : `<div style="margin-bottom:10px;">${content}</div>`;
   }).join("");
+
+  wireMetadataFieldEditors(hostEl, canEdit);
 }
 
 function readDynamicFormValuesFrom(hostEl, schemaObj) {
@@ -696,6 +857,19 @@ function readDynamicFormValuesFrom(hostEl, schemaObj) {
   const out = {};
 
   for (const f of fields) {
+
+    if (isStep3MetadataField(f)) {
+      const nodes = hostEl.querySelectorAll(
+        `[data-field="${CSS.escape(f.key)}"][data-role="metadata-name"]`
+      );
+
+      out[f.key] = Array.from(nodes)
+        .map(node => String(node.value || "").trim())
+        .filter(Boolean)
+        .map(name => ({ name }));
+
+      continue;
+    }
 
     if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
   const obj = {};
@@ -748,6 +922,10 @@ function validateDynamicForm(schemaObj, values) {
   const fields = getRenderableFormFields(schemaObj);
   const missing = fields.filter(f => {
     if (!f.required) return false;
+
+    if (isStep3MetadataField(f)) {
+      return !Array.isArray(values?.[f.key]) || values[f.key].length === 0;
+    }
 
     if (f.type === "status_comment_list" || f.type === "checklist_with_comment") {
   return !Object.values(values?.[f.key] || {}).some(v => v?.status === true);

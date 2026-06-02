@@ -994,6 +994,45 @@ body.dashboard-fullscreen #dashboard-grid .chart-box:not(.is-fullscreen) {
   border-top: 1px solid #e5e7eb;
 }
 
+.step3-metadata-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.step3-metadata-list {
+  display: grid;
+  gap: 8px;
+}
+
+.step3-metadata-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: center;
+}
+
+.step3-metadata-row input {
+  width: 100%;
+  height: 38px;
+}
+
+.step3-metadata-delete {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  justify-content: center;
+}
+
+.step3-metadata-add {
+  justify-self: start;
+}
+
+.step3-metadata-empty {
+  color: #64748b;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
 /* =========================
    Step 3 checklist UI
 ========================= */
