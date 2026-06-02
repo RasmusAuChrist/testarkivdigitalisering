@@ -351,6 +351,17 @@ function setCurrentStepMsg(text, isError = false) {
   el.style.color = isError ? "#b91c1c" : "#6b7280";
 }
 
+function setCurrentStepSaveButtonState(saveBtn, canEdit, isSaving = false) {
+  if (!saveBtn) return;
+
+  saveBtn.style.display = "inline-flex";
+  saveBtn.disabled = !canEdit || isSaving;
+  saveBtn.textContent = isSaving ? "Lagrer..." : "Lagre";
+  saveBtn.title = canEdit
+    ? "Lagre stegdetaljer"
+    : "Kun aktivt steg der du er tildelt kan lagres.";
+}
+
 function safeParseJson(maybeJson, fallback) {
   if (!maybeJson) return fallback;
   if (typeof maybeJson === "object") return maybeJson;
@@ -1190,6 +1201,7 @@ async function renderCurrentStepDetails(order) {
       </div>
     `;
     saveBtn.style.display = "none";
+    saveBtn.disabled = true;
     setCurrentStepMsg("Kan ikke laste skjema.", true);
     return;
   }
@@ -1249,6 +1261,14 @@ const schemaObj = normalizeSchemaForValues(rawSchemaObj, currentValues);
     formHost.innerHTML = `<div style="color:#6b7280;">Ingen felter definert for dette steget.</div>`;
   }
 
+  const hasEditableFormContent = !!(nonCommentFields.length || primaryCommentField);
+  if (hasEditableFormContent) {
+    setCurrentStepSaveButtonState(saveBtn, canEdit);
+  } else {
+    saveBtn.style.display = "none";
+    saveBtn.disabled = true;
+  }
+
   const allData = await apiGet(`/api/wf/orders/${encodeURIComponent(order.header.OrderId)}/step-form-data`);
 
 const labelMapsByStep = {};
@@ -1271,6 +1291,8 @@ for (const item of (allData.items || [])) {
 renderPriorStepsInline(allData.items || [], step.Sequence, labelMapsByStep);
 
   saveBtn.onclick = async () => {
+    if (!canEdit || !hasEditableFormContent) return;
+
     try {
       const values = {};
 
@@ -1301,6 +1323,7 @@ renderPriorStepsInline(allData.items || [], step.Sequence, labelMapsByStep);
         return;
       }
 
+      setCurrentStepSaveButtonState(saveBtn, canEdit, true);
       setCurrentStepMsg("Lagrer…");
 
       const savePath = isStep3
@@ -1318,6 +1341,7 @@ renderPriorStepsInline(allData.items || [], step.Sequence, labelMapsByStep);
       await renderCurrentStepDetails(order);
       setCurrentStepMsg("Lagret ✔️");
     } catch (e) {
+      setCurrentStepSaveButtonState(saveBtn, canEdit && hasEditableFormContent);
       setCurrentStepMsg(e.message || "Feil ved lagring.", true);
     }
   };
