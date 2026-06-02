@@ -164,10 +164,9 @@ function sortQueueItems(items) {
 
 function createEmptyValidationIndex() {
   return {
-    byOrdre: new Map(),
     bySeriePath: new Map(),
     bySerieLeaf: new Map(),
-    byMissingItem: new Map(),
+    bySeriePart: new Map(),
   };
 }
 
@@ -193,12 +192,30 @@ function getSerieLeaf(value) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return "";
 
-  const parts = normalized
-    .split(/[>\\/|]+/)
-    .map(part => part.trim())
-    .filter(Boolean);
+  const parts = getSeriePathParts(normalized);
 
   return parts.length ? parts[parts.length - 1] : normalized;
+}
+
+function getSeriePathParts(value) {
+  return String(value ?? "")
+    .split(/[>\\/|»]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+function getSeriePartKeys(value) {
+  const part = String(value ?? "").trim();
+  if (!part) return [];
+
+  const keys = [part];
+  const leadingCode = part.split(/\s+[-–—]\s+|:\s*/)[0]?.trim();
+
+  if (leadingCode && leadingCode !== part) {
+    keys.push(leadingCode);
+  }
+
+  return keys;
 }
 
 function buildValidationIndex(entries) {
@@ -207,13 +224,14 @@ function buildValidationIndex(entries) {
   (entries || []).forEach(entry => {
     if (!hasValidationIssue(entry)) return;
 
-    addValidationIndexEntry(index.byOrdre, entry.ordre, entry);
     addValidationIndexEntry(index.bySeriePath, entry.serie_path, entry);
     addValidationIndexEntry(index.bySerieLeaf, getSerieLeaf(entry.serie_path), entry);
 
-    (entry.missing_items || []).forEach(item => {
-      addValidationIndexEntry(index.byMissingItem, item?.identifikator, entry);
-    });
+    getSeriePathParts(entry.serie_path)
+      .flatMap(getSeriePartKeys)
+      .forEach(part => {
+        addValidationIndexEntry(index.bySeriePart, part, entry);
+      });
   });
 
   return index;
@@ -243,33 +261,44 @@ function collectValidationMatchesFrom(map, keys, seen, out) {
     });
 }
 
+function queueItemSerieKeys(it) {
+  return [
+    it?.Identifikator,
+    it?.SerieIdentifikator,
+    it?.SerieIdentifier,
+    it?.SeriesIdentifier,
+  ].map(normalizeValidationKey).filter(Boolean);
+}
+
+function validationEntryMatchesItem(entry, it) {
+  const serieKeys = queueItemSerieKeys(it);
+  if (!serieKeys.length) return false;
+
+  const path = normalizeValidationKey(entry?.serie_path);
+  const leaf = normalizeValidationKey(getSerieLeaf(entry?.serie_path));
+  const parts = getSeriePathParts(entry?.serie_path)
+    .flatMap(getSeriePartKeys)
+    .map(normalizeValidationKey);
+
+  const serieMatches = serieKeys.some(key =>
+    key === path ||
+    key === leaf ||
+    parts.includes(key)
+  );
+
+  return serieMatches;
+}
+
 function validationEntriesForItem(it) {
   const out = [];
   const seen = new Set();
+  const serieKeys = queueItemSerieKeys(it);
 
-  const orderKeys = [
-    it?.ordre,
-    it?.Ordre,
-    it?.OrderId,
-    it?.OrderNumber,
-    it?.OrderNo,
-    it?.ExternalOrderId,
-    it?.ArkivIdentifikator,
-  ];
-
-  const serieKeys = [
-    it?.Identifikator,
-    it?.SerieIdentifikator,
-    it?.Title,
-    it?.ExternalAmid,
-  ];
-
-  collectValidationMatchesFrom(validationIndex.byOrdre, orderKeys, seen, out);
   collectValidationMatchesFrom(validationIndex.bySeriePath, serieKeys, seen, out);
   collectValidationMatchesFrom(validationIndex.bySerieLeaf, serieKeys, seen, out);
-  collectValidationMatchesFrom(validationIndex.byMissingItem, serieKeys, seen, out);
+  collectValidationMatchesFrom(validationIndex.bySeriePart, serieKeys, seen, out);
 
-  return out;
+  return out.filter(entry => validationEntryMatchesItem(entry, it));
 }
 
 function validationMessagesForEntry(entry) {
@@ -282,20 +311,6 @@ function validationMessagesForEntry(entry) {
   const missingCount = Number(entry.missing_count || 0);
   if (missingCount > 0) {
     issues.push(`${missingCount} stykker mangler start-/sluttdato`);
-
-    const missingIds = (entry.missing_items || [])
-      .map(item => String(item?.identifikator ?? "").trim())
-      .filter(Boolean)
-      .sort((a, b) => queueSortCollator.compare(a, b));
-
-    if (missingIds.length) {
-      const visibleIds = missingIds.slice(0, 8);
-      const extraCount = missingIds.length - visibleIds.length;
-
-      issues.push(
-        `Mangler dato: ${visibleIds.join(", ")}${extraCount > 0 ? `, +${extraCount} til` : ""}`
-      );
-    }
   }
 
   if (!issues.length) return [];
