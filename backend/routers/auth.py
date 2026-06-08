@@ -21,6 +21,7 @@ class LoginRequest(BaseModel):
     username: str
     password: str
     remember: bool = False
+    login_context: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -95,7 +96,11 @@ def login(payload: LoginRequest):
 
         must_change = bool(user.get("MustChangePassword", False))
 
-        token_minutes = 43200 if payload.remember else 720
+        login_context = (payload.login_context or "").strip().lower()
+        token_minutes = 720
+        if payload.remember:
+            token_minutes = 518400 if login_context == "arkiv_infoscreen" else 43200
+        # 518400 = 360 days for kiosk-style infoscreen logins
         # 43200 = 30 days
         # 720 = 12 hours
 

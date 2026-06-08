@@ -4,7 +4,16 @@ const API_BASE = "https://ask-fastapi-ataza7ake0avfvdy.norwayeast-01.azurewebsit
 
 function getNextUrl() {
   const next = new URLSearchParams(window.location.search).get("next");
-  return next ? decodeURIComponent(next) : "/views/serie_hierarchy.html";
+  return next || "/views/serie_hierarchy.html";
+}
+
+function getLoginContext() {
+  try {
+    const nextUrl = new URL(getNextUrl(), window.location.origin);
+    return nextUrl.pathname === "/views/arkiv_infoscreen.html" ? "arkiv_infoscreen" : null;
+  } catch {
+    return null;
+  }
 }
 
 function showError(msg) {
@@ -23,7 +32,8 @@ async function login(username, password) {
     body: JSON.stringify({
       username,
       password,
-      remember
+      remember,
+      login_context: getLoginContext()
     })
   });
 
