@@ -31,7 +31,7 @@ const el = {
 
   topRequisitionTicker: document.getElementById("topRequisitionTicker"),
 
-  topMediaChart: document.getElementById("topMediaChart"),
+  topMediaList: document.getElementById("topMediaList"),
   locationChart: document.getElementById("locationChart"),
   digitizationBucketChart: document.getElementById("digitizationBucketChart"),
   spotlightTrendChart: document.getElementById("spotlightTrendChart"),
@@ -240,72 +240,50 @@ function buildTopMediaChart(rows) {
     .sort((a, b) => b.views_media - a.views_media)
     .slice(0, 10);
 
-  const labels = sorted
-    .map(r => r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`)
-    .reverse();
-
-  const values = sorted
-    .map(r => r.views_media)
-    .reverse();
-
   destroyChart(state.charts.topMedia);
+  state.charts.topMedia = null;
 
-  state.charts.topMedia = new Chart(el.topMediaChart, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Media-visninger",
-          data: values,
-          borderRadius: 8,
-          backgroundColor: [
-            "#fae6a6",
-            "#f8df95",
-            "#f5d885",
-            "#f2d175",
-            "#eecb68",
-            "#e8c45d",
-            "#e2bd52",
-            "#dbb447",
-            "#d4ac3d",
-            "#cda434"
-          ]
-        }
-      ]
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: items => items[0]?.label || "",
-            label: ctx => ` ${int(ctx.raw)} visninger`
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: "#c8d4ea" },
-          grid: { color: "rgba(255,255,255,0.08)" },
-          beginAtZero: true
-        },
-        y: {
-          reverse: true,
-          ticks: {
-            color: "#e5eefc",
-            autoSkip: false,
-            padding: 8,
-            font: { size: 10 }
-          },
-          grid: { display: false }
-        }
-      }
-    }
-  });
+  if (!el.topMediaList) return;
+
+  if (!sorted.length) {
+    el.topMediaList.innerHTML = `<div class="top-media-empty">Ingen data</div>`;
+    return;
+  }
+
+  const colors = [
+    "#fae6a6",
+    "#f8df95",
+    "#f5d885",
+    "#f2d175",
+    "#eecb68",
+    "#e8c45d",
+    "#e2bd52",
+    "#dbb447",
+    "#d4ac3d",
+    "#cda434",
+  ];
+  const maxValue = Math.max(...sorted.map(r => r.views_media), 1);
+
+  el.topMediaList.innerHTML = sorted.map((row, index) => {
+    const name = row.navn || row.identifikator || `arkiv ${row.arkiv_sk}`;
+    const value = toNum(row.views_media);
+    const width = value > 0 ? Math.max((value / maxValue) * 100, 1.5) : 0;
+
+    return `
+      <div class="top-media-row">
+        <div class="top-media-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+        <div class="top-media-bars">
+          <div class="top-media-track" aria-hidden="true">
+            <div
+              class="top-media-bar"
+              style="width:${width.toFixed(2)}%; background:${colors[index] || colors[colors.length - 1]};"
+            ></div>
+          </div>
+          <div class="top-media-value">${int(value)}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function groupByLocation(rows) {
