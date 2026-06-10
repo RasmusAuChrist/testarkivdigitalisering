@@ -121,6 +121,16 @@ async function fetchOverview() {
   return data.map(normalizeRow);
 }
 
+async function fetchCurrentYearRequisitions() {
+  const data = await apiGet("/api/arkiv-requisitions-current-year");
+
+  if (!Array.isArray(data)) {
+    throw new Error("Uventet svar fra arkiv-requisitions-current-year.");
+  }
+
+  return data.map(normalizeRequisitionRow);
+}
+
 async function fetchViewsHistory(arkivSk) {
   if (state.cache.viewsHistory.has(arkivSk)) {
     return state.cache.viewsHistory.get(arkivSk);
@@ -147,6 +157,20 @@ async function fetchRequisitionHistory(arkivSk) {
   const points = Array.isArray(data?.points) ? data.points : [];
   state.cache.requisitionHistory.set(arkivSk, points);
   return points;
+}
+
+function normalizeRequisitionRow(row) {
+  const reqInternal = toNum(row.requisitions_internal);
+  const reqAp = toNum(row.requisitions_ap);
+
+  return {
+    ...row,
+    navn: safeText(row.navn),
+    identifikator: safeText(row.identifikator),
+    requisitions_internal: reqInternal,
+    requisitions_ap: reqAp,
+    total_requisitions: toNum(row.total_requisitions) || reqInternal + reqAp,
+  };
 }
 
 function normalizeRow(row) {
@@ -744,14 +768,17 @@ async function loadDashboard() {
   setRefreshLabel("Oppdaterer data…");
 
   try {
-    const rows = await fetchOverview();
+    const [rows, currentYearRequisitionRows] = await Promise.all([
+      fetchOverview(),
+      fetchCurrentYearRequisitions(),
+    ]);
     state.rows = rows;
 
     renderKpis(rows);
     buildTopMediaChart(rows);
     buildLocationChart(rows);
     buildDigitizationBucketChart(rows);
-    buildTopRequisitionTicker(rows);
+    buildTopRequisitionTicker(currentYearRequisitionRows);
 
     await renderRandomSpotlight();
 
