@@ -307,7 +307,7 @@
       display: grid;
       grid-template-columns: 26px 1fr auto;
       gap: 10px;
-      align-items: center;
+      align-items: start;
       padding: 10px 12px;
       border-radius: 12px;
       background: rgba(255,255,255,0.03);
@@ -329,9 +329,9 @@
     .ticker-name {
       font-size: 14px;
       font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+      white-space: normal;
     }
 
     .ticker-value {
