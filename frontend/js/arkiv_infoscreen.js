@@ -99,37 +99,6 @@ function shortLabel(value, max = 26) {
   return `${s.slice(0, max - 1)}…`;
 }
 
-function wrapChartLabel(value, maxLineLength = 28) {
-  const words = safeText(value).split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = "";
-
-  for (const word of words) {
-    if (word.length > maxLineLength) {
-      if (current) {
-        lines.push(current);
-        current = "";
-      }
-
-      for (let i = 0; i < word.length; i += maxLineLength) {
-        lines.push(word.slice(i, i + maxLineLength));
-      }
-      continue;
-    }
-
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxLineLength) {
-      current = next;
-    } else {
-      lines.push(current);
-      current = word;
-    }
-  }
-
-  if (current) lines.push(current);
-  return lines.length ? lines : [""];
-}
-
 function updateClock() {
   if (el.clockPill) {
     el.clockPill.textContent = formatTime(new Date());
@@ -272,7 +241,7 @@ function buildTopMediaChart(rows) {
     .slice(0, 10);
 
   const labels = sorted
-    .map(r => wrapChartLabel(r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`, 28))
+    .map(r => r.navn || r.identifikator || `arkiv ${r.arkiv_sk}`)
     .reverse();
 
   const values = sorted
@@ -313,10 +282,7 @@ function buildTopMediaChart(rows) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            title: items => {
-              const label = items[0]?.label;
-              return Array.isArray(label) ? label.join(" ") : label;
-            },
+            title: items => items[0]?.label || "",
             label: ctx => ` ${int(ctx.raw)} visninger`
           }
         }
@@ -332,7 +298,8 @@ function buildTopMediaChart(rows) {
           ticks: {
             color: "#e5eefc",
             autoSkip: false,
-            font: { size: 11, lineHeight: 1.15 }
+            padding: 8,
+            font: { size: 10 }
           },
           grid: { display: false }
         }
