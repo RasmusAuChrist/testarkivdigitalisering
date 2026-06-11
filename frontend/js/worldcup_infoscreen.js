@@ -607,21 +607,28 @@ function parseScorers(value) {
 
 function scorersHtml(scorers, className) {
   if (!scorers?.length) return "";
-  return `<div class="${className}">${scorers.map(escapeHtml).join(", ")}</div>`;
+  return `
+    <div class="${className}">
+      ${scorers.map(scorer => `
+        <div class="scorer-line">
+          <span class="scorer-ball" aria-hidden="true">⚽</span>
+          <span>${escapeHtml(scorer)}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 function matchScorersSummaryHtml(game, className) {
   const parts = [];
   if (game.home_scorers?.length) {
-    parts.push(`${game.home_team_name_en}: ${game.home_scorers.join(", ")}`);
+    parts.push(...game.home_scorers.map(scorer => `${game.home_team_name_en}: ${scorer}`));
   }
   if (game.away_scorers?.length) {
-    parts.push(`${game.away_team_name_en}: ${game.away_scorers.join(", ")}`);
+    parts.push(...game.away_scorers.map(scorer => `${game.away_team_name_en}: ${scorer}`));
   }
 
-  return parts.length
-    ? `<div class="${className}">${parts.map(escapeHtml).join(" · ")}</div>`
-    : "";
+  return scorersHtml(parts, className);
 }
 
 function normalizeStadium(row) {

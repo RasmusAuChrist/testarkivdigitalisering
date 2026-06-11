@@ -272,9 +272,25 @@
     .featured-scorers,
     .match-scorers,
     .ticker-scorers {
+      display: grid;
+      gap: 3px;
       color: #f6d365;
       font-weight: 800;
       overflow-wrap: anywhere;
+    }
+
+    .scorer-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .scorer-ball {
+      flex: 0 0 auto;
+      font-size: 0.82em;
+      line-height: 1.2;
+      transform: translateY(1px);
     }
 
     .featured-scorers {
@@ -284,7 +300,12 @@
     }
 
     .team-name.away .featured-scorers {
+      justify-items: end;
       text-align: right;
+    }
+
+    .team-name.away .scorer-line {
+      justify-content: flex-end;
     }
 
     .match-scorers {
