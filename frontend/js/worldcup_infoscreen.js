@@ -213,13 +213,103 @@ const TEAM_FLAGS = {
   Wales: "🏴",
 };
 
+const TEAM_FLAG_CODES = {
+  Algeria: "dz",
+  Argentina: "ar",
+  Australia: "au",
+  Austria: "at",
+  Bahrain: "bh",
+  Belgium: "be",
+  Bolivia: "bo",
+  "Bosnia and Herzegovina": "ba",
+  Brazil: "br",
+  Cameroon: "cm",
+  Canada: "ca",
+  "Cape Verde": "cv",
+  Chile: "cl",
+  China: "cn",
+  Colombia: "co",
+  Congo: "cg",
+  "Costa Rica": "cr",
+  Croatia: "hr",
+  "Cura\u00e7ao": "cw",
+  "Czech Republic": "cz",
+  Czechia: "cz",
+  Denmark: "dk",
+  "DR Congo": "cd",
+  Ecuador: "ec",
+  Egypt: "eg",
+  England: "gb-eng",
+  France: "fr",
+  Germany: "de",
+  Ghana: "gh",
+  Greece: "gr",
+  Honduras: "hn",
+  Hungary: "hu",
+  Indonesia: "id",
+  Iran: "ir",
+  Iraq: "iq",
+  Ireland: "ie",
+  Italy: "it",
+  "Ivory Coast": "ci",
+  Jamaica: "jm",
+  Japan: "jp",
+  Jordan: "jo",
+  Kuwait: "kw",
+  Lebanon: "lb",
+  Malaysia: "my",
+  Mali: "ml",
+  Mexico: "mx",
+  Morocco: "ma",
+  Netherlands: "nl",
+  "New Caledonia": "nc",
+  "New Zealand": "nz",
+  Nigeria: "ng",
+  "North Macedonia": "mk",
+  "Northern Ireland": "gb-nir",
+  Norway: "no",
+  Oman: "om",
+  Panama: "pa",
+  Paraguay: "py",
+  Peru: "pe",
+  Poland: "pl",
+  Portugal: "pt",
+  Qatar: "qa",
+  Romania: "ro",
+  "Saudi Arabia": "sa",
+  Scotland: "gb-sct",
+  Senegal: "sn",
+  Serbia: "rs",
+  Slovakia: "sk",
+  Slovenia: "si",
+  "South Africa": "za",
+  "South Korea": "kr",
+  Spain: "es",
+  Sweden: "se",
+  Switzerland: "ch",
+  Syria: "sy",
+  Tahiti: "pf",
+  Thailand: "th",
+  "Trinidad and Tobago": "tt",
+  Tunisia: "tn",
+  Turkey: "tr",
+  Ukraine: "ua",
+  "United Arab Emirates": "ae",
+  "United States": "us",
+  Uruguay: "uy",
+  USA: "us",
+  Uzbekistan: "uz",
+  Venezuela: "ve",
+  Vietnam: "vn",
+  Wales: "gb-wls",
+};
+
 const el = {
   clockPill: document.getElementById("clockPill"),
   refreshPill: document.getElementById("refreshPill"),
   statusPill: document.getElementById("statusPill"),
   loadingOverlay: document.getElementById("loadingOverlay"),
 
-  kpiMatches: document.getElementById("kpiMatches"),
   kpiLive: document.getElementById("kpiLive"),
   kpiFinished: document.getElementById("kpiFinished"),
   kpiGoals: document.getElementById("kpiGoals"),
@@ -278,7 +368,12 @@ function teamNameNo(value) {
 
 function teamFlag(value) {
   const name = safeText(value);
-  return TEAM_FLAGS[name] || "";
+  return TEAM_FLAG_CODES[name] || "";
+}
+
+function flagImageUrl(flagCode) {
+  const code = safeText(flagCode).toLowerCase();
+  return code ? `https://flagcdn.com/w40/${encodeURIComponent(code)}.png` : "";
 }
 
 function escapeHtml(value) {
@@ -292,8 +387,9 @@ function escapeHtml(value) {
 
 function teamLabelHtml(name, flag = "", className = "") {
   const classes = ["team-label", className].filter(Boolean).join(" ");
-  const flagHtml = flag
-    ? `<span class="team-flag" aria-hidden="true">${escapeHtml(flag)}</span>`
+  const flagUrl = flagImageUrl(flag);
+  const flagHtml = flagUrl
+    ? `<img class="team-flag" src="${escapeHtml(flagUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';" />`
     : "";
 
   return `
@@ -536,7 +632,6 @@ function renderKpis(games) {
   const finished = games.filter(game => game.finished).length;
   const goals = games.reduce((sum, game) => sum + game.total_goals, 0);
 
-  el.kpiMatches.textContent = int(games.length);
   el.kpiLive.textContent = int(live);
   el.kpiFinished.textContent = int(finished);
   el.kpiGoals.textContent = int(goals);
@@ -680,27 +775,42 @@ function renderCurrentGroup() {
   el.groupTitle.textContent = `Gruppe ${group.name}`;
   el.groupTable.innerHTML = `
     <table class="standings-table">
+      <colgroup>
+        <col class="rank-col">
+        <col class="team-col">
+        <col class="stat-col">
+        <col class="stat-col">
+        <col class="stat-col">
+        <col class="stat-col">
+        <col class="goals-col">
+        <col class="stat-col">
+        <col class="stat-col">
+      </colgroup>
       <thead>
         <tr>
-          <th>Lag</th>
-          <th>MP</th>
-          <th>W</th>
-          <th>D</th>
-          <th>L</th>
-          <th>GD</th>
-          <th>PTS</th>
+          <th class="rank-head">#</th>
+          <th class="team-head">Lag</th>
+          <th><span class="metric-head" title="Kamper">K</span></th>
+          <th><span class="metric-head" title="Seiere">S</span></th>
+          <th><span class="metric-head" title="Uavgjort">U</span></th>
+          <th><span class="metric-head" title="Tap">T</span></th>
+          <th><span class="metric-head" title="Mål">Mål</span></th>
+          <th><span class="metric-head" title="Målforskjell">+/-</span></th>
+          <th><span class="metric-head" title="Poeng">P</span></th>
         </tr>
       </thead>
       <tbody>
-        ${group.teams.map(team => `
-          <tr>
+        ${group.teams.map((team, index) => `
+          <tr class="${index === 1 ? "qualification-line" : ""}">
+            <td class="rank-cell ${index < 2 ? "qualifies" : ""}">${index + 1}</td>
             <td class="team">${teamLabelHtml(team.name, team.flag)}</td>
             <td>${int(team.mp)}</td>
             <td>${int(team.w)}</td>
             <td>${int(team.d)}</td>
             <td>${int(team.l)}</td>
+            <td>${int(team.gf)}-${int(team.ga)}</td>
             <td>${int(team.gd)}</td>
-            <td><strong>${int(team.pts)}</strong></td>
+            <td class="points">${int(team.pts)}</td>
           </tr>
         `).join("")}
       </tbody>
