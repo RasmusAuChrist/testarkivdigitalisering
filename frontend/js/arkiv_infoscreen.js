@@ -1,5 +1,5 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
-import { startInfoscreenRotation } from "./infoscreen_rotation.js";
+import { startEmbeddedInfoscreenRotation } from "./infoscreen_rotation.js";
 
 const REFRESH_MS = 15 * 60 * 1000;
 const ROTATE_MS = 12 * 1000;
@@ -744,7 +744,7 @@ function startTimers() {
   }, ROTATE_MS);
 
   startTopRequisitionScroll();
-  state.timers.infoscreenRotation = startInfoscreenRotation();
+  state.timers.infoscreenRotation = startEmbeddedInfoscreenRotation();
 }
 
 async function loadDashboard() {
