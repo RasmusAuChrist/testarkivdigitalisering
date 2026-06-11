@@ -16,6 +16,7 @@ RESOURCE_CACHE_SECONDS = {
     "games": 30,
     "groups": 5 * 60,
     "stadiums": 24 * 60 * 60,
+    "teams": 24 * 60 * 60,
 }
 STALE_CACHE_SECONDS = 24 * 60 * 60
 REQUEST_TIMEOUT = (5, 45)
@@ -85,9 +86,14 @@ def get_worldcup_stadiums():
     return fetch_worldcup_resource("stadiums")
 
 
+@router.get("/worldcup/teams")
+def get_worldcup_teams():
+    return fetch_worldcup_resource("teams")
+
+
 @router.get("/worldcup/diagnostics")
 def get_worldcup_diagnostics():
-    resources = ("games", "groups", "stadiums")
+    resources = ("games", "groups", "stadiums", "teams")
     checks = []
 
     for resource in resources:

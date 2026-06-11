@@ -6,6 +6,40 @@ const DASHBOARD_CACHE_KEY = "worldcup_infoscreen_payload_v1";
 const GROUP_ROTATE_MS = 12 * 1000;
 const NORWAY_TIME_ZONE = "Europe/Oslo";
 const FALLBACK_STADIUM_TIME_ZONE = "America/Mexico_City";
+const KNOCKOUT_GAMES_PER_PANEL = 6;
+
+const KNOCKOUT_ROUNDS = [
+  {
+    keys: ["r32", "round32", "roundof32"],
+    title: "16-delsfinale",
+  },
+  {
+    keys: ["r16", "round16", "roundof16"],
+    title: "8-delsfinale",
+  },
+  {
+    keys: ["qf", "quarterfinal", "quarterfinals"],
+    title: "Kvartfinale",
+  },
+  {
+    keys: ["sf", "semifinal", "semifinals"],
+    title: "Semifinale",
+  },
+  {
+    keys: ["third", "3rd", "thirdplace", "bronzefinal", "bronze"],
+    title: "Bronsefinale",
+  },
+  {
+    keys: ["final"],
+    title: "Finale",
+  },
+];
+
+const KNOCKOUT_ROUND_BY_KEY = new Map(
+  KNOCKOUT_ROUNDS.flatMap((round, order) =>
+    round.keys.map(key => [key, { ...round, order }])
+  )
+);
 
 const STADIUM_TIME_ZONES_BY_ID = {
   "1": "America/Mexico_City",
@@ -336,13 +370,15 @@ const el = {
   todayList: document.getElementById("todayList"),
   gamesTicker: document.getElementById("gamesTicker"),
   groupTitle: document.getElementById("groupTitle"),
+  competitionSub: document.getElementById("competitionSub"),
   groupTable: document.getElementById("groupTable"),
 };
 
 const state = {
   games: [],
   groups: [],
-  groupIndex: 0,
+  competitionPanels: [],
+  panelIndex: 0,
   timers: {
     clock: null,
     group: null,
@@ -387,7 +423,7 @@ function apiGetWithTimeout(path, timeoutMs = API_TIMEOUT_MS) {
 function readDashboardCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
-    if (!cached?.gamesPayload || !cached?.groupsPayload || !cached?.stadiumsPayload) {
+    if (!cached?.gamesPayload || !cached?.stadiumsPayload) {
       return null;
     }
     return cached;
@@ -396,13 +432,14 @@ function readDashboardCache() {
   }
 }
 
-function writeDashboardCache(gamesPayload, groupsPayload, stadiumsPayload) {
+function writeDashboardCache(gamesPayload, groupsPayload, stadiumsPayload, teamsPayload) {
   try {
     localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({
       savedAt: new Date().toISOString(),
       gamesPayload,
       groupsPayload,
       stadiumsPayload,
+      teamsPayload,
     }));
   } catch {
     // The kiosk can keep running without local cache if storage is unavailable.
@@ -438,8 +475,54 @@ function teamFlag(value) {
   return mappedValue(TEAM_FLAG_CODES, name);
 }
 
+function normalizeRoundKey(value) {
+  return safeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function knockoutRoundInfo(game) {
+  const typeKey = normalizeRoundKey(game?.type);
+  const groupKey = normalizeRoundKey(game?.group);
+  return KNOCKOUT_ROUND_BY_KEY.get(typeKey) || KNOCKOUT_ROUND_BY_KEY.get(groupKey) || null;
+}
+
+function isGroupGame(game) {
+  return safeText(game?.type).toLowerCase() === "group" || /^[a-l]$/i.test(safeText(game?.group));
+}
+
+function isValidTeamId(value) {
+  const id = safeText(value);
+  return !!id && id !== "0";
+}
+
+function participantNameNo(value) {
+  const label = safeText(value);
+  if (!label) return "";
+
+  let match = label.match(/^winner\s+group\s+([A-Z])$/i);
+  if (match) return `Vinner gruppe ${match[1].toUpperCase()}`;
+
+  match = label.match(/^runner-up\s+group\s+([A-Z])$/i);
+  if (match) return `Toer i gruppe ${match[1].toUpperCase()}`;
+
+  match = label.match(/^3rd\s+group\s+(.+)$/i);
+  if (match) return `Treer fra gruppe ${match[1].toUpperCase().replace(/\s+/g, "")}`;
+
+  match = label.match(/^winner\s+match\s+(\d+)$/i);
+  if (match) return `Vinner kamp ${match[1]}`;
+
+  match = label.match(/^loser\s+match\s+(\d+)$/i);
+  if (match) return `Taper kamp ${match[1]}`;
+
+  return teamNameNo(label);
+}
+
 function flagImageUrl(flagCode) {
-  const code = safeText(flagCode).toLowerCase();
+  const raw = safeText(flagCode);
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const code = raw.toLowerCase();
   return code ? `https://flagcdn.com/w40/${encodeURIComponent(code)}.png` : "";
 }
 
@@ -655,10 +738,10 @@ function normalizeGame(row, stadiumsById = new Map()) {
   const date = parseGameDate(row.local_date, stadium?.timeZone || FALLBACK_STADIUM_TIME_ZONE);
   const homeScore = toNum(row.home_score);
   const awayScore = toNum(row.away_score);
-  const homeOriginal = safeText(row.home_team_name_en);
-  const awayOriginal = safeText(row.away_team_name_en);
-  const homeName = teamNameNo(homeOriginal);
-  const awayName = teamNameNo(awayOriginal);
+  const homeOriginal = safeText(row.home_team_name_en || row.home_team_label);
+  const awayOriginal = safeText(row.away_team_name_en || row.away_team_label);
+  const homeName = participantNameNo(homeOriginal);
+  const awayName = participantNameNo(awayOriginal);
 
   return {
     ...row,
@@ -689,73 +772,265 @@ function normalizeGame(row, stadiumsById = new Map()) {
   };
 }
 
-function buildTeamMap(games) {
+function teamFlagFromTeamRow(row, originalName) {
+  return safeText(row.flag) || teamFlag(originalName) || safeText(row.iso2).toLowerCase();
+}
+
+function normalizeTeam(row) {
+  const teamId = safeText(row.id || row.team_id);
+  const originalName = safeText(
+    row.name_en ||
+    row.team_name_en ||
+    row.name ||
+    row.team_name ||
+    row.country_name ||
+    row.country ||
+    row.team
+  );
+
+  return {
+    team_id: teamId,
+    name: teamNameNo(originalName) || `Team ${teamId}`,
+    originalName,
+    flag: teamFlagFromTeamRow(row, originalName),
+    group: safeText(row.groups || row.group || row.group_name),
+  };
+}
+
+function gameTeamInfo(game, side) {
+  const isHome = side === "home";
+  return {
+    team_id: isHome ? game.home_team_id : game.away_team_id,
+    name: isHome ? game.home_team_name_en : game.away_team_name_en,
+    originalName: isHome ? game.home_team_name_original : game.away_team_name_original,
+    flag: isHome ? game.home_flag : game.away_flag,
+    group: game.group,
+  };
+}
+
+function buildTeamDirectory(teamsPayload, games) {
   const map = new Map();
-  for (const game of games) {
-    if (game.home_team_id && game.home_team_name_en) {
-      map.set(game.home_team_id, {
-        name: game.home_team_name_en,
-        originalName: game.home_team_name_original,
-        flag: game.home_flag,
-      });
-    }
-    if (game.away_team_id && game.away_team_name_en) {
-      map.set(game.away_team_id, {
-        name: game.away_team_name_en,
-        originalName: game.away_team_name_original,
-        flag: game.away_flag,
-      });
+
+  for (const row of teamsPayload?.teams || []) {
+    const team = normalizeTeam(row);
+    if (isValidTeamId(team.team_id)) {
+      map.set(team.team_id, team);
     }
   }
+
+  for (const game of games) {
+    for (const side of ["home", "away"]) {
+      const team = gameTeamInfo(game, side);
+      if (!isValidTeamId(team.team_id)) continue;
+
+      const existing = map.get(team.team_id);
+      if (existing) {
+        existing.group ||= team.group;
+        existing.flag ||= team.flag;
+        existing.name ||= team.name;
+        existing.originalName ||= team.originalName;
+      } else {
+        map.set(team.team_id, team);
+      }
+    }
+  }
+
   return map;
 }
 
-function groupTeamName(team) {
-  return safeText(
-    team.name_en ||
-    team.team_name_en ||
-    team.name ||
-    team.team_name ||
-    team.country_name ||
-    team.country ||
-    team.team
-  );
+function applyTeamDirectoryToGames(games, teamDirectory) {
+  for (const game of games) {
+    const homeTeam = teamDirectory.get(game.home_team_id);
+    const awayTeam = teamDirectory.get(game.away_team_id);
+
+    if (homeTeam) {
+      game.home_team_name_en = homeTeam.name;
+      game.home_team_name_original = homeTeam.originalName;
+      game.home_flag = homeTeam.flag;
+      game.group ||= homeTeam.group;
+    }
+    if (awayTeam) {
+      game.away_team_name_en = awayTeam.name;
+      game.away_team_name_original = awayTeam.originalName;
+      game.away_flag = awayTeam.flag;
+      game.group ||= awayTeam.group;
+    }
+  }
 }
 
-function normalizeGroups(groups, teamMap) {
-  return [...groups]
-    .map(group => ({
-      name: safeText(group.name),
-      teams: (group.teams || [])
-        .map(team => {
-          const teamId = safeText(team.team_id);
-          const teamInfo = teamMap.get(teamId);
-          const originalName = teamInfo?.originalName || groupTeamName(team);
-          return {
-            team_id: teamId,
-            name: teamInfo?.name || teamNameNo(originalName) || `Team ${team.team_id}`,
-            flag: teamInfo?.flag || teamFlag(originalName),
-            mp: toNum(team.mp),
-            w: toNum(team.w),
-            d: toNum(team.d),
-            l: toNum(team.l),
-            pts: toNum(team.pts),
-            gf: toNum(team.gf),
-            ga: toNum(team.ga),
-            gd: toNum(team.gd),
-          };
-        })
-        .sort((a, b) =>
-          b.pts - a.pts ||
-          b.gd - a.gd ||
-          a.name.localeCompare(b.name, "no")
-        ),
+function emptyStanding(team) {
+  return {
+    team_id: team.team_id,
+    name: team.name || teamNameNo(team.originalName) || `Team ${team.team_id}`,
+    flag: team.flag || teamFlag(team.originalName),
+    mp: 0,
+    w: 0,
+    d: 0,
+    l: 0,
+    pts: 0,
+    gf: 0,
+    ga: 0,
+    gd: 0,
+  };
+}
+
+function standingFor(standingsByGroup, team, fallbackGroup = "") {
+  const groupName = safeText(team.group || fallbackGroup);
+  if (!groupName || !isValidTeamId(team.team_id)) return null;
+
+  if (!standingsByGroup.has(groupName)) {
+    standingsByGroup.set(groupName, new Map());
+  }
+
+  const groupStandings = standingsByGroup.get(groupName);
+  if (!groupStandings.has(team.team_id)) {
+    groupStandings.set(team.team_id, emptyStanding(team));
+  }
+  return groupStandings.get(team.team_id);
+}
+
+function applyGroupResult(home, away, homeGoals, awayGoals) {
+  home.mp += 1;
+  away.mp += 1;
+  home.gf += homeGoals;
+  home.ga += awayGoals;
+  away.gf += awayGoals;
+  away.ga += homeGoals;
+  home.gd = home.gf - home.ga;
+  away.gd = away.gf - away.ga;
+
+  if (homeGoals > awayGoals) {
+    home.w += 1;
+    away.l += 1;
+    home.pts += 3;
+  } else if (awayGoals > homeGoals) {
+    away.w += 1;
+    home.l += 1;
+    away.pts += 3;
+  } else {
+    home.d += 1;
+    away.d += 1;
+    home.pts += 1;
+    away.pts += 1;
+  }
+}
+
+function buildComputedGroups(games, teamDirectory) {
+  const standingsByGroup = new Map();
+
+  for (const team of teamDirectory.values()) {
+    standingFor(standingsByGroup, team);
+  }
+
+  for (const game of games) {
+    if (!game.finished || !isGroupGame(game)) continue;
+
+    const homeTeam = teamDirectory.get(game.home_team_id) || gameTeamInfo(game, "home");
+    const awayTeam = teamDirectory.get(game.away_team_id) || gameTeamInfo(game, "away");
+    const home = standingFor(standingsByGroup, homeTeam, game.group);
+    const away = standingFor(standingsByGroup, awayTeam, game.group);
+    if (!home || !away) continue;
+
+    applyGroupResult(home, away, game.home_score, game.away_score);
+  }
+
+  return [...standingsByGroup.entries()]
+    .map(([name, teams]) => ({
+      name,
+      teams: [...teams.values()].sort((a, b) =>
+        b.pts - a.pts ||
+        b.gd - a.gd ||
+        a.name.localeCompare(b.name, "no")
+      ),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "no"));
 }
 
+function buildKnockoutRounds(games) {
+  const roundsByOrder = new Map();
+
+  for (const game of games) {
+    const round = knockoutRoundInfo(game);
+    if (!round) continue;
+
+    if (!roundsByOrder.has(round.order)) {
+      roundsByOrder.set(round.order, {
+        ...round,
+        games: [],
+      });
+    }
+    roundsByOrder.get(round.order).games.push(game);
+  }
+
+  return [...roundsByOrder.values()]
+    .map(round => ({
+      ...round,
+      games: round.games.sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id)),
+    }))
+    .sort((a, b) => a.order - b.order);
+}
+
+function shouldShowKnockoutPanels(games, knockoutRounds) {
+  if (!knockoutRounds.length) return false;
+
+  const groupGames = games.filter(isGroupGame);
+  const hasOpenGroupGames = groupGames.some(game => !game.finished);
+  const hasStartedKnockout = knockoutRounds.some(round =>
+    round.games.some(game =>
+      game.finished ||
+      getGameStatus(game) === "live" ||
+      (game.timestamp !== Number.MAX_SAFE_INTEGER && game.timestamp <= Date.now())
+    )
+  );
+
+  return !hasOpenGroupGames || hasStartedKnockout;
+}
+
+function buildKnockoutPanels(rounds) {
+  const panels = [];
+
+  for (const round of rounds) {
+    const pageCount = Math.max(1, Math.ceil(round.games.length / KNOCKOUT_GAMES_PER_PANEL));
+
+    for (let page = 0; page < pageCount; page += 1) {
+      const start = page * KNOCKOUT_GAMES_PER_PANEL;
+      const games = round.games.slice(start, start + KNOCKOUT_GAMES_PER_PANEL);
+      const end = start + games.length;
+      const sub = pageCount > 1
+        ? `Kamp ${start + 1}-${end} av ${round.games.length}`
+        : `${round.games.length} ${round.games.length === 1 ? "kamp" : "kamper"}`;
+
+      panels.push({
+        kind: "knockout",
+        title: round.title,
+        sub,
+        games,
+      });
+    }
+  }
+
+  return panels;
+}
+
+function buildCompetitionPanels(groups, knockoutRounds, games) {
+  if (shouldShowKnockoutPanels(games, knockoutRounds)) {
+    return buildKnockoutPanels(knockoutRounds);
+  }
+
+  return groups.map(group => ({
+    kind: "group",
+    group,
+  }));
+}
+
 function scoreText(game) {
   return `${game.home_score} - ${game.away_score}`;
+}
+
+function matchStageText(game) {
+  const round = knockoutRoundInfo(game);
+  if (round) return round.title;
+  return `Gruppe ${game.group || "-"} - kampdag ${game.matchday || "-"}`;
 }
 
 function renderKpis(games) {
@@ -798,7 +1073,7 @@ function renderFeatured(games) {
   const status = getGameStatus(game);
   el.featuredTitle.textContent =
     status === "live" ? "Live nå" : status === "finished" ? "Siste resultat" : "Neste kamp";
-  el.featuredSub.textContent = `Gruppe ${game.group || "-"} - kampdag ${game.matchday || "-"}`;
+  el.featuredSub.textContent = matchStageText(game);
   el.featuredTag.className = `match-tag ${status}`;
   el.featuredTag.textContent = getStatusLabel(game);
   el.featuredHome.innerHTML = `
@@ -905,15 +1180,9 @@ function renderTicker(games) {
   `).join("");
 }
 
-function renderCurrentGroup() {
-  if (!state.groups.length) {
-    el.groupTitle.textContent = "Grupper";
-    el.groupTable.innerHTML = `<div style="color:var(--muted);">Ingen gruppedata</div>`;
-    return;
-  }
-
-  const group = state.groups[state.groupIndex % state.groups.length];
+function renderGroupPanel(group) {
   el.groupTitle.textContent = `Gruppe ${group.name}`;
+  el.competitionSub.textContent = "Poeng, målforskjell og spilte kamper";
   el.groupTable.innerHTML = `
     <table class="standings-table">
       <colgroup>
@@ -959,6 +1228,52 @@ function renderCurrentGroup() {
   `;
 }
 
+function renderKnockoutPanel(panel) {
+  el.groupTitle.textContent = panel.title;
+  el.competitionSub.textContent = panel.sub;
+
+  el.groupTable.innerHTML = `
+    <div class="knockout-list">
+      ${panel.games.map(game => {
+        const status = getGameStatus(game);
+        return `
+          <div class="knockout-row">
+            <div class="knockout-time">${escapeHtml(formatClockTime(game.date))}</div>
+            <div class="knockout-main">
+              <div class="knockout-teams">
+                ${teamLabelHtml(game.home_team_name_en, game.home_flag)}
+                <span class="team-separator">-</span>
+                ${teamLabelHtml(game.away_team_name_en, game.away_flag)}
+              </div>
+              ${game.venue ? `<div class="knockout-venue">${escapeHtml(game.venue)}</div>` : ""}
+            </div>
+            <div class="knockout-result">
+              <div class="match-score">${escapeHtml(scoreText(game))}</div>
+              <div class="status ${status}">${escapeHtml(getStatusLabel(game))}</div>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderCurrentCompetitionPanel() {
+  if (!state.competitionPanels.length) {
+    el.groupTitle.textContent = "Turnering";
+    el.competitionSub.textContent = "Grupper og sluttspill";
+    el.groupTable.innerHTML = `<div style="color:var(--muted);">Ingen turneringsdata</div>`;
+    return;
+  }
+
+  const panel = state.competitionPanels[state.panelIndex % state.competitionPanels.length];
+  if (panel.kind === "knockout") {
+    renderKnockoutPanel(panel);
+  } else {
+    renderGroupPanel(panel.group);
+  }
+}
+
 function updateClock() {
   el.clockPill.textContent = formatTime(new Date());
 }
@@ -975,14 +1290,14 @@ function startTimers() {
 
   state.timers.clock = setInterval(updateClock, 30 * 1000);
   state.timers.group = setInterval(() => {
-    if (!state.groups.length) return;
-    state.groupIndex = (state.groupIndex + 1) % state.groups.length;
-    renderCurrentGroup();
+    if (!state.competitionPanels.length) return;
+    state.panelIndex = (state.panelIndex + 1) % state.competitionPanels.length;
+    renderCurrentCompetitionPanel();
   }, GROUP_ROTATE_MS);
   state.timers.infoscreenRotation = startInfoscreenRotation();
 }
 
-function renderDashboardFromPayloads(gamesPayload, groupsPayload, stadiumsPayload) {
+function renderDashboardFromPayloads(gamesPayload, _groupsPayload, stadiumsPayload, teamsPayload = {}) {
   const stadiumsById = new Map(
     (stadiumsPayload.stadiums || [])
       .map(normalizeStadium)
@@ -991,18 +1306,22 @@ function renderDashboardFromPayloads(gamesPayload, groupsPayload, stadiumsPayloa
   const games = (gamesPayload.games || [])
     .map(game => normalizeGame(game, stadiumsById))
     .sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id));
-  const teamMap = buildTeamMap(games);
-  const groups = normalizeGroups(groupsPayload.groups || [], teamMap);
+  const teamDirectory = buildTeamDirectory(teamsPayload, games);
+  applyTeamDirectoryToGames(games, teamDirectory);
+  const groups = buildComputedGroups(games, teamDirectory);
+  const knockoutRounds = buildKnockoutRounds(games);
+  const competitionPanels = buildCompetitionPanels(groups, knockoutRounds, games);
 
   state.games = games;
   state.groups = groups;
-  state.groupIndex = Math.min(state.groupIndex, Math.max(groups.length - 1, 0));
+  state.competitionPanels = competitionPanels;
+  state.panelIndex = Math.min(state.panelIndex, Math.max(competitionPanels.length - 1, 0));
 
   renderKpis(games);
   renderFeatured(games);
   renderToday(games);
   renderTicker(games);
-  renderCurrentGroup();
+  renderCurrentCompetitionPanel();
 }
 
 async function loadDashboard() {
@@ -1010,14 +1329,14 @@ async function loadDashboard() {
   el.refreshPill.textContent = "Oppdaterer data...";
 
   try {
-    const [gamesPayload, groupsPayload, stadiumsPayload] = await Promise.all([
+    const [gamesPayload, stadiumsPayload, teamsPayload] = await Promise.all([
       apiGetWithTimeout("/api/worldcup/games?refresh=true"),
-      apiGetWithTimeout("/api/worldcup/groups"),
       apiGetWithTimeout("/api/worldcup/stadiums"),
+      apiGetWithTimeout("/api/worldcup/teams"),
     ]);
 
-    writeDashboardCache(gamesPayload, groupsPayload, stadiumsPayload);
-    renderDashboardFromPayloads(gamesPayload, groupsPayload, stadiumsPayload);
+    writeDashboardCache(gamesPayload, null, stadiumsPayload, teamsPayload);
+    renderDashboardFromPayloads(gamesPayload, null, stadiumsPayload, teamsPayload);
 
     el.refreshPill.textContent = `Sist oppdatert ${formatTime(new Date())}`;
   } catch (error) {
@@ -1027,7 +1346,8 @@ async function loadDashboard() {
       renderDashboardFromPayloads(
         cached.gamesPayload,
         cached.groupsPayload,
-        cached.stadiumsPayload
+        cached.stadiumsPayload,
+        cached.teamsPayload
       );
       const savedAt = cached.savedAt ? new Date(cached.savedAt) : null;
       const savedLabel = savedAt && !Number.isNaN(savedAt.getTime())

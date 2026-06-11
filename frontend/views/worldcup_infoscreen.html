@@ -495,6 +495,64 @@
       font-weight: 950;
     }
 
+    .knockout-list {
+      display: grid;
+      gap: 10px;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .knockout-row {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 58px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .knockout-time {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .knockout-main {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .knockout-teams {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 850;
+      line-height: 1.16;
+    }
+
+    .knockout-venue {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .knockout-result {
+      display: grid;
+      gap: 5px;
+      justify-items: end;
+    }
+
     .ticker {
       display: grid;
       gap: 10px;
@@ -581,7 +639,7 @@
     <header class="topbar">
       <div class="brand">
         <h1>Fotball-VM 2026</h1>
-        <div class="sub">Resultater, kamper og gruppestillinger</div>
+        <div class="sub">Resultater, kamper, grupper og sluttspill</div>
       </div>
       <div class="meta">
         <div class="pill" id="clockPill">-</div>
@@ -640,7 +698,7 @@
       <article class="card panel groups-panel">
         <div class="panel-header">
           <h2 class="panel-title" id="groupTitle">Gruppe</h2>
-          <div class="panel-sub">Poeng, målforskjell og spilte kamper</div>
+          <div class="panel-sub" id="competitionSub">Poeng, målforskjell og spilte kamper</div>
         </div>
         <div class="panel-body">
           <div id="groupTable"></div>
