@@ -99,7 +99,7 @@ def login(payload: LoginRequest):
         login_context = (payload.login_context or "").strip().lower()
         token_minutes = 720
         if payload.remember:
-            token_minutes = 518400 if login_context == "arkiv_infoscreen" else 43200
+            token_minutes = 518400 if login_context in {"arkiv_infoscreen", "infoscreen"} else 43200
         # 518400 = 360 days for kiosk-style infoscreen logins
         # 43200 = 30 days
         # 720 = 12 hours

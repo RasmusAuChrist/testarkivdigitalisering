@@ -10,7 +10,10 @@ function getNextUrl() {
 function getLoginContext() {
   try {
     const nextUrl = new URL(getNextUrl(), window.location.origin);
-    return nextUrl.pathname === "/views/arkiv_infoscreen.html" ? "arkiv_infoscreen" : null;
+    return [
+      "/views/arkiv_infoscreen.html",
+      "/views/worldcup_infoscreen.html",
+    ].includes(nextUrl.pathname) ? "infoscreen" : null;
   } catch {
     return null;
   }

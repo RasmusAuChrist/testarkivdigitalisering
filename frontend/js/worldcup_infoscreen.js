@@ -1,4 +1,5 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
+import { startInfoscreenRotation } from "./infoscreen_rotation.js";
 
 const REFRESH_MS = 60 * 1000;
 const GROUP_ROTATE_MS = 12 * 1000;
@@ -337,6 +338,7 @@ const state = {
     clock: null,
     refresh: null,
     group: null,
+    infoscreenRotation: null,
   },
 };
 
@@ -839,6 +841,7 @@ function startTimers() {
     state.groupIndex = (state.groupIndex + 1) % state.groups.length;
     renderCurrentGroup();
   }, GROUP_ROTATE_MS);
+  state.timers.infoscreenRotation = startInfoscreenRotation();
 }
 
 async function loadDashboard() {
