@@ -2,7 +2,7 @@ import { initProtectedPage, apiGet } from "./page_auth.js";
 import { startInfoscreenRotation } from "./infoscreen_rotation.js";
 
 const REFRESH_MS = 60 * 60 * 1000;
-const API_TIMEOUT_MS = 20 * 1000;
+const API_TIMEOUT_MS = 75 * 1000;
 const DASHBOARD_CACHE_KEY = "worldcup_infoscreen_payload_v1";
 const GROUP_ROTATE_MS = 12 * 1000;
 const NORWAY_TIME_ZONE = "Europe/Oslo";
@@ -587,6 +587,43 @@ function getStatusLabel(game) {
   return "KOMMER";
 }
 
+function parseScorers(value) {
+  const raw = safeText(value);
+  if (!raw || raw.toLowerCase() === "null" || raw === "{}" || raw === "[]") {
+    return [];
+  }
+
+  return raw
+    .replaceAll("“", '"')
+    .replaceAll("”", '"')
+    .replaceAll("‘", "'")
+    .replaceAll("’", "'")
+    .replace(/^[{\[]/, "")
+    .replace(/[}\]]$/, "")
+    .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+    .map(item => item.trim().replace(/^["“”�?]+|["“”�?]+$/g, "").trim())
+    .filter(Boolean);
+}
+
+function scorersHtml(scorers, className) {
+  if (!scorers?.length) return "";
+  return `<div class="${className}">${scorers.map(escapeHtml).join(", ")}</div>`;
+}
+
+function matchScorersSummaryHtml(game, className) {
+  const parts = [];
+  if (game.home_scorers?.length) {
+    parts.push(`${game.home_team_name_en}: ${game.home_scorers.join(", ")}`);
+  }
+  if (game.away_scorers?.length) {
+    parts.push(`${game.away_team_name_en}: ${game.away_scorers.join(", ")}`);
+  }
+
+  return parts.length
+    ? `<div class="${className}">${parts.map(escapeHtml).join(" · ")}</div>`
+    : "";
+}
+
 function normalizeStadium(row) {
   const id = safeText(row.id);
   return {
@@ -635,6 +672,8 @@ function normalizeGame(row, stadiumsById = new Map()) {
     away_team_name_original: awayOriginal,
     home_flag: teamFlag(homeOriginal),
     away_flag: teamFlag(awayOriginal),
+    home_scorers: parseScorers(row.home_scorers),
+    away_scorers: parseScorers(row.away_scorers),
     home_score: homeScore,
     away_score: awayScore,
     finished: parseBool(row.finished),
@@ -757,8 +796,14 @@ function renderFeatured(games) {
   el.featuredSub.textContent = `Gruppe ${game.group || "-"} - kampdag ${game.matchday || "-"}`;
   el.featuredTag.className = `match-tag ${status}`;
   el.featuredTag.textContent = getStatusLabel(game);
-  el.featuredHome.innerHTML = teamLabelHtml(game.home_team_name_en, game.home_flag);
-  el.featuredAway.innerHTML = teamLabelHtml(game.away_team_name_en, game.away_flag, "team-label-end");
+  el.featuredHome.innerHTML = `
+    ${teamLabelHtml(game.home_team_name_en, game.home_flag)}
+    ${scorersHtml(game.home_scorers, "featured-scorers")}
+  `;
+  el.featuredAway.innerHTML = `
+    ${teamLabelHtml(game.away_team_name_en, game.away_flag, "team-label-end")}
+    ${scorersHtml(game.away_scorers, "featured-scorers")}
+  `;
   el.featuredScore.textContent = scoreText(game);
   el.featuredMeta.innerHTML = [
     formatDateTime(game.date),
@@ -785,8 +830,14 @@ function renderMatchRows(host, games, emptyText) {
       <div class="match-row">
         <div class="match-time">${escapeHtml(formatClockTime(game.date))}</div>
         <div class="match-teams">
-          <div>${teamLabelHtml(game.home_team_name_en, game.home_flag)}</div>
-          <div>${teamLabelHtml(game.away_team_name_en, game.away_flag)}</div>
+          <div>
+            ${teamLabelHtml(game.home_team_name_en, game.home_flag)}
+            ${scorersHtml(game.home_scorers, "match-scorers")}
+          </div>
+          <div>
+            ${teamLabelHtml(game.away_team_name_en, game.away_flag)}
+            ${scorersHtml(game.away_scorers, "match-scorers")}
+          </div>
           ${game.venue ? `<div class="match-venue">${escapeHtml(game.venue)}</div>` : ""}
         </div>
         <div style="display:grid; gap:5px; justify-items:end;">
@@ -844,6 +895,7 @@ function renderTicker(games) {
           <span class="team-separator">-</span>
           ${teamLabelHtml(game.away_team_name_en, game.away_flag)}
         </div>
+        ${matchScorersSummaryHtml(game, "ticker-scorers")}
         ${game.venue ? `<div class="ticker-venue">${escapeHtml(game.venue)}</div>` : ""}
       </div>
       <div class="ticker-score">${escapeHtml(scoreText(game))}</div>

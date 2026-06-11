@@ -1,6 +1,6 @@
 import logging
 from time import monotonic
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -13,15 +13,16 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://worldcup26.ir/get"
 CACHE_SECONDS = 60 * 60
 STALE_CACHE_SECONDS = 24 * 60 * 60
-REQUEST_TIMEOUT = (3.05, 8)
+REQUEST_TIMEOUT = (5, 45)
+DIAGNOSTIC_TIMEOUT = (5, 45)
 _cache: Dict[str, Dict[str, Any]] = {}
 
 _session = requests.Session()
 _retry = Retry(
-    total=2,
-    connect=2,
-    read=2,
-    status=2,
+    total=1,
+    connect=1,
+    read=0,
+    status=1,
     backoff_factor=0.5,
     status_forcelist=(429, 500, 502, 503, 504),
     allowed_methods=frozenset(["GET"]),
@@ -30,6 +31,13 @@ _retry = Retry(
 _adapter = HTTPAdapter(max_retries=_retry)
 _session.mount("https://", _adapter)
 _session.mount("http://", _adapter)
+
+
+def cache_age_seconds(resource: str) -> Optional[float]:
+    cached = _cache.get(resource)
+    if not cached:
+        return None
+    return round(monotonic() - cached["time"], 1)
 
 
 def fetch_worldcup_resource(resource: str) -> Dict[str, Any]:
@@ -69,3 +77,47 @@ def get_worldcup_groups():
 @router.get("/worldcup/stadiums")
 def get_worldcup_stadiums():
     return fetch_worldcup_resource("stadiums")
+
+
+@router.get("/worldcup/diagnostics")
+def get_worldcup_diagnostics():
+    resources = ("games", "groups", "stadiums")
+    checks = []
+
+    for resource in resources:
+        start = monotonic()
+        item: Dict[str, Any] = {
+            "resource": resource,
+            "url": f"{BASE_URL}/{resource}",
+            "cache_age_seconds": cache_age_seconds(resource),
+        }
+
+        try:
+            res = _session.get(item["url"], timeout=DIAGNOSTIC_TIMEOUT)
+            elapsed_ms = round((monotonic() - start) * 1000)
+            item.update({
+                "ok": res.ok,
+                "status_code": res.status_code,
+                "elapsed_ms": elapsed_ms,
+                "content_type": res.headers.get("content-type"),
+                "bytes": len(res.content or b""),
+            })
+        except Exception as exc:
+            elapsed_ms = round((monotonic() - start) * 1000)
+            item.update({
+                "ok": False,
+                "elapsed_ms": elapsed_ms,
+                "error_type": exc.__class__.__name__,
+                "error": str(exc),
+            })
+
+        checks.append(item)
+
+    return {
+        "base_url": BASE_URL,
+        "fresh_cache_seconds": CACHE_SECONDS,
+        "stale_cache_seconds": STALE_CACHE_SECONDS,
+        "request_timeout": REQUEST_TIMEOUT,
+        "diagnostic_timeout": DIAGNOSTIC_TIMEOUT,
+        "checks": checks,
+    }
