@@ -56,6 +56,9 @@ const TEAM_NAMES_NO = {
   Czechia: "Tsjekkia",
   Denmark: "Danmark",
   "DR Congo": "DR Kongo",
+  "Congo DR": "DR Kongo",
+  "Democratic Republic of Congo": "DR Kongo",
+  "Democratic Republic of the Congo": "DR Kongo",
   Ecuador: "Ecuador",
   Egypt: "Egypt",
   England: "England",
@@ -63,6 +66,7 @@ const TEAM_NAMES_NO = {
   Germany: "Tyskland",
   Ghana: "Ghana",
   Greece: "Hellas",
+  Haiti: "Haiti",
   Honduras: "Honduras",
   Hungary: "Ungarn",
   Indonesia: "Indonesia",
@@ -238,6 +242,9 @@ const TEAM_FLAG_CODES = {
   Czechia: "cz",
   Denmark: "dk",
   "DR Congo": "cd",
+  "Congo DR": "cd",
+  "Democratic Republic of Congo": "cd",
+  "Democratic Republic of the Congo": "cd",
   Ecuador: "ec",
   Egypt: "eg",
   England: "gb-eng",
@@ -245,6 +252,7 @@ const TEAM_FLAG_CODES = {
   Germany: "de",
   Ghana: "gh",
   Greece: "gr",
+  Haiti: "ht",
   Honduras: "hn",
   Hungary: "hu",
   Indonesia: "id",
@@ -363,14 +371,33 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function normalizeLookupKey(value) {
+  return safeText(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function mappedValue(map, value) {
+  const name = safeText(value);
+  if (map[name]) return map[name];
+
+  const lookupKey = normalizeLookupKey(name);
+  const matchedKey = Object.keys(map).find(key => normalizeLookupKey(key) === lookupKey);
+  return matchedKey ? map[matchedKey] : "";
+}
+
 function teamNameNo(value) {
   const name = safeText(value);
-  return TEAM_NAMES_NO[name] || name;
+  return mappedValue(TEAM_NAMES_NO, name) || name;
 }
 
 function teamFlag(value) {
   const name = safeText(value);
-  return TEAM_FLAG_CODES[name] || "";
+  return mappedValue(TEAM_FLAG_CODES, name);
 }
 
 function flagImageUrl(flagCode) {
@@ -581,17 +608,31 @@ function buildTeamMap(games) {
     if (game.home_team_id && game.home_team_name_en) {
       map.set(game.home_team_id, {
         name: game.home_team_name_en,
+        originalName: game.home_team_name_original,
         flag: game.home_flag,
       });
     }
     if (game.away_team_id && game.away_team_name_en) {
       map.set(game.away_team_id, {
         name: game.away_team_name_en,
+        originalName: game.away_team_name_original,
         flag: game.away_flag,
       });
     }
   }
   return map;
+}
+
+function groupTeamName(team) {
+  return safeText(
+    team.name_en ||
+    team.team_name_en ||
+    team.name ||
+    team.team_name ||
+    team.country_name ||
+    team.country ||
+    team.team
+  );
 }
 
 function normalizeGroups(groups, teamMap) {
@@ -602,10 +643,11 @@ function normalizeGroups(groups, teamMap) {
         .map(team => {
           const teamId = safeText(team.team_id);
           const teamInfo = teamMap.get(teamId);
+          const originalName = teamInfo?.originalName || groupTeamName(team);
           return {
             team_id: teamId,
-            name: teamInfo?.name || `Team ${team.team_id}`,
-            flag: teamInfo?.flag || "",
+            name: teamInfo?.name || teamNameNo(originalName) || `Team ${team.team_id}`,
+            flag: teamInfo?.flag || teamFlag(originalName),
             mp: toNum(team.mp),
             w: toNum(team.w),
             d: toNum(team.d),
