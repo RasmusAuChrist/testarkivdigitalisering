@@ -11,7 +11,12 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://worldcup26.ir/get"
-CACHE_SECONDS = 60 * 60
+DEFAULT_CACHE_SECONDS = 60 * 60
+RESOURCE_CACHE_SECONDS = {
+    "games": 30,
+    "groups": 5 * 60,
+    "stadiums": 24 * 60 * 60,
+}
 STALE_CACHE_SECONDS = 24 * 60 * 60
 REQUEST_TIMEOUT = (5, 45)
 DIAGNOSTIC_TIMEOUT = (5, 45)
@@ -40,10 +45,11 @@ def cache_age_seconds(resource: str) -> Optional[float]:
     return round(monotonic() - cached["time"], 1)
 
 
-def fetch_worldcup_resource(resource: str) -> Dict[str, Any]:
+def fetch_worldcup_resource(resource: str, force_refresh: bool = False) -> Dict[str, Any]:
     now = monotonic()
     cached = _cache.get(resource)
-    if cached and now - cached["time"] < CACHE_SECONDS:
+    cache_seconds = RESOURCE_CACHE_SECONDS.get(resource, DEFAULT_CACHE_SECONDS)
+    if not force_refresh and cached and now - cached["time"] < cache_seconds:
         return cached["data"]
 
     try:
@@ -65,8 +71,8 @@ def fetch_worldcup_resource(resource: str) -> Dict[str, Any]:
 
 
 @router.get("/worldcup/games")
-def get_worldcup_games():
-    return fetch_worldcup_resource("games")
+def get_worldcup_games(refresh: bool = False):
+    return fetch_worldcup_resource("games", force_refresh=refresh)
 
 
 @router.get("/worldcup/groups")
@@ -115,7 +121,7 @@ def get_worldcup_diagnostics():
 
     return {
         "base_url": BASE_URL,
-        "fresh_cache_seconds": CACHE_SECONDS,
+        "fresh_cache_seconds": RESOURCE_CACHE_SECONDS,
         "stale_cache_seconds": STALE_CACHE_SECONDS,
         "request_timeout": REQUEST_TIMEOUT,
         "diagnostic_timeout": DIAGNOSTIC_TIMEOUT,

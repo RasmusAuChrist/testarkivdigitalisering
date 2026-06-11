@@ -32,11 +32,23 @@ export function startEmbeddedInfoscreenRotation(viewSelector = "[data-infoscreen
   let activeIndex = views.findIndex(view => view.classList.contains("is-active"));
   if (activeIndex < 0) activeIndex = 0;
 
-  function showView(index) {
+  function refreshViewOnShow(view) {
+    if (view.dataset.refreshOnShow !== "true" || view.tagName !== "IFRAME") return;
+
+    const source = view.getAttribute("src") || view.src;
+    if (!source) return;
+
+    const url = new URL(source, window.location.origin);
+    url.searchParams.set("screenRefresh", String(Date.now()));
+    view.setAttribute("src", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function showView(index, refreshActiveView = false) {
     views.forEach((view, viewIndex) => {
       const isActive = viewIndex === index;
       view.classList.toggle("is-active", isActive);
       view.setAttribute("aria-hidden", isActive ? "false" : "true");
+      if (isActive && refreshActiveView) refreshViewOnShow(view);
     });
   }
 
@@ -44,6 +56,6 @@ export function startEmbeddedInfoscreenRotation(viewSelector = "[data-infoscreen
 
   return window.setInterval(() => {
     activeIndex = (activeIndex + 1) % views.length;
-    showView(activeIndex);
+    showView(activeIndex, true);
   }, ROTATION_MS);
 }

@@ -1,7 +1,6 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
 import { startInfoscreenRotation } from "./infoscreen_rotation.js";
 
-const REFRESH_MS = 60 * 60 * 1000;
 const API_TIMEOUT_MS = 75 * 1000;
 const DASHBOARD_CACHE_KEY = "worldcup_infoscreen_payload_v1";
 const GROUP_ROTATE_MS = 12 * 1000;
@@ -346,7 +345,6 @@ const state = {
   groupIndex: 0,
   timers: {
     clock: null,
-    refresh: null,
     group: null,
     infoscreenRotation: null,
   },
@@ -976,7 +974,6 @@ function startTimers() {
   updateClock();
 
   state.timers.clock = setInterval(updateClock, 30 * 1000);
-  state.timers.refresh = setInterval(loadDashboard, REFRESH_MS);
   state.timers.group = setInterval(() => {
     if (!state.groups.length) return;
     state.groupIndex = (state.groupIndex + 1) % state.groups.length;
@@ -1014,7 +1011,7 @@ async function loadDashboard() {
 
   try {
     const [gamesPayload, groupsPayload, stadiumsPayload] = await Promise.all([
-      apiGetWithTimeout("/api/worldcup/games"),
+      apiGetWithTimeout("/api/worldcup/games?refresh=true"),
       apiGetWithTimeout("/api/worldcup/groups"),
       apiGetWithTimeout("/api/worldcup/stadiums"),
     ]);
