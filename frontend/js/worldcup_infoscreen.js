@@ -539,9 +539,12 @@ function getGameStatus(game) {
 
 function getStatusLabel(game) {
   const status = getGameStatus(game);
-  if (status === "finished") return "Ferdig";
-  if (status === "live") return `${game.time_elapsed}'`;
-  return "Kommer";
+  if (status === "finished") return "FERDIG";
+  if (status === "live") {
+    const elapsed = safeText(game.time_elapsed);
+    return /^\d+(\+\d+)?$/.test(elapsed) ? `${elapsed}'` : "LIVE";
+  }
+  return "KOMMER";
 }
 
 function normalizeStadium(row) {
@@ -680,7 +683,7 @@ function renderKpis(games) {
   el.kpiFinished.textContent = int(finished);
   el.kpiGoals.textContent = int(goals);
 
-  el.statusPill.textContent = live ? `${live} live` : "Ingen livekamper";
+  el.statusPill.textContent = live ? `${live} LIVE` : "INGEN LIVEKAMPER";
   el.statusPill.classList.toggle("live", live > 0);
 }
 
@@ -702,6 +705,8 @@ function renderFeatured(games) {
     el.featuredHome.textContent = "-";
     el.featuredAway.textContent = "-";
     el.featuredScore.textContent = "-";
+    el.featuredTag.textContent = "-";
+    el.featuredTag.className = "match-tag";
     el.featuredMeta.innerHTML = "";
     return;
   }
@@ -710,6 +715,7 @@ function renderFeatured(games) {
   el.featuredTitle.textContent =
     status === "live" ? "Live nå" : status === "finished" ? "Siste resultat" : "Neste kamp";
   el.featuredSub.textContent = `Gruppe ${game.group || "-"} - kampdag ${game.matchday || "-"}`;
+  el.featuredTag.className = `match-tag ${status}`;
   el.featuredTag.textContent = getStatusLabel(game);
   el.featuredHome.innerHTML = teamLabelHtml(game.home_team_name_en, game.home_flag);
   el.featuredAway.innerHTML = teamLabelHtml(game.away_team_name_en, game.away_flag, "team-label-end");

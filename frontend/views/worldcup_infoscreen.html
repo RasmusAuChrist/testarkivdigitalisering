@@ -99,6 +99,12 @@
       font-weight: 800;
     }
 
+    #statusPill {
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
     .kpis {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -201,7 +207,13 @@
       border-radius: 999px;
       font-size: 13px;
       font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
+
+    .match-tag.live { background: var(--green); }
+    .match-tag.finished { background: #cbd5e1; }
+    .match-tag.upcoming { background: var(--accent); }
 
     .featured-teams {
       display: grid;
@@ -337,6 +349,8 @@
       font-size: 11px;
       font-weight: 900;
       white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .status.live { background: var(--green); }
