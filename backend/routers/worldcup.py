@@ -1,3 +1,4 @@
+import logging
 from time import monotonic
 from typing import Any, Dict
 
@@ -7,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from urllib3.util.retry import Retry
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://worldcup26.ir/get"
 CACHE_SECONDS = 60 * 60
@@ -42,8 +44,13 @@ def fetch_worldcup_resource(resource: str) -> Dict[str, Any]:
         data = res.json()
     except Exception as exc:
         if cached and now - cached["time"] < STALE_CACHE_SECONDS:
+            logger.warning("Using stale World Cup %s cache after upstream error: %s", resource, exc)
             return cached["data"]
-        raise HTTPException(status_code=502, detail=f"World Cup API error: {exc}") from exc
+        logger.warning("World Cup %s API unavailable and no cache exists: %s", resource, exc)
+        raise HTTPException(
+            status_code=503,
+            detail="World Cup API is temporarily unavailable",
+        ) from exc
 
     _cache[resource] = {"time": monotonic(), "data": data}
     return data

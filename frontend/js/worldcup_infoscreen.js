@@ -982,7 +982,9 @@ async function loadDashboard() {
         : "";
       el.refreshPill.textContent = `API-feil - viser lagret data${savedLabel}`;
     } else {
-      el.refreshPill.textContent = `Feil ved oppdatering: ${error.message}`;
+      el.refreshPill.textContent = state.games.length
+        ? "API-feil - beholder viste data"
+        : "VM-data er midlertidig utilgjengelig";
     }
   } finally {
     hideLoading();
