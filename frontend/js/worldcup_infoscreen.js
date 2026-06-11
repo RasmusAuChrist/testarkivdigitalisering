@@ -2,6 +2,216 @@ import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const REFRESH_MS = 60 * 1000;
 const GROUP_ROTATE_MS = 12 * 1000;
+const NORWAY_TIME_ZONE = "Europe/Oslo";
+const FALLBACK_STADIUM_TIME_ZONE = "America/Mexico_City";
+
+const STADIUM_TIME_ZONES_BY_ID = {
+  "1": "America/Mexico_City",
+  "2": "America/Mexico_City",
+  "3": "America/Monterrey",
+  "4": "America/Chicago",
+  "5": "America/Chicago",
+  "6": "America/Chicago",
+  "7": "America/New_York",
+  "8": "America/New_York",
+  "9": "America/New_York",
+  "10": "America/New_York",
+  "11": "America/New_York",
+  "12": "America/Toronto",
+  "13": "America/Vancouver",
+  "14": "America/Los_Angeles",
+  "15": "America/Los_Angeles",
+  "16": "America/Los_Angeles",
+};
+
+const COUNTRY_NAMES_NO = {
+  Canada: "Canada",
+  Mexico: "Mexico",
+  "United States": "USA",
+  USA: "USA",
+};
+
+const TEAM_NAMES_NO = {
+  Algeria: "Algerie",
+  Argentina: "Argentina",
+  Australia: "Australia",
+  Austria: "Østerrike",
+  Bahrain: "Bahrain",
+  Belgium: "Belgia",
+  Bolivia: "Bolivia",
+  "Bosnia and Herzegovina": "Bosnia-Hercegovina",
+  Brazil: "Brasil",
+  Cameroon: "Kamerun",
+  Canada: "Canada",
+  "Cape Verde": "Kapp Verde",
+  Chile: "Chile",
+  China: "Kina",
+  Colombia: "Colombia",
+  Congo: "Kongo",
+  "Costa Rica": "Costa Rica",
+  Croatia: "Kroatia",
+  Curaçao: "Curaçao",
+  "Czech Republic": "Tsjekkia",
+  Czechia: "Tsjekkia",
+  Denmark: "Danmark",
+  "DR Congo": "DR Kongo",
+  Ecuador: "Ecuador",
+  Egypt: "Egypt",
+  England: "England",
+  France: "Frankrike",
+  Germany: "Tyskland",
+  Ghana: "Ghana",
+  Greece: "Hellas",
+  Honduras: "Honduras",
+  Hungary: "Ungarn",
+  Indonesia: "Indonesia",
+  Iran: "Iran",
+  Iraq: "Irak",
+  Ireland: "Irland",
+  Italy: "Italia",
+  "Ivory Coast": "Elfenbenskysten",
+  Jamaica: "Jamaica",
+  Japan: "Japan",
+  Jordan: "Jordan",
+  Kuwait: "Kuwait",
+  Lebanon: "Libanon",
+  Malaysia: "Malaysia",
+  Mali: "Mali",
+  Mexico: "Mexico",
+  Morocco: "Marokko",
+  Netherlands: "Nederland",
+  "New Caledonia": "Ny-Caledonia",
+  "New Zealand": "New Zealand",
+  Nigeria: "Nigeria",
+  "North Macedonia": "Nord-Makedonia",
+  "Northern Ireland": "Nord-Irland",
+  Norway: "Norge",
+  Oman: "Oman",
+  Panama: "Panama",
+  Paraguay: "Paraguay",
+  Peru: "Peru",
+  Poland: "Polen",
+  Portugal: "Portugal",
+  Qatar: "Qatar",
+  Romania: "Romania",
+  "Saudi Arabia": "Saudi-Arabia",
+  Scotland: "Skottland",
+  Senegal: "Senegal",
+  Serbia: "Serbia",
+  Slovakia: "Slovakia",
+  Slovenia: "Slovenia",
+  "South Africa": "Sør-Afrika",
+  "South Korea": "Sør-Korea",
+  Spain: "Spania",
+  Sweden: "Sverige",
+  Switzerland: "Sveits",
+  Syria: "Syria",
+  Tahiti: "Tahiti",
+  Thailand: "Thailand",
+  "Trinidad and Tobago": "Trinidad og Tobago",
+  Tunisia: "Tunisia",
+  Turkey: "Tyrkia",
+  Ukraine: "Ukraina",
+  "United Arab Emirates": "De forente arabiske emirater",
+  "United States": "USA",
+  Uruguay: "Uruguay",
+  USA: "USA",
+  Uzbekistan: "Usbekistan",
+  Venezuela: "Venezuela",
+  Vietnam: "Vietnam",
+  Wales: "Wales",
+};
+
+const TEAM_FLAGS = {
+  Algeria: "🇩🇿",
+  Argentina: "🇦🇷",
+  Australia: "🇦🇺",
+  Austria: "🇦🇹",
+  Bahrain: "🇧🇭",
+  Belgium: "🇧🇪",
+  Bolivia: "🇧🇴",
+  "Bosnia and Herzegovina": "🇧🇦",
+  Brazil: "🇧🇷",
+  Cameroon: "🇨🇲",
+  Canada: "🇨🇦",
+  "Cape Verde": "🇨🇻",
+  Chile: "🇨🇱",
+  China: "🇨🇳",
+  Colombia: "🇨🇴",
+  Congo: "🇨🇬",
+  "Costa Rica": "🇨🇷",
+  Croatia: "🇭🇷",
+  Curaçao: "🇨🇼",
+  "Czech Republic": "🇨🇿",
+  Czechia: "🇨🇿",
+  Denmark: "🇩🇰",
+  "DR Congo": "🇨🇩",
+  Ecuador: "🇪🇨",
+  Egypt: "🇪🇬",
+  England: "🏴",
+  France: "🇫🇷",
+  Germany: "🇩🇪",
+  Ghana: "🇬🇭",
+  Greece: "🇬🇷",
+  Honduras: "🇭🇳",
+  Hungary: "🇭🇺",
+  Indonesia: "🇮🇩",
+  Iran: "🇮🇷",
+  Iraq: "🇮🇶",
+  Ireland: "🇮🇪",
+  Italy: "🇮🇹",
+  "Ivory Coast": "🇨🇮",
+  Jamaica: "🇯🇲",
+  Japan: "🇯🇵",
+  Jordan: "🇯🇴",
+  Kuwait: "🇰🇼",
+  Lebanon: "🇱🇧",
+  Malaysia: "🇲🇾",
+  Mali: "🇲🇱",
+  Mexico: "🇲🇽",
+  Morocco: "🇲🇦",
+  Netherlands: "🇳🇱",
+  "New Caledonia": "🇳🇨",
+  "New Zealand": "🇳🇿",
+  Nigeria: "🇳🇬",
+  "North Macedonia": "🇲🇰",
+  "Northern Ireland": "🇬🇧",
+  Norway: "🇳🇴",
+  Oman: "🇴🇲",
+  Panama: "🇵🇦",
+  Paraguay: "🇵🇾",
+  Peru: "🇵🇪",
+  Poland: "🇵🇱",
+  Portugal: "🇵🇹",
+  Qatar: "🇶🇦",
+  Romania: "🇷🇴",
+  "Saudi Arabia": "🇸🇦",
+  Scotland: "🏴",
+  Senegal: "🇸🇳",
+  Serbia: "🇷🇸",
+  Slovakia: "🇸🇰",
+  Slovenia: "🇸🇮",
+  "South Africa": "🇿🇦",
+  "South Korea": "🇰🇷",
+  Spain: "🇪🇸",
+  Sweden: "🇸🇪",
+  Switzerland: "🇨🇭",
+  Syria: "🇸🇾",
+  Tahiti: "🇵🇫",
+  Thailand: "🇹🇭",
+  "Trinidad and Tobago": "🇹🇹",
+  Tunisia: "🇹🇳",
+  Turkey: "🇹🇷",
+  Ukraine: "🇺🇦",
+  "United Arab Emirates": "🇦🇪",
+  "United States": "🇺🇸",
+  Uruguay: "🇺🇾",
+  USA: "🇺🇸",
+  Uzbekistan: "🇺🇿",
+  Venezuela: "🇻🇪",
+  Vietnam: "🇻🇳",
+  Wales: "🏴",
+};
 
 const el = {
   clockPill: document.getElementById("clockPill"),
@@ -61,6 +271,16 @@ function safeText(value) {
   return String(value ?? "").trim();
 }
 
+function teamNameNo(value) {
+  const name = safeText(value);
+  return TEAM_NAMES_NO[name] || name;
+}
+
+function teamFlag(value) {
+  const name = safeText(value);
+  return TEAM_FLAGS[name] || "";
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -70,28 +290,87 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function teamLabelHtml(name, flag = "", className = "") {
+  const classes = ["team-label", className].filter(Boolean).join(" ");
+  const flagHtml = flag
+    ? `<span class="team-flag" aria-hidden="true">${escapeHtml(flag)}</span>`
+    : "";
+
+  return `
+    <span class="${classes}">
+      ${flagHtml}
+      <span class="team-label-text">${escapeHtml(name)}</span>
+    </span>
+  `;
+}
+
 function parseBool(value) {
   return String(value ?? "").trim().toLowerCase() === "true";
 }
 
-function parseGameDate(value) {
+function getDateTimeParts(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  return Object.fromEntries(parts.map(part => [part.type, part.value]));
+}
+
+function getTimeZoneOffsetMs(date, timeZone) {
+  const parts = getDateTimeParts(date, timeZone);
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+
+  return asUtc - date.getTime();
+}
+
+function zonedTimeToDate(parts, timeZone) {
+  const utcGuess = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute
+  );
+  const firstPass = new Date(utcGuess - getTimeZoneOffsetMs(new Date(utcGuess), timeZone));
+  return new Date(utcGuess - getTimeZoneOffsetMs(firstPass, timeZone));
+}
+
+function parseGameDate(value, timeZone = FALLBACK_STADIUM_TIME_ZONE) {
   const raw = safeText(value);
   const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
   if (!match) return null;
 
   const [, month, day, year, hour, minute] = match;
-  return new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute)
+  return zonedTimeToDate(
+    {
+      year: Number(year),
+      month: Number(month),
+      day: Number(day),
+      hour: Number(hour),
+      minute: Number(minute),
+    },
+    timeZone
   );
 }
 
 function formatDateTime(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("no-NO", {
+    timeZone: NORWAY_TIME_ZONE,
     weekday: "short",
     day: "2-digit",
     month: "2-digit",
@@ -102,6 +381,7 @@ function formatDateTime(date) {
 
 function formatTime(date = new Date()) {
   return new Intl.DateTimeFormat("no-NO", {
+    timeZone: NORWAY_TIME_ZONE,
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -110,21 +390,20 @@ function formatTime(date = new Date()) {
 function formatClockTime(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("no-NO", {
+    timeZone: NORWAY_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
 }
 
+function dateKey(date, timeZone = NORWAY_TIME_ZONE) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const parts = getDateTimeParts(date, timeZone);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function isSameDate(a, b) {
-  return (
-    a instanceof Date &&
-    b instanceof Date &&
-    !Number.isNaN(a.getTime()) &&
-    !Number.isNaN(b.getTime()) &&
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+  return !!dateKey(a) && dateKey(a) === dateKey(b);
 }
 
 function getGameStatus(game) {
@@ -140,10 +419,36 @@ function getStatusLabel(game) {
   return "Kommer";
 }
 
-function normalizeGame(row) {
-  const date = parseGameDate(row.local_date);
+function normalizeStadium(row) {
+  const id = safeText(row.id);
+  return {
+    id,
+    name: safeText(row.fifa_name || row.name_en),
+    originalName: safeText(row.name_en),
+    city: safeText(row.city_en),
+    country: COUNTRY_NAMES_NO[safeText(row.country_en)] || safeText(row.country_en),
+    capacity: toNum(row.capacity),
+    region: safeText(row.region),
+    timeZone: STADIUM_TIME_ZONES_BY_ID[id] || FALLBACK_STADIUM_TIME_ZONE,
+  };
+}
+
+function venueText(stadium) {
+  if (!stadium) return "";
+  const place = [stadium.city, stadium.country].filter(Boolean).join(", ");
+  return [stadium.name, place].filter(Boolean).join(" · ");
+}
+
+function normalizeGame(row, stadiumsById = new Map()) {
+  const stadiumId = safeText(row.stadium_id);
+  const stadium = stadiumsById.get(stadiumId) || null;
+  const date = parseGameDate(row.local_date, stadium?.timeZone || FALLBACK_STADIUM_TIME_ZONE);
   const homeScore = toNum(row.home_score);
   const awayScore = toNum(row.away_score);
+  const homeOriginal = safeText(row.home_team_name_en);
+  const awayOriginal = safeText(row.away_team_name_en);
+  const homeName = teamNameNo(homeOriginal);
+  const awayName = teamNameNo(awayOriginal);
 
   return {
     ...row,
@@ -153,8 +458,15 @@ function normalizeGame(row) {
     type: safeText(row.type),
     home_team_id: safeText(row.home_team_id),
     away_team_id: safeText(row.away_team_id),
-    home_team_name_en: safeText(row.home_team_name_en),
-    away_team_name_en: safeText(row.away_team_name_en),
+    stadium_id: stadiumId,
+    stadium,
+    venue: venueText(stadium),
+    home_team_name_en: homeName,
+    away_team_name_en: awayName,
+    home_team_name_original: homeOriginal,
+    away_team_name_original: awayOriginal,
+    home_flag: teamFlag(homeOriginal),
+    away_flag: teamFlag(awayOriginal),
     home_score: homeScore,
     away_score: awayScore,
     finished: parseBool(row.finished),
@@ -169,10 +481,16 @@ function buildTeamMap(games) {
   const map = new Map();
   for (const game of games) {
     if (game.home_team_id && game.home_team_name_en) {
-      map.set(game.home_team_id, game.home_team_name_en);
+      map.set(game.home_team_id, {
+        name: game.home_team_name_en,
+        flag: game.home_flag,
+      });
     }
     if (game.away_team_id && game.away_team_name_en) {
-      map.set(game.away_team_id, game.away_team_name_en);
+      map.set(game.away_team_id, {
+        name: game.away_team_name_en,
+        flag: game.away_flag,
+      });
     }
   }
   return map;
@@ -183,22 +501,26 @@ function normalizeGroups(groups, teamMap) {
     .map(group => ({
       name: safeText(group.name),
       teams: (group.teams || [])
-        .map(team => ({
-          team_id: safeText(team.team_id),
-          name: teamMap.get(safeText(team.team_id)) || `Team ${team.team_id}`,
-          mp: toNum(team.mp),
-          w: toNum(team.w),
-          d: toNum(team.d),
-          l: toNum(team.l),
-          pts: toNum(team.pts),
-          gf: toNum(team.gf),
-          ga: toNum(team.ga),
-          gd: toNum(team.gd),
-        }))
+        .map(team => {
+          const teamId = safeText(team.team_id);
+          const teamInfo = teamMap.get(teamId);
+          return {
+            team_id: teamId,
+            name: teamInfo?.name || `Team ${team.team_id}`,
+            flag: teamInfo?.flag || "",
+            mp: toNum(team.mp),
+            w: toNum(team.w),
+            d: toNum(team.d),
+            l: toNum(team.l),
+            pts: toNum(team.pts),
+            gf: toNum(team.gf),
+            ga: toNum(team.ga),
+            gd: toNum(team.gd),
+          };
+        })
         .sort((a, b) =>
           b.pts - a.pts ||
           b.gd - a.gd ||
-          b.gf - a.gf ||
           a.name.localeCompare(b.name, "no")
         ),
     }))
@@ -250,11 +572,13 @@ function renderFeatured(games) {
     status === "live" ? "Live nå" : status === "finished" ? "Siste resultat" : "Neste kamp";
   el.featuredSub.textContent = `Gruppe ${game.group || "-"} · kampdag ${game.matchday || "-"}`;
   el.featuredTag.textContent = getStatusLabel(game);
-  el.featuredHome.textContent = game.home_team_name_en;
-  el.featuredAway.textContent = game.away_team_name_en;
+  el.featuredHome.innerHTML = teamLabelHtml(game.home_team_name_en, game.home_flag);
+  el.featuredAway.innerHTML = teamLabelHtml(game.away_team_name_en, game.away_flag, "team-label-end");
   el.featuredScore.textContent = scoreText(game);
   el.featuredMeta.innerHTML = [
     formatDateTime(game.date),
+    "Norsk tid",
+    game.venue,
     game.type || "group",
     `kamp ${game.id || "-"}`,
   ]
@@ -279,8 +603,9 @@ function renderMatchRows(host, games, emptyText) {
       <div class="match-row">
         <div class="match-time">${escapeHtml(formatClockTime(game.date))}</div>
         <div class="match-teams">
-          <div>${escapeHtml(game.home_team_name_en)}</div>
-          <div>${escapeHtml(game.away_team_name_en)}</div>
+          <div>${teamLabelHtml(game.home_team_name_en, game.home_flag)}</div>
+          <div>${teamLabelHtml(game.away_team_name_en, game.away_flag)}</div>
+          ${game.venue ? `<div class="match-venue">${escapeHtml(game.venue)}</div>` : ""}
         </div>
         <div style="display:grid; gap:5px; justify-items:end;">
           <div class="match-score">${escapeHtml(scoreText(game))}</div>
@@ -296,12 +621,12 @@ function renderToday(games) {
   const todaysGames = games.filter(game => isSameDate(game.date, today));
 
   if (todaysGames.length) {
-    el.todaySub.textContent = "Kamper på dagens dato";
+    el.todaySub.textContent = "Kamper på dagens dato, norsk tid";
     renderMatchRows(el.todayList, todaysGames.slice(0, 5), "Ingen kamper i dag");
     return;
   }
 
-  el.todaySub.textContent = "Ingen kamper i dag - viser neste kamper";
+  el.todaySub.textContent = "Ingen kamper i dag - viser neste kamper, norsk tid";
   const upcoming = games
     .filter(game => !game.finished && game.timestamp >= Date.now())
     .slice(0, 5);
@@ -332,7 +657,12 @@ function renderTicker(games) {
     <div class="ticker-row">
       <div class="ticker-date">${escapeHtml(formatClockTime(game.date))}</div>
       <div class="ticker-teams">
-        ${escapeHtml(game.home_team_name_en)} - ${escapeHtml(game.away_team_name_en)}
+        <div class="ticker-matchup">
+          ${teamLabelHtml(game.home_team_name_en, game.home_flag)}
+          <span class="team-separator">-</span>
+          ${teamLabelHtml(game.away_team_name_en, game.away_flag)}
+        </div>
+        ${game.venue ? `<div class="ticker-venue">${escapeHtml(game.venue)}</div>` : ""}
       </div>
       <div class="ticker-score">${escapeHtml(scoreText(game))}</div>
     </div>
@@ -364,7 +694,7 @@ function renderCurrentGroup() {
       <tbody>
         ${group.teams.map(team => `
           <tr>
-            <td class="team">${escapeHtml(team.name)}</td>
+            <td class="team">${teamLabelHtml(team.name, team.flag)}</td>
             <td>${int(team.mp)}</td>
             <td>${int(team.w)}</td>
             <td>${int(team.d)}</td>
@@ -406,13 +736,19 @@ async function loadDashboard() {
   el.refreshPill.textContent = "Oppdaterer data...";
 
   try {
-    const [gamesPayload, groupsPayload] = await Promise.all([
+    const [gamesPayload, groupsPayload, stadiumsPayload] = await Promise.all([
       apiGet("/api/worldcup/games"),
       apiGet("/api/worldcup/groups"),
+      apiGet("/api/worldcup/stadiums"),
     ]);
 
+    const stadiumsById = new Map(
+      (stadiumsPayload.stadiums || [])
+        .map(normalizeStadium)
+        .map(stadium => [stadium.id, stadium])
+    );
     const games = (gamesPayload.games || [])
-      .map(normalizeGame)
+      .map(game => normalizeGame(game, stadiumsById))
       .sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id));
     const teamMap = buildTeamMap(games);
     const groups = normalizeGroups(groupsPayload.groups || [], teamMap);

@@ -222,6 +222,37 @@
       text-align: right;
     }
 
+    .team-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      vertical-align: middle;
+    }
+
+    .team-label-end {
+      justify-content: flex-end;
+    }
+
+    .team-flag {
+      flex: 0 0 auto;
+      font-size: 0.95em;
+      line-height: 1;
+    }
+
+    .team-label-text {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .team-name .team-label {
+      gap: 8px;
+    }
+
+    .team-name .team-flag {
+      font-size: 0.78em;
+    }
+
     .score {
       min-width: 136px;
       padding: 14px 18px;
@@ -254,7 +285,7 @@
       grid-template-columns: 58px 1fr auto;
       gap: 10px;
       align-items: center;
-      min-height: 48px;
+      min-height: 64px;
       padding: 8px 10px;
       border-radius: 12px;
       background: rgba(255,255,255,0.035);
@@ -275,6 +306,13 @@
       font-size: 13px;
       font-weight: 700;
       line-height: 1.15;
+    }
+
+    .match-venue {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 3px;
     }
 
     .match-score {
@@ -365,6 +403,25 @@
       line-height: 1.16;
     }
 
+    .ticker-matchup {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .team-separator {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .ticker-venue {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 3px;
+    }
+
     .ticker-score {
       font-size: 18px;
       font-weight: 950;
@@ -404,7 +461,7 @@
     <header class="topbar">
       <div class="brand">
         <h1>World Cup 2026</h1>
-        <div class="sub">Resultater, kamper og gruppestillinger</div>
+        <div class="sub">Resultater, kamper og gruppestillinger - tider vises norsk tid</div>
       </div>
       <div class="meta">
         <div class="pill" id="clockPill">-</div>
@@ -458,7 +515,7 @@
       <article class="card panel">
         <div class="panel-header">
           <h2 class="panel-title">Dagens kamper</h2>
-          <div class="panel-sub" id="todaySub">Kamper på dagens dato</div>
+          <div class="panel-sub" id="todaySub">Kamper på dagens dato, norsk tid</div>
         </div>
         <div class="panel-body">
           <div class="match-list" id="todayList"></div>
@@ -478,7 +535,7 @@
       <article class="card panel">
         <div class="panel-header">
           <h2 class="panel-title">Kampoversikt</h2>
-          <div class="panel-sub">Neste kamper og siste resultater</div>
+          <div class="panel-sub">Neste kamper og siste resultater, norsk tid</div>
         </div>
         <div class="panel-body">
           <div class="ticker" id="gamesTicker"></div>

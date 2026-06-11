@@ -36,3 +36,8 @@ def get_worldcup_games():
 @router.get("/worldcup/groups")
 def get_worldcup_groups():
     return fetch_worldcup_resource("groups")
+
+
+@router.get("/worldcup/stadiums")
+def get_worldcup_stadiums():
+    return fetch_worldcup_resource("stadiums")
