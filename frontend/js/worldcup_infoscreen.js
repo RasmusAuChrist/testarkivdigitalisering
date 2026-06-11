@@ -667,17 +667,14 @@ function renderFeatured(games) {
   const status = getGameStatus(game);
   el.featuredTitle.textContent =
     status === "live" ? "Live nå" : status === "finished" ? "Siste resultat" : "Neste kamp";
-  el.featuredSub.textContent = `Gruppe ${game.group || "-"} · kampdag ${game.matchday || "-"}`;
+  el.featuredSub.textContent = `Gruppe ${game.group || "-"} - kampdag ${game.matchday || "-"}`;
   el.featuredTag.textContent = getStatusLabel(game);
   el.featuredHome.innerHTML = teamLabelHtml(game.home_team_name_en, game.home_flag);
   el.featuredAway.innerHTML = teamLabelHtml(game.away_team_name_en, game.away_flag, "team-label-end");
   el.featuredScore.textContent = scoreText(game);
   el.featuredMeta.innerHTML = [
     formatDateTime(game.date),
-    "Norsk tid",
     game.venue,
-    game.type || "group",
-    `kamp ${game.id || "-"}`,
   ]
     .filter(Boolean)
     .map(item => `<span>${escapeHtml(item)}</span>`)
@@ -718,12 +715,12 @@ function renderToday(games) {
   const todaysGames = games.filter(game => isSameDate(game.date, today));
 
   if (todaysGames.length) {
-    el.todaySub.textContent = "Kamper på dagens dato, norsk tid";
+    el.todaySub.textContent = "Kamper på dagens dato";
     renderMatchRows(el.todayList, todaysGames.slice(0, 5), "Ingen kamper i dag");
     return;
   }
 
-  el.todaySub.textContent = "Ingen kamper i dag - viser neste kamper, norsk tid";
+  el.todaySub.textContent = "Ingen kamper i dag - viser neste kamper";
   const upcoming = games
     .filter(game => !game.finished && game.timestamp >= Date.now())
     .slice(0, 5);
