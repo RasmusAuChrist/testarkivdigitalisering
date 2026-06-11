@@ -2,6 +2,8 @@ import { initProtectedPage, apiGet } from "./page_auth.js";
 import { startInfoscreenRotation } from "./infoscreen_rotation.js";
 
 const REFRESH_MS = 60 * 60 * 1000;
+const API_TIMEOUT_MS = 20 * 1000;
+const DASHBOARD_CACHE_KEY = "worldcup_infoscreen_payload_v1";
 const GROUP_ROTATE_MS = 12 * 1000;
 const NORWAY_TIME_ZONE = "Europe/Oslo";
 const FALLBACK_STADIUM_TIME_ZONE = "America/Mexico_City";
@@ -369,6 +371,44 @@ function int(value) {
 
 function safeText(value) {
   return String(value ?? "").trim();
+}
+
+function apiGetWithTimeout(path, timeoutMs = API_TIMEOUT_MS) {
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(
+      () => reject(new Error("Tidsavbrudd ved henting av VM-data.")),
+      timeoutMs
+    );
+  });
+
+  return Promise.race([apiGet(path), timeout])
+    .finally(() => window.clearTimeout(timeoutId));
+}
+
+function readDashboardCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
+    if (!cached?.gamesPayload || !cached?.groupsPayload || !cached?.stadiumsPayload) {
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashboardCache(gamesPayload, groupsPayload, stadiumsPayload) {
+  try {
+    localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({
+      savedAt: new Date().toISOString(),
+      gamesPayload,
+      groupsPayload,
+      stadiumsPayload,
+    }));
+  } catch {
+    // The kiosk can keep running without local cache if storage is unavailable.
+  }
 }
 
 function normalizeLookupKey(value) {
@@ -889,42 +929,61 @@ function startTimers() {
   state.timers.infoscreenRotation = startInfoscreenRotation();
 }
 
+function renderDashboardFromPayloads(gamesPayload, groupsPayload, stadiumsPayload) {
+  const stadiumsById = new Map(
+    (stadiumsPayload.stadiums || [])
+      .map(normalizeStadium)
+      .map(stadium => [stadium.id, stadium])
+  );
+  const games = (gamesPayload.games || [])
+    .map(game => normalizeGame(game, stadiumsById))
+    .sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id));
+  const teamMap = buildTeamMap(games);
+  const groups = normalizeGroups(groupsPayload.groups || [], teamMap);
+
+  state.games = games;
+  state.groups = groups;
+  state.groupIndex = Math.min(state.groupIndex, Math.max(groups.length - 1, 0));
+
+  renderKpis(games);
+  renderFeatured(games);
+  renderToday(games);
+  renderTicker(games);
+  renderCurrentGroup();
+}
+
 async function loadDashboard() {
   showLoading();
   el.refreshPill.textContent = "Oppdaterer data...";
 
   try {
     const [gamesPayload, groupsPayload, stadiumsPayload] = await Promise.all([
-      apiGet("/api/worldcup/games"),
-      apiGet("/api/worldcup/groups"),
-      apiGet("/api/worldcup/stadiums"),
+      apiGetWithTimeout("/api/worldcup/games"),
+      apiGetWithTimeout("/api/worldcup/groups"),
+      apiGetWithTimeout("/api/worldcup/stadiums"),
     ]);
 
-    const stadiumsById = new Map(
-      (stadiumsPayload.stadiums || [])
-        .map(normalizeStadium)
-        .map(stadium => [stadium.id, stadium])
-    );
-    const games = (gamesPayload.games || [])
-      .map(game => normalizeGame(game, stadiumsById))
-      .sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id));
-    const teamMap = buildTeamMap(games);
-    const groups = normalizeGroups(groupsPayload.groups || [], teamMap);
-
-    state.games = games;
-    state.groups = groups;
-    state.groupIndex = Math.min(state.groupIndex, Math.max(groups.length - 1, 0));
-
-    renderKpis(games);
-    renderFeatured(games);
-    renderToday(games);
-    renderTicker(games);
-    renderCurrentGroup();
+    writeDashboardCache(gamesPayload, groupsPayload, stadiumsPayload);
+    renderDashboardFromPayloads(gamesPayload, groupsPayload, stadiumsPayload);
 
     el.refreshPill.textContent = `Sist oppdatert ${formatTime(new Date())}`;
   } catch (error) {
     console.error(error);
-    el.refreshPill.textContent = `Feil ved oppdatering: ${error.message}`;
+    const cached = readDashboardCache();
+    if (cached) {
+      renderDashboardFromPayloads(
+        cached.gamesPayload,
+        cached.groupsPayload,
+        cached.stadiumsPayload
+      );
+      const savedAt = cached.savedAt ? new Date(cached.savedAt) : null;
+      const savedLabel = savedAt && !Number.isNaN(savedAt.getTime())
+        ? ` fra ${formatTime(savedAt)}`
+        : "";
+      el.refreshPill.textContent = `API-feil - viser lagret data${savedLabel}`;
+    } else {
+      el.refreshPill.textContent = `Feil ved oppdatering: ${error.message}`;
+    }
   } finally {
     hideLoading();
   }
