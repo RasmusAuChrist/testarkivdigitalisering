@@ -837,14 +837,8 @@ function renderMatchRows(host, games, emptyText) {
       <div class="match-row">
         <div class="match-time">${escapeHtml(formatClockTime(game.date))}</div>
         <div class="match-teams">
-          <div>
-            ${teamLabelHtml(game.home_team_name_en, game.home_flag)}
-            ${scorersHtml(game.home_scorers, "match-scorers")}
-          </div>
-          <div>
-            ${teamLabelHtml(game.away_team_name_en, game.away_flag)}
-            ${scorersHtml(game.away_scorers, "match-scorers")}
-          </div>
+          <div>${teamLabelHtml(game.home_team_name_en, game.home_flag)}</div>
+          <div>${teamLabelHtml(game.away_team_name_en, game.away_flag)}</div>
           ${game.venue ? `<div class="match-venue">${escapeHtml(game.venue)}</div>` : ""}
         </div>
         <div style="display:grid; gap:5px; justify-items:end;">
