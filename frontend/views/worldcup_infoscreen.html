@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <title>ASK - World Cup infoskjerm</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+
+  <style>
+    :root {
+      --bg: #07101a;
+      --panel: #0f172a;
+      --panel-2: #111c32;
+      --text: #e5eefc;
+      --muted: #9fb0cc;
+      --accent: #f5c542;
+      --accent-2: #4cc9f0;
+      --green: #22c55e;
+      --red: #ef4444;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 14px 40px rgba(0,0,0,0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 8% 10%, rgba(34,197,94,0.12), transparent 20%),
+        radial-gradient(circle at 88% 12%, rgba(76,201,240,0.12), transparent 24%),
+        linear-gradient(180deg, #07101a 0%, #0a1322 100%);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .screen {
+      width: 100vw;
+      height: 100vh;
+      padding: 24px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .brand .sub {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .pill.live {
+      color: #052e16;
+      background: var(--green);
+      border-color: rgba(34,197,94,0.65);
+      font-weight: 800;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0)), var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .kpi {
+      padding: 18px 18px 16px;
+      min-height: 108px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-top: 4px solid var(--accent);
+    }
+
+    .kpi:nth-child(2) { border-top-color: var(--green); }
+    .kpi:nth-child(3) { border-top-color: var(--accent-2); }
+    .kpi:nth-child(4) { border-top-color: var(--red); }
+
+    .kpi-label {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .kpi-value {
+      font-size: 34px;
+      font-weight: 900;
+      line-height: 1;
+      margin-top: 8px;
+    }
+
+    .kpi-foot {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel-header {
+      padding: 16px 18px 0;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .panel-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .panel-body {
+      padding: 14px 18px 18px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .featured {
+      grid-row: 1 / span 2;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .featured-body {
+      display: grid;
+      gap: 16px;
+      height: 100%;
+      align-content: center;
+    }
+
+    .match-tag {
+      display: inline-flex;
+      width: fit-content;
+      color: #111827;
+      background: var(--accent);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .featured-teams {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .team-name {
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .team-name.away {
+      text-align: right;
+    }
+
+    .score {
+      min-width: 136px;
+      padding: 14px 18px;
+      border-radius: 18px;
+      text-align: center;
+      color: #111827;
+      background: linear-gradient(135deg, #fde68a, #f5c542);
+      font-size: 40px;
+      font-weight: 950;
+      box-shadow: 0 14px 30px rgba(245,197,66,0.18);
+    }
+
+    .featured-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .match-list {
+      display: grid;
+      gap: 10px;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .match-row {
+      display: grid;
+      grid-template-columns: 58px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 48px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.035);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .match-time {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .match-teams {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.15;
+    }
+
+    .match-score {
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .status {
+      display: inline-flex;
+      justify-content: center;
+      min-width: 74px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      color: #111827;
+      background: #dbeafe;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .status.live { background: var(--green); }
+    .status.finished { background: #cbd5e1; }
+    .status.upcoming { background: var(--accent); }
+
+    .groups-panel {
+      grid-row: 1 / span 2;
+    }
+
+    .standings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .standings-table th,
+    .standings-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .standings-table th:first-child,
+    .standings-table td:first-child {
+      text-align: left;
+      white-space: normal;
+      line-height: 1.15;
+    }
+
+    .standings-table th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .standings-table .team {
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .ticker {
+      display: grid;
+      gap: 10px;
+    }
+
+    .ticker-row {
+      display: grid;
+      grid-template-columns: 58px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .ticker-date {
+      color: var(--accent);
+      font-weight: 900;
+      font-size: 12px;
+    }
+
+    .ticker-teams {
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.16;
+    }
+
+    .ticker-score {
+      font-size: 18px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .loading {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(7,16,26,0.72);
+      z-index: 5;
+    }
+
+    .loading.show {
+      display: grid;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 4px solid rgba(255,255,255,0.18);
+      border-top-color: var(--accent);
+      animation: spin 900ms linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="screen">
+    <header class="topbar">
+      <div class="brand">
+        <h1>World Cup 2026</h1>
+        <div class="sub">Resultater, kamper og gruppestillinger</div>
+      </div>
+      <div class="meta">
+        <div class="pill" id="clockPill">-</div>
+        <div class="pill" id="refreshPill">Laster data...</div>
+        <div class="pill" id="statusPill">-</div>
+      </div>
+    </header>
+
+    <section class="kpis">
+      <div class="card kpi">
+        <div class="kpi-label">Kamper totalt</div>
+        <div class="kpi-value" id="kpiMatches">0</div>
+        <div class="kpi-foot">Fra World Cup API</div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-label">Live nå</div>
+        <div class="kpi-value" id="kpiLive">0</div>
+        <div class="kpi-foot">Pågående kamper</div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-label">Ferdigspilt</div>
+        <div class="kpi-value" id="kpiFinished">0</div>
+        <div class="kpi-foot">Registrerte sluttresultater</div>
+      </div>
+      <div class="card kpi">
+        <div class="kpi-label">Mål totalt</div>
+        <div class="kpi-value" id="kpiGoals">0</div>
+        <div class="kpi-foot">Summerte kampmål</div>
+      </div>
+    </section>
+
+    <section class="main">
+      <article class="card panel featured">
+        <div class="panel-header">
+          <h2 class="panel-title" id="featuredTitle">Neste kamp</h2>
+          <div class="panel-sub" id="featuredSub">World Cup 2026</div>
+        </div>
+        <div class="panel-body">
+          <div class="featured-body">
+            <div class="match-tag" id="featuredTag">-</div>
+            <div class="featured-teams">
+              <div class="team-name" id="featuredHome">-</div>
+              <div class="score" id="featuredScore">0-0</div>
+              <div class="team-name away" id="featuredAway">-</div>
+            </div>
+            <div class="featured-meta" id="featuredMeta"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Dagens kamper</h2>
+          <div class="panel-sub" id="todaySub">Kamper på dagens dato</div>
+        </div>
+        <div class="panel-body">
+          <div class="match-list" id="todayList"></div>
+        </div>
+      </article>
+
+      <article class="card panel groups-panel">
+        <div class="panel-header">
+          <h2 class="panel-title" id="groupTitle">Gruppe</h2>
+          <div class="panel-sub">Poeng, målforskjell og spilte kamper</div>
+        </div>
+        <div class="panel-body">
+          <div id="groupTable"></div>
+        </div>
+      </article>
+
+      <article class="card panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Kampoversikt</h2>
+          <div class="panel-sub">Neste kamper og siste resultater</div>
+        </div>
+        <div class="panel-body">
+          <div class="ticker" id="gamesTicker"></div>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <div class="loading" id="loadingOverlay" aria-hidden="true">
+    <div class="spinner"></div>
+  </div>
+
+  <script type="module" src="/js/worldcup_infoscreen.js"></script>
+</body>
+</html>

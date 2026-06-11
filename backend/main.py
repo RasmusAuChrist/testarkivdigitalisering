@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routers import locations, status, scatter_data, dashboard, validation_status, arkiv_overview, serie_hierarchy, auth, workflow, account, admin, arkiv_details, serie_insights, archive_insights, order_degree, workflow_simulation
+from routers import locations, status, scatter_data, dashboard, validation_status, arkiv_overview, serie_hierarchy, auth, workflow, account, admin, arkiv_details, serie_insights, archive_insights, order_degree, workflow_simulation, worldcup
 from routers.auth import get_current_user
 
 app = FastAPI()
@@ -32,6 +32,7 @@ app.include_router(serie_hierarchy.router, prefix="/api", dependencies=protected
 app.include_router(auth.router, prefix="/api")
 app.include_router(workflow.router, prefix="/api", dependencies=protected_api)
 app.include_router(workflow_simulation.router, prefix="/api", dependencies=protected_api)
+app.include_router(worldcup.router, prefix="/api", dependencies=protected_api)
 app.include_router(admin.router, prefix="/api", dependencies=protected_api)
 app.include_router(account.router, prefix="/api", dependencies=protected_api)
 app.include_router(serie_insights.router, prefix="/api", dependencies=protected_api)
