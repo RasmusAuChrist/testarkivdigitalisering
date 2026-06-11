@@ -239,10 +239,18 @@
 
     .top-media-row {
       display: grid;
-      grid-template-columns: minmax(300px, 42%) minmax(0, 1fr);
-      gap: 12px;
+      grid-template-columns: 32px minmax(260px, 40%) minmax(0, 1fr);
+      gap: 10px;
       align-items: center;
       min-height: 0;
+    }
+
+    .top-media-rank {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
     }
 
     .top-media-name {
@@ -533,8 +541,8 @@
       <article class="card panel">
         <div class="panel-header">
           <div>
-            <h2 class="panel-title">Topp 10 arkiver – media-visninger</h2>
-            <div class="panel-sub">Høyest samlet views_media</div>
+            <h2 class="panel-title">Topp 50 arkiver – media-visninger</h2>
+            <div class="panel-sub">Høyest samlet views_media, rullerende liste</div>
           </div>
         </div>
         <div class="panel-body">

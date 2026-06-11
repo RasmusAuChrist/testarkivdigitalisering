@@ -7,6 +7,9 @@ const ROTATE_MS = 12 * 1000;
 const TOP_REQUISITION_COUNT = 50;
 const TOP_REQUISITION_VISIBLE = 7;
 const TOP_REQUISITION_SCROLL_MS = 5000;
+const TOP_MEDIA_COUNT = 50;
+const TOP_MEDIA_VISIBLE = 10;
+const TOP_MEDIA_SCROLL_MS = 5000;
 
 const el = {
   clockPill: document.getElementById("clockPill"),
@@ -44,6 +47,8 @@ const state = {
   currentSpotlightArkivSk: null,
   topRequisitionRows: [],
   topRequisitionOffset: 0,
+  topMediaRows: [],
+  topMediaOffset: 0,
   charts: {
     topMedia: null,
     location: null,
@@ -55,6 +60,7 @@ const state = {
     refresh: null,
     rotate: null,
     requisitionScroll: null,
+    topMediaScroll: null,
     infoscreenRotation: null,
   },
   cache: {
@@ -238,16 +244,24 @@ function destroyChart(chart) {
 }
 
 function buildTopMediaChart(rows) {
-  const sorted = [...rows]
+  state.topMediaRows = [...rows]
     .sort((a, b) => b.views_media - a.views_media)
-    .slice(0, 10);
+    .slice(0, TOP_MEDIA_COUNT);
+  state.topMediaOffset = 0;
 
   destroyChart(state.charts.topMedia);
   state.charts.topMedia = null;
 
+  renderTopMediaWindow();
+}
+
+function renderTopMediaWindow() {
   if (!el.topMediaList) return;
 
-  if (!sorted.length) {
+  const allRows = state.topMediaRows;
+  const visibleCount = Math.min(TOP_MEDIA_VISIBLE, allRows.length);
+
+  if (!allRows.length) {
     el.topMediaList.innerHTML = `<div class="top-media-empty">Ingen data</div>`;
     return;
   }
@@ -264,15 +278,25 @@ function buildTopMediaChart(rows) {
     "#d4ac3d",
     "#cda434",
   ];
-  const maxValue = Math.max(...sorted.map(r => r.views_media), 1);
+  const maxValue = Math.max(...allRows.map(r => r.views_media), 1);
 
-  el.topMediaList.innerHTML = sorted.map((row, index) => {
+  const visibleRows = [];
+  for (let i = 0; i < visibleCount; i += 1) {
+    const idx = (state.topMediaOffset + i) % allRows.length;
+    visibleRows.push({
+      row: allRows[idx],
+      rank: idx + 1,
+    });
+  }
+
+  el.topMediaList.innerHTML = visibleRows.map(({ row, rank }, index) => {
     const name = row.navn || row.identifikator || `arkiv ${row.arkiv_sk}`;
     const value = toNum(row.views_media);
     const width = value > 0 ? Math.max((value / maxValue) * 100, 1.5) : 0;
 
     return `
       <div class="top-media-row">
+        <div class="top-media-rank">${rank}</div>
         <div class="top-media-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
         <div class="top-media-bars">
           <div class="top-media-track" aria-hidden="true">
@@ -286,6 +310,24 @@ function buildTopMediaChart(rows) {
       </div>
     `;
   }).join("");
+}
+
+function startTopMediaScroll() {
+  if (state.timers.topMediaScroll) {
+    clearInterval(state.timers.topMediaScroll);
+    state.timers.topMediaScroll = null;
+  }
+
+  if (state.topMediaRows.length <= TOP_MEDIA_VISIBLE) {
+    return;
+  }
+
+  state.timers.topMediaScroll = setInterval(() => {
+    state.topMediaOffset =
+      (state.topMediaOffset + 1) % state.topMediaRows.length;
+
+    renderTopMediaWindow();
+  }, TOP_MEDIA_SCROLL_MS);
 }
 
 function groupByLocation(rows) {
@@ -744,6 +786,7 @@ function startTimers() {
   }, ROTATE_MS);
 
   startTopRequisitionScroll();
+  startTopMediaScroll();
   state.timers.infoscreenRotation = startEmbeddedInfoscreenRotation();
 }
 
@@ -763,6 +806,7 @@ async function loadDashboard() {
     buildLocationChart(rows);
     buildDigitizationBucketChart(rows);
     buildTopRequisitionTicker(currentYearRequisitionRows);
+    startTopMediaScroll();
 
     await renderRandomSpotlight();
 

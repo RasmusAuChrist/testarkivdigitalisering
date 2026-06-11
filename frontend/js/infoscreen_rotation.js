@@ -1,4 +1,4 @@
-const ROTATION_MS = 60 * 1000;
+const ROTATION_MS = 20 * 60 * 1000;
 
 const ROTATION_TARGETS = {
   "/views/arkiv_infoscreen.html": "/views/worldcup_infoscreen.html",
