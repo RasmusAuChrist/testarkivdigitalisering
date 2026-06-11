@@ -1,7 +1,7 @@
 import { initProtectedPage, apiGet } from "./page_auth.js";
 import { startInfoscreenRotation } from "./infoscreen_rotation.js";
 
-const REFRESH_MS = 60 * 1000;
+const REFRESH_MS = 60 * 60 * 1000;
 const GROUP_ROTATE_MS = 12 * 1000;
 const NORWAY_TIME_ZONE = "Europe/Oslo";
 const FALLBACK_STADIUM_TIME_ZONE = "America/Mexico_City";
