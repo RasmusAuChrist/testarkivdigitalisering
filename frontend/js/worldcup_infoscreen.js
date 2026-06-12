@@ -7,6 +7,10 @@ const GROUP_ROTATE_MS = 12 * 1000;
 const NORWAY_TIME_ZONE = "Europe/Oslo";
 const FALLBACK_STADIUM_TIME_ZONE = "America/Mexico_City";
 const KNOCKOUT_GAMES_PER_PANEL = 6;
+const TICKER_SCROLL_INTERVAL_MS = 45;
+const TICKER_SCROLL_STEP_PX = 1;
+const TICKER_SCROLL_EDGE_PAUSE_MS = 1800;
+const TICKER_SCROLL_START_DELAY_MS = 1200;
 
 const KNOCKOUT_ROUNDS = [
   {
@@ -383,6 +387,7 @@ const state = {
     clock: null,
     group: null,
     infoscreenRotation: null,
+    tickerScroll: null,
   },
 };
 
@@ -1195,6 +1200,56 @@ function tickerWindow(games) {
   };
 }
 
+function stopTickerAutoScroll() {
+  if (!state.timers.tickerScroll) return;
+  clearTimeout(state.timers.tickerScroll);
+  clearInterval(state.timers.tickerScroll);
+  state.timers.tickerScroll = null;
+}
+
+function startTickerAutoScroll() {
+  stopTickerAutoScroll();
+
+  const host = el.gamesTicker;
+  if (!host) return;
+
+  host.scrollTop = 0;
+  state.timers.tickerScroll = window.setTimeout(() => {
+    const maxScroll = host.scrollHeight - host.clientHeight;
+    if (maxScroll <= 2) {
+      state.timers.tickerScroll = null;
+      return;
+    }
+
+    let direction = 1;
+    let pauseUntil = performance.now() + TICKER_SCROLL_EDGE_PAUSE_MS;
+    state.timers.tickerScroll = window.setInterval(() => {
+      const currentMaxScroll = host.scrollHeight - host.clientHeight;
+      const now = performance.now();
+
+      if (currentMaxScroll <= 2) {
+        stopTickerAutoScroll();
+        host.scrollTop = 0;
+        return;
+      }
+      if (now < pauseUntil) return;
+
+      if (host.scrollTop >= currentMaxScroll - 1) {
+        direction = -1;
+        pauseUntil = now + TICKER_SCROLL_EDGE_PAUSE_MS;
+        return;
+      }
+      if (host.scrollTop <= 0 && direction < 0) {
+        direction = 1;
+        pauseUntil = now + TICKER_SCROLL_EDGE_PAUSE_MS;
+        return;
+      }
+
+      host.scrollTop += direction * TICKER_SCROLL_STEP_PX;
+    }, TICKER_SCROLL_INTERVAL_MS);
+  }, TICKER_SCROLL_START_DELAY_MS);
+}
+
 function renderTicker(games) {
   const { anchorId, items } = tickerWindow(games);
 
@@ -1204,6 +1259,7 @@ function renderTicker(games) {
         <div class="ticker-teams">Ingen kampdata</div>
       </div>
     `;
+    startTickerAutoScroll();
     return;
   }
 
@@ -1222,6 +1278,8 @@ function renderTicker(games) {
       <div class="ticker-score">${escapeHtml(scoreText(game))}</div>
     </div>
   `).join("");
+
+  startTickerAutoScroll();
 }
 
 function renderGroupPanel(group) {
@@ -1323,8 +1381,11 @@ function updateClock() {
 }
 
 function clearTimers() {
-  for (const timer of Object.values(state.timers)) {
-    if (timer) clearInterval(timer);
+  for (const [key, timer] of Object.entries(state.timers)) {
+    if (!timer) continue;
+    clearTimeout(timer);
+    clearInterval(timer);
+    state.timers[key] = null;
   }
 }
 
@@ -1339,6 +1400,7 @@ function startTimers() {
     renderCurrentCompetitionPanel();
   }, GROUP_ROTATE_MS);
   state.timers.infoscreenRotation = startInfoscreenRotation();
+  startTickerAutoScroll();
 }
 
 function renderDashboardFromPayloads(gamesPayload, _groupsPayload, stadiumsPayload, teamsPayload = {}) {
