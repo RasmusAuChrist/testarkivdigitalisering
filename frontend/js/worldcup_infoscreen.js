@@ -9,7 +9,7 @@ const FALLBACK_STADIUM_TIME_ZONE = "America/Mexico_City";
 const KNOCKOUT_GAMES_PER_PANEL = 6;
 const TICKER_SCROLL_INTERVAL_MS = 45;
 const TICKER_SCROLL_STEP_PX = 1;
-const TICKER_SCROLL_EDGE_PAUSE_MS = 1800;
+const TICKER_SCROLL_BOTTOM_PAUSE_MS = 10 * 1000;
 const TICKER_SCROLL_START_DELAY_MS = 1200;
 
 const KNOCKOUT_ROUNDS = [
@@ -1234,31 +1234,25 @@ function startTickerAutoScroll() {
       return;
     }
 
-    let direction = 1;
-    let pauseUntil = performance.now() + TICKER_SCROLL_EDGE_PAUSE_MS;
     state.timers.tickerScroll = window.setInterval(() => {
       const currentMaxScroll = host.scrollHeight - host.clientHeight;
-      const now = performance.now();
 
       if (currentMaxScroll <= 2) {
         stopTickerAutoScroll();
         host.scrollTop = 0;
         return;
       }
-      if (now < pauseUntil) return;
 
       if (host.scrollTop >= currentMaxScroll - 1) {
-        direction = -1;
-        pauseUntil = now + TICKER_SCROLL_EDGE_PAUSE_MS;
-        return;
-      }
-      if (host.scrollTop <= 0 && direction < 0) {
-        direction = 1;
-        pauseUntil = now + TICKER_SCROLL_EDGE_PAUSE_MS;
+        clearInterval(state.timers.tickerScroll);
+        state.timers.tickerScroll = window.setTimeout(() => {
+          host.scrollTop = 0;
+          startTickerAutoScroll();
+        }, TICKER_SCROLL_BOTTOM_PAUSE_MS);
         return;
       }
 
-      host.scrollTop += direction * TICKER_SCROLL_STEP_PX;
+      host.scrollTop += TICKER_SCROLL_STEP_PX;
     }, TICKER_SCROLL_INTERVAL_MS);
   }, TICKER_SCROLL_START_DELAY_MS);
 }
