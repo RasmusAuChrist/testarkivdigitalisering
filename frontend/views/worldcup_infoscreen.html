@@ -556,11 +556,16 @@
     .ticker {
       display: grid;
       gap: 10px;
+      height: 100%;
+      overflow-y: auto;
+      align-content: start;
+      padding-right: 4px;
+      scrollbar-color: rgba(245,197,66,0.55) rgba(255,255,255,0.06);
     }
 
     .ticker-row {
       display: grid;
-      grid-template-columns: 58px 1fr auto;
+      grid-template-columns: 64px 1fr auto;
       gap: 10px;
       align-items: center;
       padding: 10px 12px;
@@ -569,10 +574,25 @@
       border: 1px solid rgba(255,255,255,0.04);
     }
 
+    .ticker-row.current {
+      border-color: rgba(245,197,66,0.55);
+      background: rgba(245,197,66,0.08);
+    }
+
     .ticker-date {
+      display: grid;
+      gap: 2px;
       color: var(--accent);
       font-weight: 900;
       font-size: 12px;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .ticker-day {
+      color: #b9d7ff;
+      font-size: 10px;
+      text-transform: capitalize;
     }
 
     .ticker-teams {

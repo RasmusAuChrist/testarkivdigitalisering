@@ -1143,16 +1143,60 @@ function renderToday(games) {
   renderMatchRows(el.todayList, upcoming, "Ingen kommende kamper funnet");
 }
 
-function renderTicker(games) {
+function formatTickerDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return `<span class="ticker-time">-</span>`;
+  }
+
+  const time = formatClockTime(date);
+  if (isSameDate(date, new Date())) {
+    return `<span class="ticker-time">${escapeHtml(time)}</span>`;
+  }
+
+  const day = new Intl.DateTimeFormat("no-NO", {
+    timeZone: NORWAY_TIME_ZONE,
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(date).replace(",", "");
+
+  return `
+    <span class="ticker-day">${escapeHtml(day)}</span>
+    <span class="ticker-time">${escapeHtml(time)}</span>
+  `;
+}
+
+function tickerWindow(games) {
   const now = Date.now();
-  const upcoming = games
-    .filter(game => !game.finished && game.timestamp >= now)
-    .slice(0, 4);
-  const latestFinished = [...games]
-    .filter(game => game.finished)
-    .reverse()
-    .slice(0, 2);
-  const items = [...upcoming, ...latestFinished].slice(0, 6);
+  const sorted = [...games]
+    .filter(game => game.timestamp !== Number.MAX_SAFE_INTEGER)
+    .sort((a, b) => a.timestamp - b.timestamp || Number(a.id) - Number(b.id));
+  const liveIndex = sorted.findIndex(game => getGameStatus(game) === "live");
+  const upcomingIndex = sorted.findIndex(game => !game.finished && game.timestamp >= now);
+  const anchorIndex = liveIndex >= 0
+    ? liveIndex
+    : upcomingIndex >= 0
+      ? upcomingIndex
+      : sorted.length - 1;
+
+  if (anchorIndex < 0) {
+    return {
+      anchorId: "",
+      items: [],
+    };
+  }
+
+  return {
+    anchorId: sorted[anchorIndex].id,
+    items: sorted.slice(
+      Math.max(0, anchorIndex - 3),
+      Math.min(sorted.length, anchorIndex + 4)
+    ),
+  };
+}
+
+function renderTicker(games) {
+  const { anchorId, items } = tickerWindow(games);
 
   if (!items.length) {
     el.gamesTicker.innerHTML = `
@@ -1164,8 +1208,8 @@ function renderTicker(games) {
   }
 
   el.gamesTicker.innerHTML = items.map(game => `
-    <div class="ticker-row">
-      <div class="ticker-date">${escapeHtml(formatClockTime(game.date))}</div>
+    <div class="ticker-row ${game.id === anchorId ? "current" : ""}">
+      <div class="ticker-date">${formatTickerDate(game.date)}</div>
       <div class="ticker-teams">
         <div class="ticker-matchup">
           ${teamLabelHtml(game.home_team_name_en, game.home_flag)}
