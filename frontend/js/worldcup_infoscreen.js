@@ -721,7 +721,7 @@ function normalizeStadium(row) {
   const id = safeText(row.id);
   return {
     id,
-    name: safeText(row.fifa_name || row.name_en),
+    name: safeText(row.name_en || row.fifa_name),
     originalName: safeText(row.name_en),
     city: safeText(row.city_en),
     country: COUNTRY_NAMES_NO[safeText(row.country_en)] || safeText(row.country_en),
