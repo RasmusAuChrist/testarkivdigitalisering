@@ -397,6 +397,11 @@
       white-space: nowrap;
     }
 
+    .match-score.no-score,
+    .ticker-score.no-score {
+      display: none;
+    }
+
     .status {
       display: inline-flex;
       justify-content: center;
@@ -560,7 +565,12 @@
       overflow-y: auto;
       align-content: start;
       padding-right: 4px;
-      scrollbar-color: rgba(245,197,66,0.55) rgba(255,255,255,0.06);
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .ticker::-webkit-scrollbar {
+      display: none;
     }
 
     .ticker-row {

@@ -1028,8 +1028,21 @@ function buildCompetitionPanels(groups, knockoutRounds, games) {
   }));
 }
 
+function shouldShowScore(game) {
+  const status = getGameStatus(game);
+  return game.finished || status === "live";
+}
+
 function scoreText(game) {
+  if (!shouldShowScore(game)) return "";
   return `${game.home_score} - ${game.away_score}`;
+}
+
+function scoreHtml(game, className = "match-score") {
+  const score = scoreText(game);
+  return score
+    ? `<div class="${className}">${escapeHtml(score)}</div>`
+    : `<div class="${className} no-score" aria-hidden="true"></div>`;
 }
 
 function matchStageText(game) {
@@ -1089,7 +1102,7 @@ function renderFeatured(games) {
     ${teamLabelHtml(game.away_team_name_en, game.away_flag, "team-label-end")}
     ${scorersHtml(game.away_scorers, "featured-scorers")}
   `;
-  el.featuredScore.textContent = scoreText(game);
+  el.featuredScore.textContent = scoreText(game) || "VS";
   el.featuredMeta.innerHTML = [
     formatDateTime(game.date),
     game.venue,
@@ -1123,7 +1136,7 @@ function renderMatchRows(host, games, emptyText) {
           ${game.venue ? `<div class="match-venue">${escapeHtml(game.venue)}</div>` : ""}
         </div>
         <div style="display:grid; gap:5px; justify-items:end;">
-          <div class="match-score">${escapeHtml(scoreText(game))}</div>
+          ${scoreHtml(game)}
           <div class="status ${status}">${escapeHtml(getStatusLabel(game))}</div>
         </div>
       </div>
@@ -1275,7 +1288,7 @@ function renderTicker(games) {
         ${matchScorersSummaryHtml(game, "ticker-scorers")}
         ${game.venue ? `<div class="ticker-venue">${escapeHtml(game.venue)}</div>` : ""}
       </div>
-      <div class="ticker-score">${escapeHtml(scoreText(game))}</div>
+      ${scoreHtml(game, "ticker-score")}
     </div>
   `).join("");
 
@@ -1350,7 +1363,7 @@ function renderKnockoutPanel(panel) {
               ${game.venue ? `<div class="knockout-venue">${escapeHtml(game.venue)}</div>` : ""}
             </div>
             <div class="knockout-result">
-              <div class="match-score">${escapeHtml(scoreText(game))}</div>
+              ${scoreHtml(game)}
               <div class="status ${status}">${escapeHtml(getStatusLabel(game))}</div>
             </div>
           </div>
