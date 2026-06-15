@@ -103,56 +103,71 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
+      grid-template-columns: repeat(2, minmax(260px, 360px));
+      gap: 12px;
+      align-items: stretch;
     }
 
     .summary-card {
-      padding: 16px;
+      padding: 12px;
       min-width: 0;
+      box-shadow: 0 6px 18px rgba(16, 32, 54, 0.06);
     }
 
     .summary-card h2 {
-      margin: 0 0 12px;
-      font-size: 18px;
+      margin: 0 0 8px;
+      font-size: 15px;
     }
 
-    .bar-list {
+    .mini-chart-layout {
       display: grid;
-      gap: 10px;
-    }
-
-    .bar-row {
-      display: grid;
-      gap: 5px;
-    }
-
-    .bar-top {
-      display: flex;
-      justify-content: space-between;
+      grid-template-columns: 112px 1fr;
       gap: 12px;
-      font-size: 13px;
-      font-weight: 700;
+      align-items: center;
+      min-height: 128px;
     }
 
-    .bar-name {
+    .mini-chart {
+      width: 112px;
+      height: 112px;
+      position: relative;
+    }
+
+    .chart-legend {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      align-content: center;
+    }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 6px;
+      align-items: center;
+      color: #536170;
+      font-size: 12px;
+      line-height: 1.15;
+    }
+
+    .legend-swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+    }
+
+    .legend-name {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      color: #223047;
+      font-weight: 700;
     }
 
-    .bar-track {
-      height: 9px;
-      border-radius: 999px;
-      background: #e8edf5;
-      overflow: hidden;
-    }
-
-    .bar-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #c7a13b, #123a63);
+    .chart-legend .empty-state {
+      padding: 0;
+      font-size: 12px;
     }
 
     .table-card {
@@ -285,6 +300,15 @@
         width: 100%;
         min-width: 0;
       }
+
+      .mini-chart-layout {
+        grid-template-columns: 96px 1fr;
+      }
+
+      .mini-chart {
+        width: 96px;
+        height: 96px;
+      }
     }
   </style>
 </head>
@@ -311,11 +335,17 @@
     <section class="summary-grid">
       <article class="summary-card">
         <h2>Lokasjoner</h2>
-        <div class="bar-list" id="locationBars"></div>
+        <div class="mini-chart-layout">
+          <div class="mini-chart"><canvas id="locationChart"></canvas></div>
+          <div class="chart-legend" id="locationBars"></div>
+        </div>
       </article>
       <article class="summary-card">
         <h2>Arkiv med flest avvik</h2>
-        <div class="bar-list" id="archiveBars"></div>
+        <div class="mini-chart-layout">
+          <div class="mini-chart"><canvas id="archiveChart"></canvas></div>
+          <div class="chart-legend" id="archiveBars"></div>
+        </div>
       </article>
     </section>
 
@@ -351,6 +381,7 @@
     <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script type="module" src="/js/missing_dates.js"></script>
 </body>
 </html>

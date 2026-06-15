@@ -4,6 +4,8 @@ const el = {
   loadingOverlay: document.getElementById("loadingOverlay"),
   statusText: document.getElementById("statusText"),
   kpiGrid: document.getElementById("kpiGrid"),
+  locationChart: document.getElementById("locationChart"),
+  archiveChart: document.getElementById("archiveChart"),
   locationBars: document.getElementById("locationBars"),
   archiveBars: document.getElementById("archiveBars"),
   searchInput: document.getElementById("searchInput"),
@@ -14,7 +16,20 @@ const el = {
 const state = {
   rows: [],
   summary: {},
+  charts: {
+    locations: null,
+    archives: null,
+  },
 };
+
+const CHART_COLORS = [
+  "#123a63",
+  "#c7a13b",
+  "#2f6f9f",
+  "#7c8da4",
+  "#8c6f2a",
+  "#d7c98b",
+];
 
 function safeText(value) {
   return String(value ?? "").trim();
@@ -90,27 +105,87 @@ function renderKpis(summary) {
   ].join("");
 }
 
-function renderBars(host, rows, emptyText) {
+function chartRows(rows, limit = 5) {
+  const visible = (rows || []).slice(0, limit).map((row, index) => ({
+    ...row,
+    color: CHART_COLORS[index % CHART_COLORS.length],
+  }));
+  const rest = (rows || []).slice(limit);
+  const restCount = rest.reduce((sum, row) => sum + toNum(row.count), 0);
+  const total = (rows || []).reduce((sum, row) => sum + toNum(row.count), 0);
+  if (restCount > 0) {
+    visible.push({
+      name: "Andre",
+      count: restCount,
+      percent: total ? (restCount / total) * 100 : 0,
+      color: CHART_COLORS[visible.length % CHART_COLORS.length],
+    });
+  }
+  return visible;
+}
+
+function destroyChart(key) {
+  if (state.charts[key]) {
+    state.charts[key].destroy();
+    state.charts[key] = null;
+  }
+}
+
+function renderLegend(host, rows, emptyText) {
   if (!rows?.length) {
     host.innerHTML = `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
     return;
   }
 
-  const max = Math.max(...rows.map(row => toNum(row.count)), 1);
   host.innerHTML = rows.map(row => {
-    const width = Math.max(4, (toNum(row.count) / max) * 100);
     return `
-      <div class="bar-row">
-        <div class="bar-top">
-          <span class="bar-name" title="${escapeHtml(row.name || "Ukjent")}">${escapeHtml(row.name || "Ukjent")}</span>
-          <span>${int(row.count)} (${pct(row.percent)})</span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${width}%;"></div>
-        </div>
+      <div class="legend-row">
+        <span class="legend-swatch" style="background:${escapeHtml(row.color)}"></span>
+        <span class="legend-name" title="${escapeHtml(row.name || "Ukjent")}">${escapeHtml(row.name || "Ukjent")}</span>
+        <span>${int(row.count)}</span>
       </div>
     `;
   }).join("");
+}
+
+function renderChart(key, canvas, host, rows, emptyText) {
+  const dataRows = chartRows(rows);
+  destroyChart(key);
+  renderLegend(host, dataRows, emptyText);
+
+  if (!dataRows.length || !canvas || !window.Chart) {
+    return;
+  }
+
+  state.charts[key] = new window.Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: dataRows.map(row => row.name || "Ukjent"),
+      datasets: [{
+        data: dataRows.map(row => toNum(row.count)),
+        backgroundColor: dataRows.map(row => row.color),
+        borderColor: "#ffffff",
+        borderWidth: 2,
+        hoverOffset: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "58%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: context => {
+              const row = dataRows[context.dataIndex];
+              return `${row.name}: ${int(row.count)} (${pct(row.percent)})`;
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 function rowLocations(row) {
@@ -235,8 +310,8 @@ function render(data) {
     );
 
   renderKpis(state.summary);
-  renderBars(el.locationBars, state.summary.locations || [], "Ingen lokasjonsdata funnet.");
-  renderBars(el.archiveBars, state.summary.archives || [], "Ingen arkivdata funnet.");
+  renderChart("locations", el.locationChart, el.locationBars, state.summary.locations || [], "Ingen lokasjonsdata funnet.");
+  renderChart("archives", el.archiveChart, el.archiveBars, state.summary.archives || [], "Ingen arkivdata funnet.");
   renderLocationFilter(state.summary);
   renderTable();
 }
@@ -253,6 +328,8 @@ async function loadData() {
     setStatus(`Sist oppdatert ${new Date().toLocaleString("no-NO")}`);
   } catch (error) {
     console.error(error);
+    destroyChart("locations");
+    destroyChart("archives");
     el.kpiGrid.innerHTML = "";
     el.locationBars.innerHTML = "";
     el.archiveBars.innerHTML = "";
