@@ -119,11 +119,9 @@ def get_missing_date_series():
         start_col = _pick_column(columns, ["stykke_startaar", "startaar", "startar", "startår", "start_year"])
         end_col = _pick_column(columns, ["stykke_sluttar", "stykke_sluttaar", "sluttaar", "sluttar", "sluttår", "endaar", "end_year"])
         path_col = _pick_column(columns, ["asta_sti", "path"])
-        stykke_col = _pick_column(columns, ["stykke_identifikator", "identifikator"])
         arkiv_col = _pick_column(columns, ["arkiv_identifikator"])
         arkiv_navn_col = _pick_column(columns, ["arkiv_navn"])
         lokasjon_col = _pick_column(columns, ["lokasjon"])
-        shelf_col = _pick_column(columns, ["hylleplassering"])
         serie_path_col = _pick_column(columns, ["serie_path", "serie_sti", "serie_asta_sti"])
         serie_ident_col = _pick_column(columns, ["serie_identifikator"])
         serie_name_col = _pick_column(columns, ["serie_navn"])
@@ -133,7 +131,6 @@ def get_missing_date_series():
             for label, col in [
                 ("startår", start_col),
                 ("sluttår", end_col),
-                ("stykke-identifikator", stykke_col),
                 ("Asta-sti/path", path_col),
             ]
             if not col
@@ -155,19 +152,16 @@ def get_missing_date_series():
         arkiv_expr = _quote_ident(arkiv_col) if arkiv_col else "NULL"
         arkiv_navn_expr = _quote_ident(arkiv_navn_col) if arkiv_navn_col else "NULL"
         lokasjon_expr = _quote_ident(lokasjon_col) if lokasjon_col else "NULL"
-        shelf_expr = _quote_ident(shelf_col) if shelf_col else "NULL"
 
         base_cte = f"""
             WITH item_base AS (
                 SELECT
-                    CONVERT(NVARCHAR(255), {_quote_ident(stykke_col)}) AS stykke_identifikator,
                     CONVERT(NVARCHAR(1000), {serie_path_expr}) AS serie_path,
                     CONVERT(NVARCHAR(255), {serie_ident_expr}) AS serie_identifikator,
                     CONVERT(NVARCHAR(500), {serie_name_expr}) AS serie_navn,
                     CONVERT(NVARCHAR(255), {arkiv_expr}) AS arkiv_identifikator,
                     CONVERT(NVARCHAR(500), {arkiv_navn_expr}) AS arkiv_navn,
                     CONVERT(NVARCHAR(255), {lokasjon_expr}) AS lokasjon,
-                    CONVERT(NVARCHAR(500), {shelf_expr}) AS hylleplassering,
                     CONVERT(NVARCHAR(1000), {_quote_ident(path_col)}) AS asta_sti,
                     CONVERT(NVARCHAR(50), {_quote_ident(start_col)}) AS startaar,
                     CONVERT(NVARCHAR(50), {_quote_ident(end_col)}) AS sluttaar,
@@ -253,33 +247,6 @@ def get_missing_date_series():
         archive_rows = cursor.fetchall()
 
         cursor.execute(f"""
-            {base_cte},
-            ranked AS (
-                SELECT
-                    *,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY serie_path
-                        ORDER BY asta_sti, stykke_identifikator
-                    ) AS rn
-                FROM item_base
-                WHERE start_missing = 1 OR slutt_missing = 1
-            )
-            SELECT
-                serie_path,
-                stykke_identifikator,
-                arkiv_identifikator,
-                lokasjon,
-                hylleplassering,
-                asta_sti,
-                start_missing,
-                slutt_missing
-            FROM ranked
-            WHERE rn <= 5
-            ORDER BY serie_path, rn;
-        """)
-        sample_rows = cursor.fetchall()
-
-        cursor.execute(f"""
             {base_cte}
             SELECT
                 serie_path,
@@ -302,18 +269,6 @@ def get_missing_date_series():
             GROUP BY serie_path, COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent');
         """)
         archive_by_series_rows = cursor.fetchall()
-
-        samples_by_series = {}
-        for sample in sample_rows:
-            samples_by_series.setdefault(sample.get("serie_path"), []).append({
-                "identifikator": sample.get("stykke_identifikator"),
-                "lokasjon": sample.get("lokasjon"),
-                "hylleplassering": sample.get("hylleplassering"),
-                "arkiv_identifikator": sample.get("arkiv_identifikator"),
-                "asta_sti": sample.get("asta_sti"),
-                "start_missing": bool(sample.get("start_missing")),
-                "slutt_missing": bool(sample.get("slutt_missing")),
-            })
 
         locations_by_series = {}
         for item in location_by_series_rows:
@@ -370,7 +325,6 @@ def get_missing_date_series():
                     key=lambda item: item["count"],
                     reverse=True,
                 )[:5],
-                "sample_items": samples_by_series.get(serie_path, []),
                 "issue_types": issue_types,
             })
 

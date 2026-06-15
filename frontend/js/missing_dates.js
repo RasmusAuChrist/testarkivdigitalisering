@@ -83,9 +83,9 @@ function renderKpis(summary) {
       `${pct(summary.items_with_known_location_percent)} av avvikene`
     ),
     kpiCard(
-      "Datagrunnlag",
+      "Alle serier i Asta",
       int(summary.total_series),
-      `${int(summary.total_stykker)} stykker totalt`
+      `${int(summary.total_stykker)} stykker i datagrunnlaget`
     ),
   ].join("");
 }
@@ -136,8 +136,6 @@ function searchableText(row) {
     row.serie_navn,
     rowLocationText(row),
     rowArchiveText(row),
-    ...(row.missing_item_ids || []),
-    ...(row.sample_items || []).map(item => item.identifikator),
   ].map(safeText).join(" ").toLowerCase();
 }
 
@@ -191,24 +189,13 @@ function renderCountPills(items) {
   `;
 }
 
-function renderSamples(row) {
-  const samples = row.sample_items || [];
-  if (samples.length) {
-    return renderPills(samples.map(item => {
-      const shelf = item.hylleplassering ? ` - ${item.hylleplassering}` : "";
-      return `${item.identifikator || "-"}${shelf}`;
-    }));
-  }
-  return renderPills((row.missing_item_ids || []).slice(0, 5));
-}
-
 function renderTable() {
   const rows = filteredRows();
 
   if (!rows.length) {
     el.tableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="empty-state">Ingen serier matcher filtrene.</td>
+        <td colspan="6" class="empty-state">Ingen serier matcher filtrene.</td>
       </tr>
     `;
     return;
@@ -233,7 +220,6 @@ function renderTable() {
         <td class="number">${pct(affectedPct)}</td>
         <td>${renderCountPills(row.location_counts)}</td>
         <td>${renderPills(row.issue_types || [], "issue-pill")}</td>
-        <td>${renderSamples(row)}</td>
       </tr>
     `;
   }).join("");
@@ -272,7 +258,7 @@ async function loadData() {
     el.archiveBars.innerHTML = "";
     el.tableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="error-state">Kunne ikke hente data: ${escapeHtml(error.message)}</td>
+        <td colspan="6" class="error-state">Kunne ikke hente data: ${escapeHtml(error.message)}</td>
       </tr>
     `;
     setStatus("Kunne ikke hente data", true);
