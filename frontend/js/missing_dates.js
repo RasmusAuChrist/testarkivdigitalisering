@@ -1,8 +1,7 @@
-import { initProtectedPage, apiGet, apiPost } from "./page_auth.js";
+import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const el = {
   loadingOverlay: document.getElementById("loadingOverlay"),
-  refreshBtn: document.getElementById("refreshBtn"),
   statusText: document.getElementById("statusText"),
   kpiGrid: document.getElementById("kpiGrid"),
   locationBars: document.getElementById("locationBars"),
@@ -132,13 +131,13 @@ function rowArchiveText(row) {
 
 function searchableText(row) {
   return [
-    row.ordre,
     row.serie_path,
     row.serie_identifikator,
     row.serie_navn,
     rowLocationText(row),
     rowArchiveText(row),
     ...(row.missing_item_ids || []),
+    ...(row.sample_items || []).map(item => item.identifikator),
   ].map(safeText).join(" ").toLowerCase();
 }
 
@@ -227,7 +226,7 @@ function renderTable() {
         <td class="path-cell">
           <strong>${escapeHtml(title || path)}</strong>
           <div class="muted">${escapeHtml(path)}</div>
-          <div class="muted">Ordre ${escapeHtml(row.ordre ?? "-")} · ${escapeHtml(row.startaar ?? "-")}–${escapeHtml(row.sluttaar ?? "-")}</div>
+          <div class="muted">Serieår ${escapeHtml(row.startaar ?? "-")}–${escapeHtml(row.sluttaar ?? "-")}</div>
         </td>
         <td class="number">${int(row.stykke_count)}</td>
         <td class="number"><strong>${int(row.missing_count)}</strong></td>
@@ -282,32 +281,12 @@ async function loadData() {
   }
 }
 
-async function refreshValidation() {
-  el.refreshBtn.disabled = true;
-  setLoading(true);
-  setStatus("Oppdaterer valideringsgrunnlaget...");
-  try {
-    const out = await apiPost("/api/validation-status/refresh", {});
-    if (out?.ok !== true) {
-      throw new Error(out?.error || "Oppdatering feilet");
-    }
-    await loadData();
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message || "Oppdatering feilet", true);
-  } finally {
-    el.refreshBtn.disabled = false;
-    setLoading(false);
-  }
-}
-
 async function init() {
   const me = await initProtectedPage();
   if (!me) return;
 
   el.searchInput.addEventListener("input", renderTable);
   el.locationFilter.addEventListener("change", renderTable);
-  el.refreshBtn.addEventListener("click", refreshValidation);
 
   await loadData();
 }

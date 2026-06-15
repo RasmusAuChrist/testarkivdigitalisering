@@ -62,22 +62,6 @@
       min-width: 320px;
     }
 
-    .btn-action {
-      min-height: 38px;
-      padding: 8px 12px;
-      border: 1px solid #123a63;
-      border-radius: 8px;
-      background: #123a63;
-      color: #fff;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .btn-action:disabled {
-      opacity: 0.55;
-      cursor: wait;
-    }
-
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -313,12 +297,11 @@
       <div>
         <h1>Serier med stykker uten start-/sluttår</h1>
         <p>
-          Forslagsside for å finne serier der ett eller flere stykker mangler startår eller sluttår,
-          med oversikt over omfang, lokasjoner og arkiv.
+          Forslagsside for å finne alle Asta-serier der ett eller flere stykker mangler startår
+          eller sluttår, med oversikt over omfang, lokasjoner og arkiv.
         </p>
       </div>
       <div class="toolbar">
-        <button class="btn-action" id="refreshBtn" type="button">Oppdater validering</button>
         <span class="muted" id="statusText"></span>
       </div>
     </header>

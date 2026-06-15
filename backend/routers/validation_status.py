@@ -2,7 +2,6 @@ from fastapi import APIRouter
 import pymssql
 import os
 import json
-from collections import Counter
 
 router = APIRouter()
 
@@ -14,23 +13,6 @@ def get_connection():
         database=os.getenv("AZURE_DATABASE")
     )
 
-def _parse_missing_items(raw):
-    try:
-        items = json.loads(raw or "[]")
-        return items if isinstance(items, list) else []
-    except Exception:
-        return []
-
-def _item_id(item):
-    if not isinstance(item, dict):
-        return ""
-    return (
-        item.get("identifikator")
-        or item.get("stykke_identifikator")
-        or item.get("item_id")
-        or ""
-    )
-
 def _chunked(values, size=400):
     for i in range(0, len(values), size):
         yield values[i:i + size]
@@ -38,8 +20,51 @@ def _chunked(values, size=400):
 def _pct(part, whole):
     return round((part / whole) * 100, 1) if whole else 0
 
-def _is_false(value):
-    return value is False or value == 0
+def _quote_ident(name):
+    return f"[{str(name).replace(']', ']]')}]"
+
+def _columns_for_table(cursor, table_name):
+    cursor.execute("""
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = 'dbo'
+          AND TABLE_NAME = %s;
+    """, (table_name,))
+    return {row["COLUMN_NAME"].lower(): row["COLUMN_NAME"] for row in cursor.fetchall()}
+
+def _pick_column(columns, candidates):
+    for candidate in candidates:
+        found = columns.get(candidate.lower())
+        if found:
+            return found
+    return None
+
+def _missing_year_expr(column):
+    q = _quote_ident(column)
+    return f"""
+        (
+            {q} IS NULL
+            OR LTRIM(RTRIM(CONVERT(NVARCHAR(50), {q}))) IN ('', '0', '0000')
+        )
+    """
+
+def _parent_path_expr(path_column):
+    q = _quote_ident(path_column)
+    return f"""
+        CASE
+            WHEN {q} IS NULL OR LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), {q}))) = '' THEN 'Ukjent'
+            WHEN CHARINDEX('/', REVERSE(CONVERT(NVARCHAR(MAX), {q}))) > 0
+                THEN LEFT(
+                    CONVERT(NVARCHAR(MAX), {q}),
+                    LEN(CONVERT(NVARCHAR(MAX), {q})) - CHARINDEX('/', REVERSE(CONVERT(NVARCHAR(MAX), {q})))
+                )
+            ELSE CONVERT(NVARCHAR(MAX), {q})
+        END
+    """
+
+def _leaf(value):
+    text = str(value or "").strip().strip("/")
+    return text.rsplit("/", 1)[-1] if text else ""
 
 @router.get("/validation-status")
 def get_validation_status():
@@ -81,43 +106,108 @@ def get_validation_status():
 @router.get("/missing-date-series")
 def get_missing_date_series():
     """
-    Returns series that contain stykker with missing start-/sluttår, enriched
-    with serie metadata and location/archive summaries where the stykke ids can
-    be matched against tbl_gold_stykke_hierarchy.
+    Returns all Asta series that contain stykker with missing start-/sluttår,
+    calculated directly from tbl_gold_stykke_hierarchy instead of the workflow
+    validation status table.
     """
     conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
 
-        cursor.execute("""
+        columns = _columns_for_table(cursor, "tbl_gold_stykke_hierarchy")
+        start_col = _pick_column(columns, ["startaar", "startar", "startår", "start_year"])
+        end_col = _pick_column(columns, ["sluttaar", "sluttar", "sluttår", "endaar", "end_year"])
+        path_col = _pick_column(columns, ["asta_sti", "path"])
+        stykke_col = _pick_column(columns, ["stykke_identifikator", "identifikator"])
+        arkiv_col = _pick_column(columns, ["arkiv_identifikator"])
+        arkiv_navn_col = _pick_column(columns, ["arkiv_navn"])
+        lokasjon_col = _pick_column(columns, ["lokasjon"])
+        shelf_col = _pick_column(columns, ["hylleplassering"])
+        serie_path_col = _pick_column(columns, ["serie_path", "serie_sti", "serie_asta_sti"])
+        serie_ident_col = _pick_column(columns, ["serie_identifikator"])
+        serie_name_col = _pick_column(columns, ["serie_navn"])
+
+        missing_columns = [
+            label
+            for label, col in [
+                ("startår", start_col),
+                ("sluttår", end_col),
+                ("stykke-identifikator", stykke_col),
+                ("Asta-sti/path", path_col),
+            ]
+            if not col
+        ]
+        if missing_columns:
+            return {
+                "error": (
+                    "Mangler forventede kolonner i dbo.tbl_gold_stykke_hierarchy: "
+                    + ", ".join(missing_columns)
+                ),
+                "available_columns": sorted(columns.values()),
+            }
+
+        start_missing = _missing_year_expr(start_col)
+        end_missing = _missing_year_expr(end_col)
+        serie_path_expr = _quote_ident(serie_path_col) if serie_path_col else _parent_path_expr(path_col)
+        serie_ident_expr = _quote_ident(serie_ident_col) if serie_ident_col else "NULL"
+        serie_name_expr = _quote_ident(serie_name_col) if serie_name_col else "NULL"
+        arkiv_expr = _quote_ident(arkiv_col) if arkiv_col else "NULL"
+        arkiv_navn_expr = _quote_ident(arkiv_navn_col) if arkiv_navn_col else "NULL"
+        lokasjon_expr = _quote_ident(lokasjon_col) if lokasjon_col else "NULL"
+        shelf_expr = _quote_ident(shelf_col) if shelf_col else "NULL"
+
+        base_cte = f"""
+            WITH item_base AS (
+                SELECT
+                    CONVERT(NVARCHAR(255), {_quote_ident(stykke_col)}) AS stykke_identifikator,
+                    CONVERT(NVARCHAR(1000), {serie_path_expr}) AS serie_path,
+                    CONVERT(NVARCHAR(255), {serie_ident_expr}) AS serie_identifikator,
+                    CONVERT(NVARCHAR(500), {serie_name_expr}) AS serie_navn,
+                    CONVERT(NVARCHAR(255), {arkiv_expr}) AS arkiv_identifikator,
+                    CONVERT(NVARCHAR(500), {arkiv_navn_expr}) AS arkiv_navn,
+                    CONVERT(NVARCHAR(255), {lokasjon_expr}) AS lokasjon,
+                    CONVERT(NVARCHAR(500), {shelf_expr}) AS hylleplassering,
+                    CONVERT(NVARCHAR(1000), {_quote_ident(path_col)}) AS asta_sti,
+                    CONVERT(NVARCHAR(50), {_quote_ident(start_col)}) AS startaar,
+                    CONVERT(NVARCHAR(50), {_quote_ident(end_col)}) AS sluttaar,
+                    CASE WHEN {start_missing} THEN 1 ELSE 0 END AS start_missing,
+                    CASE WHEN {end_missing} THEN 1 ELSE 0 END AS slutt_missing
+                FROM dbo.tbl_gold_stykke_hierarchy
+            )
+        """
+
+        cursor.execute(f"""
+            {base_cte}
             SELECT
-                COUNT(1) AS total_series,
-                SUM(COALESCE(stykke_count, 0)) AS total_stykker
-            FROM dbo.tbl_gold_serie_hierarchy;
+                COUNT(DISTINCT serie_path) AS total_series,
+                COUNT(1) AS total_stykker
+            FROM item_base;
         """)
         totals = cursor.fetchone() or {}
         total_series = int(totals.get("total_series") or 0)
         total_stykker = int(totals.get("total_stykker") or 0)
 
-        cursor.execute("""
+        cursor.execute(f"""
+            {base_cte}
             SELECT
-                ordre,
                 serie_path,
-                missing_count,
-                missing_items,
-                ordre_startdato_ok,
-                ordre_sluttdato_ok,
-                ordre_hyllemeter_ok
-            FROM dbo.tbl_ref_validation_status
-            WHERE COALESCE(missing_count, 0) > 0
-            ORDER BY ordre, serie_path;
+                MAX(serie_identifikator) AS serie_identifikator,
+                MAX(serie_navn) AS serie_navn,
+                COUNT(1) AS stykke_count,
+                SUM(CASE WHEN start_missing = 1 OR slutt_missing = 1 THEN 1 ELSE 0 END) AS missing_count,
+                SUM(start_missing) AS start_missing_count,
+                SUM(slutt_missing) AS slutt_missing_count
+            FROM item_base
+            GROUP BY serie_path
+            HAVING SUM(CASE WHEN start_missing = 1 OR slutt_missing = 1 THEN 1 ELSE 0 END) > 0
+            ORDER BY missing_count DESC, serie_path;
         """)
-        validation_rows = cursor.fetchall()
+        series_rows = cursor.fetchall()
 
         serie_paths = sorted({
             row.get("serie_path")
-            for row in validation_rows
+            for row in series_rows
             if row.get("serie_path")
         })
         series_by_path = {}
@@ -138,102 +228,158 @@ def get_missing_date_series():
             for row in cursor.fetchall():
                 series_by_path[row.get("path")] = row
 
-        parsed_by_path = {}
-        missing_ids = []
-        for row in validation_rows:
-            items = _parse_missing_items(row.get("missing_items"))
-            parsed_by_path[row.get("serie_path")] = items
-            for item in items:
-                item_id = _item_id(item)
-                if item_id:
-                    missing_ids.append(item_id)
+        cursor.execute(f"""
+            {base_cte}
+            SELECT
+                COALESCE(NULLIF(lokasjon, ''), 'Ukjent') AS name,
+                COUNT(1) AS count
+            FROM item_base
+            WHERE start_missing = 1 OR slutt_missing = 1
+            GROUP BY COALESCE(NULLIF(lokasjon, ''), 'Ukjent')
+            ORDER BY count DESC;
+        """)
+        location_rows = cursor.fetchall()
 
-        item_details = {}
-        for chunk in _chunked(sorted(set(missing_ids))):
-            placeholders = ", ".join(["%s"] * len(chunk))
-            cursor.execute(f"""
+        cursor.execute(f"""
+            {base_cte}
+            SELECT
+                COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent') AS name,
+                COUNT(1) AS count
+            FROM item_base
+            WHERE start_missing = 1 OR slutt_missing = 1
+            GROUP BY COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent')
+            ORDER BY count DESC;
+        """)
+        archive_rows = cursor.fetchall()
+
+        cursor.execute(f"""
+            {base_cte},
+            ranked AS (
                 SELECT
-                    stykke_identifikator,
-                    arkiv_identifikator,
-                    arkiv_navn,
-                    lokasjon,
-                    hylleplassering,
-                    asta_sti
-                FROM dbo.tbl_gold_stykke_hierarchy
-                WHERE stykke_identifikator IN ({placeholders});
-            """, tuple(chunk))
-            for row in cursor.fetchall():
-                item_details[row.get("stykke_identifikator")] = row
+                    *,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY serie_path
+                        ORDER BY asta_sti, stykke_identifikator
+                    ) AS rn
+                FROM item_base
+                WHERE start_missing = 1 OR slutt_missing = 1
+            )
+            SELECT
+                serie_path,
+                stykke_identifikator,
+                arkiv_identifikator,
+                lokasjon,
+                hylleplassering,
+                asta_sti,
+                start_missing,
+                slutt_missing
+            FROM ranked
+            WHERE rn <= 5
+            ORDER BY serie_path, rn;
+        """)
+        sample_rows = cursor.fetchall()
 
-        location_counts = Counter()
-        archive_counts = Counter()
-        known_location_count = 0
+        cursor.execute(f"""
+            {base_cte}
+            SELECT
+                serie_path,
+                COALESCE(NULLIF(lokasjon, ''), 'Ukjent') AS name,
+                COUNT(1) AS count
+            FROM item_base
+            WHERE start_missing = 1 OR slutt_missing = 1
+            GROUP BY serie_path, COALESCE(NULLIF(lokasjon, ''), 'Ukjent');
+        """)
+        location_by_series_rows = cursor.fetchall()
+
+        cursor.execute(f"""
+            {base_cte}
+            SELECT
+                serie_path,
+                COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent') AS name,
+                COUNT(1) AS count
+            FROM item_base
+            WHERE start_missing = 1 OR slutt_missing = 1
+            GROUP BY serie_path, COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent');
+        """)
+        archive_by_series_rows = cursor.fetchall()
+
+        samples_by_series = {}
+        for sample in sample_rows:
+            samples_by_series.setdefault(sample.get("serie_path"), []).append({
+                "identifikator": sample.get("stykke_identifikator"),
+                "lokasjon": sample.get("lokasjon"),
+                "hylleplassering": sample.get("hylleplassering"),
+                "arkiv_identifikator": sample.get("arkiv_identifikator"),
+                "asta_sti": sample.get("asta_sti"),
+                "start_missing": bool(sample.get("start_missing")),
+                "slutt_missing": bool(sample.get("slutt_missing")),
+            })
+
+        locations_by_series = {}
+        for item in location_by_series_rows:
+            locations_by_series.setdefault(item.get("serie_path"), []).append({
+                "name": item.get("name") or "Ukjent",
+                "count": int(item.get("count") or 0),
+            })
+
+        archives_by_series = {}
+        for item in archive_by_series_rows:
+            archives_by_series.setdefault(item.get("serie_path"), []).append({
+                "name": item.get("name") or "Ukjent",
+                "count": int(item.get("count") or 0),
+            })
+
         rows = []
-
-        for row in validation_rows:
+        for row in series_rows:
             serie_path = row.get("serie_path") or ""
             serie_meta = series_by_path.get(serie_path) or {}
-            raw_items = parsed_by_path.get(serie_path) or []
-            missing_count = int(row.get("missing_count") or len(raw_items) or 0)
-            item_ids = [_item_id(item) for item in raw_items if _item_id(item)]
-            details = [item_details[item_id] for item_id in item_ids if item_id in item_details]
-
-            series_location_counts = Counter()
-            series_archive_counts = Counter()
-            samples = []
-
-            for detail in details:
-                location = detail.get("lokasjon") or "Ukjent"
-                archive = detail.get("arkiv_identifikator") or "Ukjent"
-                series_location_counts[location] += 1
-                series_archive_counts[archive] += 1
-                location_counts[location] += 1
-                archive_counts[archive] += 1
-                if detail.get("lokasjon"):
-                    known_location_count += 1
-                if len(samples) < 5:
-                    samples.append({
-                        "identifikator": detail.get("stykke_identifikator"),
-                        "lokasjon": detail.get("lokasjon"),
-                        "hylleplassering": detail.get("hylleplassering"),
-                        "arkiv_identifikator": detail.get("arkiv_identifikator"),
-                        "asta_sti": detail.get("asta_sti"),
-                    })
+            missing_count = int(row.get("missing_count") or 0)
+            start_missing_count = int(row.get("start_missing_count") or 0)
+            slutt_missing_count = int(row.get("slutt_missing_count") or 0)
 
             issue_types = []
-            if _is_false(row.get("ordre_startdato_ok")):
-                issue_types.append("Startår mangler på serienivå")
-            if _is_false(row.get("ordre_sluttdato_ok")):
-                issue_types.append("Sluttår mangler på serienivå")
-            if _is_false(row.get("ordre_hyllemeter_ok")):
-                issue_types.append("Hyllemeter mangler på serienivå")
+            if start_missing_count:
+                issue_types.append(f"{start_missing_count} stykker mangler startår")
+            if slutt_missing_count:
+                issue_types.append(f"{slutt_missing_count} stykker mangler sluttår")
             issue_types.append(f"{missing_count} stykker mangler start-/sluttår")
 
             rows.append({
-                "ordre": row.get("ordre"),
                 "serie_path": serie_path,
-                "serie_identifikator": serie_meta.get("identifikator"),
-                "serie_navn": serie_meta.get("navn"),
-                "stykke_count": int(serie_meta.get("stykke_count") or 0),
+                "serie_identifikator": (
+                    serie_meta.get("identifikator")
+                    or row.get("serie_identifikator")
+                    or _leaf(serie_path)
+                ),
+                "serie_navn": serie_meta.get("navn") or row.get("serie_navn"),
+                "stykke_count": int(row.get("stykke_count") or serie_meta.get("stykke_count") or 0),
                 "hyllemeter": float(serie_meta.get("hyllemeter") or 0),
                 "startaar": serie_meta.get("startaar"),
                 "sluttaar": serie_meta.get("sluttaar"),
                 "missing_count": missing_count,
-                "missing_item_ids": item_ids[:25],
-                "matched_item_count": len(details),
-                "location_counts": [
-                    {"name": name, "count": count}
-                    for name, count in series_location_counts.most_common()
-                ],
-                "archive_counts": [
-                    {"name": name, "count": count}
-                    for name, count in series_archive_counts.most_common(5)
-                ],
-                "sample_items": samples,
+                "start_missing_count": start_missing_count,
+                "slutt_missing_count": slutt_missing_count,
+                "matched_item_count": missing_count,
+                "location_counts": sorted(
+                    locations_by_series.get(serie_path, []),
+                    key=lambda item: item["count"],
+                    reverse=True,
+                ),
+                "archive_counts": sorted(
+                    archives_by_series.get(serie_path, []),
+                    key=lambda item: item["count"],
+                    reverse=True,
+                )[:5],
+                "sample_items": samples_by_series.get(serie_path, []),
                 "issue_types": issue_types,
             })
 
         missing_total = sum(row["missing_count"] for row in rows)
+        known_location_count = sum(
+            int(row.get("count") or 0)
+            for row in location_rows
+            if row.get("name") != "Ukjent"
+        )
         summary = {
             "series_with_missing": len(rows),
             "total_series": total_series,
@@ -244,13 +390,23 @@ def get_missing_date_series():
             "items_with_known_location": known_location_count,
             "items_with_known_location_percent": _pct(known_location_count, missing_total),
             "locations": [
-                {"name": name, "count": count, "percent": _pct(count, missing_total)}
-                for name, count in location_counts.most_common(12)
+                {
+                    "name": row.get("name") or "Ukjent",
+                    "count": int(row.get("count") or 0),
+                    "percent": _pct(int(row.get("count") or 0), missing_total),
+                }
+                for row in location_rows[:12]
             ],
             "archives": [
-                {"name": name, "count": count, "percent": _pct(count, missing_total)}
-                for name, count in archive_counts.most_common(12)
+                {
+                    "name": row.get("name") or "Ukjent",
+                    "count": int(row.get("count") or 0),
+                    "percent": _pct(int(row.get("count") or 0), missing_total),
+                }
+                for row in archive_rows[:12]
             ],
+            "source": "dbo.tbl_gold_stykke_hierarchy",
+            "date_columns": {"start": start_col, "end": end_col},
         }
 
         return {"summary": summary, "items": rows}
