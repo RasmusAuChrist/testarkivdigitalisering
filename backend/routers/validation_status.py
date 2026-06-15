@@ -302,11 +302,11 @@ def get_missing_date_series():
 
             issue_types = []
             if both_missing_count:
-                issue_types.append(f"{both_missing_count} stykker mangler start-/sluttår")
+                issue_types.append(f"{both_missing_count} stykker mangler både start- og sluttår")
             if start_only_count:
-                issue_types.append(f"{start_only_count} stykker mangler startår")
+                issue_types.append(f"{start_only_count} stykker mangler bare startår")
             if slutt_only_count:
-                issue_types.append(f"{slutt_only_count} stykker mangler sluttår")
+                issue_types.append(f"{slutt_only_count} stykker mangler bare sluttår")
 
             rows.append({
                 "serie_path": serie_path,
