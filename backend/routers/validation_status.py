@@ -116,8 +116,8 @@ def get_missing_date_series():
         cursor = conn.cursor(as_dict=True)
 
         columns = _columns_for_table(cursor, "tbl_gold_stykke_hierarchy")
-        start_col = _pick_column(columns, ["startaar", "startar", "startår", "start_year"])
-        end_col = _pick_column(columns, ["sluttaar", "sluttar", "sluttår", "endaar", "end_year"])
+        start_col = _pick_column(columns, ["stykke_startaar", "startaar", "startar", "startår", "start_year"])
+        end_col = _pick_column(columns, ["stykke_sluttar", "stykke_sluttaar", "sluttaar", "sluttar", "sluttår", "endaar", "end_year"])
         path_col = _pick_column(columns, ["asta_sti", "path"])
         stykke_col = _pick_column(columns, ["stykke_identifikator", "identifikator"])
         arkiv_col = _pick_column(columns, ["arkiv_identifikator"])
