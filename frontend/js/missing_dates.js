@@ -31,6 +31,8 @@ const CHART_COLORS = [
   "#d7c98b",
 ];
 
+const ASTA_GUI_BASE = "https://av.stiftelsen-asta.no/gui/";
+
 function safeText(value) {
   return String(value ?? "").trim();
 }
@@ -264,6 +266,49 @@ function renderCountPills(items) {
   `;
 }
 
+function buildAstaSeriesUrl(row) {
+  const amid = safeText(row.external_amid || row._amid);
+  if (!amid) return "";
+
+  const historyLabel =
+    [row.serie_identifikator, row.serie_navn].filter(Boolean).join(" - ")
+    || row.serie_path
+    || "Åpne i ASTA";
+
+  const payload = {
+    c: "c",
+    h: historyLabel,
+    cid: amid,
+    aid: "isadg",
+    enm: "SERIE",
+  };
+
+  const params = new URLSearchParams({
+    userHistoryLoaded: "true",
+    ta: "1",
+    t_1: JSON.stringify(payload),
+  });
+
+  return `${ASTA_GUI_BASE}?${params.toString()}`;
+}
+
+function astaButton(row) {
+  const href = buildAstaSeriesUrl(row);
+  if (!href) return "";
+
+  return `
+    <a
+      class="asta-shortcut"
+      href="${escapeHtml(href)}"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Åpne i baseinformasjonssystemet"
+    >
+      Åpne i ASTA
+    </a>
+  `;
+}
+
 function renderTable() {
   const rows = filteredRows();
 
@@ -289,6 +334,7 @@ function renderTable() {
           <strong>${escapeHtml(title || path)}</strong>
           <div class="muted">${escapeHtml(path)}</div>
           <div class="muted">Serieår ${escapeHtml(row.startaar ?? "-")}–${escapeHtml(row.sluttaar ?? "-")}</div>
+          ${astaButton(row)}
         </td>
         <td class="number">${int(row.stykke_count)}</td>
         <td class="number"><strong>${int(row.missing_count)}</strong></td>

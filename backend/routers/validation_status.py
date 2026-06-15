@@ -116,6 +116,7 @@ def get_missing_date_series():
         cursor = conn.cursor(as_dict=True)
 
         columns = _columns_for_table(cursor, "tbl_gold_stykke_hierarchy")
+        serie_columns = _columns_for_table(cursor, "tbl_gold_serie_hierarchy")
         start_col = _pick_column(columns, ["stykke_startaar", "startaar", "startar", "startår", "start_year"])
         end_col = _pick_column(columns, ["stykke_sluttar", "stykke_sluttaar", "sluttaar", "sluttar", "sluttår", "endaar", "end_year"])
         path_col = _pick_column(columns, ["asta_sti", "path"])
@@ -125,6 +126,7 @@ def get_missing_date_series():
         serie_path_col = _pick_column(columns, ["serie_path", "serie_sti", "serie_asta_sti"])
         serie_ident_col = _pick_column(columns, ["serie_identifikator"])
         serie_name_col = _pick_column(columns, ["serie_navn"])
+        serie_amid_col = _pick_column(serie_columns, ["_amid", "amid", "ExternalAmid"])
 
         missing_columns = [
             label
@@ -152,6 +154,7 @@ def get_missing_date_series():
         arkiv_expr = _quote_ident(arkiv_col) if arkiv_col else "NULL"
         arkiv_navn_expr = _quote_ident(arkiv_navn_col) if arkiv_navn_col else "NULL"
         lokasjon_expr = _quote_ident(lokasjon_col) if lokasjon_col else "NULL"
+        serie_amid_expr = _quote_ident(serie_amid_col) if serie_amid_col else "NULL"
 
         base_cte = f"""
             WITH item_base AS (
@@ -191,7 +194,8 @@ def get_missing_date_series():
                 COUNT(1) AS stykke_count,
                 SUM(CASE WHEN start_missing = 1 OR slutt_missing = 1 THEN 1 ELSE 0 END) AS missing_count,
                 SUM(start_missing) AS start_missing_count,
-                SUM(slutt_missing) AS slutt_missing_count
+                SUM(slutt_missing) AS slutt_missing_count,
+                SUM(CASE WHEN start_missing = 1 AND slutt_missing = 1 THEN 1 ELSE 0 END) AS both_missing_count
             FROM item_base
             GROUP BY serie_path
             HAVING SUM(CASE WHEN start_missing = 1 OR slutt_missing = 1 THEN 1 ELSE 0 END) > 0
@@ -215,7 +219,8 @@ def get_missing_date_series():
                     stykke_count,
                     hyllemeter,
                     startaar,
-                    sluttaar
+                    sluttaar,
+                    CONVERT(NVARCHAR(100), {serie_amid_expr}) AS _amid
                 FROM dbo.tbl_gold_serie_hierarchy
                 WHERE path IN ({placeholders});
             """, tuple(chunk))
@@ -291,13 +296,17 @@ def get_missing_date_series():
             missing_count = int(row.get("missing_count") or 0)
             start_missing_count = int(row.get("start_missing_count") or 0)
             slutt_missing_count = int(row.get("slutt_missing_count") or 0)
+            both_missing_count = int(row.get("both_missing_count") or 0)
+            start_only_count = max(0, start_missing_count - both_missing_count)
+            slutt_only_count = max(0, slutt_missing_count - both_missing_count)
 
             issue_types = []
-            if start_missing_count:
-                issue_types.append(f"{start_missing_count} stykker mangler startår")
-            if slutt_missing_count:
-                issue_types.append(f"{slutt_missing_count} stykker mangler sluttår")
-            issue_types.append(f"{missing_count} stykker mangler start-/sluttår")
+            if both_missing_count:
+                issue_types.append(f"{both_missing_count} stykker mangler start-/sluttår")
+            if start_only_count:
+                issue_types.append(f"{start_only_count} stykker mangler startår")
+            if slutt_only_count:
+                issue_types.append(f"{slutt_only_count} stykker mangler sluttår")
 
             rows.append({
                 "serie_path": serie_path,
@@ -307,6 +316,8 @@ def get_missing_date_series():
                     or _leaf(serie_path)
                 ),
                 "serie_navn": serie_meta.get("navn") or row.get("serie_navn"),
+                "_amid": serie_meta.get("_amid"),
+                "external_amid": serie_meta.get("_amid"),
                 "stykke_count": int(row.get("stykke_count") or serie_meta.get("stykke_count") or 0),
                 "hyllemeter": float(serie_meta.get("hyllemeter") or 0),
                 "startaar": serie_meta.get("startaar"),
@@ -314,6 +325,7 @@ def get_missing_date_series():
                 "missing_count": missing_count,
                 "start_missing_count": start_missing_count,
                 "slutt_missing_count": slutt_missing_count,
+                "both_missing_count": both_missing_count,
                 "matched_item_count": missing_count,
                 "location_counts": sorted(
                     locations_by_series.get(serie_path, []),
