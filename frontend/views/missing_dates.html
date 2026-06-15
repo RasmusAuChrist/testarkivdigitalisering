@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <title>ASK - Manglende år</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/assets/navbar.css" />
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <style>
+    body {
+      background: #f4f7fb;
+      color: #172033;
+    }
+
+    .missing-page {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .page-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-head h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .page-head p {
+      margin: 7px 0 0;
+      color: #536170;
+      max-width: 780px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar input,
+    .toolbar select {
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid #cdd7e3;
+      border-radius: 8px;
+      background: #fff;
+      color: #172033;
+    }
+
+    .toolbar input {
+      min-width: 320px;
+    }
+
+    .btn-action {
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid #123a63;
+      border-radius: 8px;
+      background: #123a63;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-action:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .kpi-card,
+    .summary-card,
+    .table-card {
+      background: #fff;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      box-shadow: 0 10px 28px rgba(16, 32, 54, 0.08);
+    }
+
+    .kpi-card {
+      padding: 16px;
+      display: grid;
+      gap: 8px;
+      border-top: 4px solid #c7a13b;
+    }
+
+    .kpi-label {
+      color: #5b6b7c;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .kpi-value {
+      font-size: 30px;
+      font-weight: 900;
+      color: #142033;
+    }
+
+    .kpi-foot {
+      color: #6b7788;
+      font-size: 13px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .summary-card {
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .summary-card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 5px;
+    }
+
+    .bar-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .bar-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      height: 9px;
+      border-radius: 999px;
+      background: #e8edf5;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #c7a13b, #123a63);
+    }
+
+    .table-card {
+      overflow: hidden;
+    }
+
+    .table-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5ebf2;
+    }
+
+    .table-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 440px);
+      min-height: 360px;
+    }
+
+    .missing-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 1120px;
+    }
+
+    .missing-table th,
+    .missing-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e7edf4;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .missing-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f7fafc;
+      color: #243247;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .number {
+      text-align: right !important;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .path-cell {
+      min-width: 320px;
+      max-width: 520px;
+    }
+
+    .muted {
+      color: #667587;
+    }
+
+    .pill-list {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: #eef3f8;
+      color: #26374d;
+      border: 1px solid #dce5ef;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .issue-pill {
+      background: #fff7e0;
+      border-color: #ecd38a;
+      color: #6d5207;
+    }
+
+    .empty-state,
+    .error-state {
+      padding: 24px;
+      color: #5d6877;
+    }
+
+    .error-state {
+      color: #b42318;
+    }
+
+    #loadingOverlay {
+      display: none;
+    }
+
+    @media (max-width: 1100px) {
+      .kpi-grid,
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .toolbar input {
+        min-width: 240px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .kpi-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .page-head {
+        align-items: flex-start;
+      }
+
+      .toolbar input,
+      .toolbar select {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="navbar-container"></div>
+
+  <main class="missing-page">
+    <header class="page-head">
+      <div>
+        <h1>Serier med stykker uten start-/sluttår</h1>
+        <p>
+          Forslagsside for å finne serier der ett eller flere stykker mangler startår eller sluttår,
+          med oversikt over omfang, lokasjoner og arkiv.
+        </p>
+      </div>
+      <div class="toolbar">
+        <button class="btn-action" id="refreshBtn" type="button">Oppdater validering</button>
+        <span class="muted" id="statusText"></span>
+      </div>
+    </header>
+
+    <section class="kpi-grid" id="kpiGrid"></section>
+
+    <section class="summary-grid">
+      <article class="summary-card">
+        <h2>Lokasjoner</h2>
+        <div class="bar-list" id="locationBars"></div>
+      </article>
+      <article class="summary-card">
+        <h2>Arkiv med flest avvik</h2>
+        <div class="bar-list" id="archiveBars"></div>
+      </article>
+    </section>
+
+    <section class="table-card">
+      <div class="table-head">
+        <h2>Berørte serier</h2>
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="Søk i serie, arkiv, lokasjon eller stykke" />
+          <select id="locationFilter">
+            <option value="">Alle lokasjoner</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="missing-table">
+          <thead>
+            <tr>
+              <th>Serie</th>
+              <th class="number">Stykker</th>
+              <th class="number">Manglende</th>
+              <th class="number">Andel</th>
+              <th>Lokasjoner</th>
+              <th>Avvik</th>
+              <th>Eksempler</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="loadingOverlay">
+    <img src="/assets/spinner.png" alt="Laster..." class="spinner" />
+  </div>
+
+  <script type="module" src="/js/missing_dates.js"></script>
+</body>
+</html>
