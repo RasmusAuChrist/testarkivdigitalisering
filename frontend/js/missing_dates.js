@@ -11,16 +11,31 @@ const el = {
   searchInput: document.getElementById("searchInput"),
   locationFilter: document.getElementById("locationFilter"),
   tableBody: document.getElementById("tableBody"),
+  pageInfo: document.getElementById("pageInfo"),
+  pageSizeSelect: document.getElementById("pageSizeSelect"),
+  prevPageBtn: document.getElementById("prevPageBtn"),
+  nextPageBtn: document.getElementById("nextPageBtn"),
 };
 
 const state = {
   rows: [],
   summary: {},
+  hasLoadedSummary: false,
+  pagination: {
+    page: 1,
+    page_size: 50,
+    total_items: 0,
+    total_pages: 1,
+    has_previous: false,
+    has_next: false,
+  },
   charts: {
     locations: null,
     archives: null,
   },
 };
+
+let searchTimer = null;
 
 const CHART_COLORS = [
   "#123a63",
@@ -82,7 +97,7 @@ function kpiCard(label, value, foot) {
   `;
 }
 
-function renderKpis(summary) {
+function renderKpisLegacy(summary) {
   el.kpiGrid.innerHTML = [
     kpiCard(
       "Berørte serier",
@@ -103,6 +118,41 @@ function renderKpis(summary) {
       "Alle serier i Asta",
       int(summary.total_series),
       `${int(summary.total_stykker)} stykker i datagrunnlaget`
+    ),
+  ].join("");
+}
+
+function renderKpis(summary) {
+  el.kpiGrid.innerHTML = [
+    kpiCard(
+      "Berørte serier",
+      int(summary.series_with_missing),
+      `${pct(summary.affected_series_percent)} av ${int(summary.total_series)} serier · ${int(summary.fully_missing_series)} har 100 % avvik`
+    ),
+    kpiCard(
+      "Stykker med avvik",
+      int(summary.missing_items),
+      `${pct(summary.missing_items_percent)} av ${int(summary.total_stykker)} stykker`
+    ),
+    kpiCard(
+      "Mangler begge år",
+      int(summary.both_missing_items),
+      `${pct(summary.both_missing_items_percent)} av avvikene`
+    ),
+    kpiCard(
+      "Bare startår",
+      int(summary.start_only_items),
+      `${pct(summary.start_only_items_percent)} av avvikene`
+    ),
+    kpiCard(
+      "Bare sluttår",
+      int(summary.slutt_only_items),
+      `${pct(summary.slutt_only_items_percent)} av avvikene`
+    ),
+    kpiCard(
+      "Kjent lokasjon",
+      int(summary.items_with_known_location),
+      `${pct(summary.items_with_known_location_percent)} av avvikene`
     ),
   ].join("");
 }
@@ -190,49 +240,9 @@ function renderChart(key, canvas, host, rows, emptyText) {
   });
 }
 
-function rowLocations(row) {
-  return row.location_counts || [];
-}
-
-function rowLocationText(row) {
-  const locations = rowLocations(row);
-  if (!locations.length) return "Ukjent";
-  return locations.map(item => `${item.name || "Ukjent"} (${int(item.count)})`).join(", ");
-}
-
-function rowArchiveText(row) {
-  const archives = row.archive_counts || [];
-  if (!archives.length) return "";
-  return archives.map(item => item.name).filter(Boolean).join(" ");
-}
-
-function searchableText(row) {
-  return [
-    row.serie_path,
-    row.serie_identifikator,
-    row.serie_navn,
-    rowLocationText(row),
-    rowArchiveText(row),
-  ].map(safeText).join(" ").toLowerCase();
-}
-
-function filteredRows() {
-  const q = safeText(el.searchInput.value).toLowerCase();
-  const location = safeText(el.locationFilter.value);
-
-  return state.rows.filter(row => {
-    if (q && !searchableText(row).includes(q)) return false;
-    if (location) {
-      const hasLocation = rowLocations(row).some(item => (item.name || "Ukjent") === location);
-      if (!hasLocation) return false;
-    }
-    return true;
-  });
-}
-
 function renderLocationFilter(summary) {
   const current = el.locationFilter.value;
-  const locations = (summary.locations || []).map(item => item.name || "Ukjent");
+  const locations = summary.location_options || (summary.locations || []).map(item => item.name || "Ukjent");
   el.locationFilter.innerHTML = `
     <option value="">Alle lokasjoner</option>
     ${locations.map(location => `
@@ -310,7 +320,7 @@ function astaButton(row) {
 }
 
 function renderTable() {
-  const rows = filteredRows();
+  const rows = state.rows || [];
 
   if (!rows.length) {
     el.tableBody.innerHTML = `
@@ -346,27 +356,74 @@ function renderTable() {
   }).join("");
 }
 
-function render(data) {
-  state.summary = data.summary || {};
-  state.rows = (data.items || [])
-    .slice()
-    .sort((a, b) =>
-      toNum(b.missing_count) - toNum(a.missing_count) ||
-      safeText(a.serie_path).localeCompare(safeText(b.serie_path), "no")
-    );
+function renderPagination() {
+  const page = toNum(state.pagination.page) || 1;
+  const pageSize = toNum(state.pagination.page_size) || 50;
+  const total = toNum(state.pagination.total_items);
+  const totalPages = Math.max(1, toNum(state.pagination.total_pages) || 1);
+  const from = total ? ((page - 1) * pageSize) + 1 : 0;
+  const to = total ? Math.min(page * pageSize, total) : 0;
 
-  renderKpis(state.summary);
-  renderChart("locations", el.locationChart, el.locationBars, state.summary.locations || [], "Ingen lokasjonsdata funnet.");
-  renderChart("archives", el.archiveChart, el.archiveBars, state.summary.archives || [], "Ingen arkivdata funnet.");
-  renderLocationFilter(state.summary);
-  renderTable();
+  if (el.pageInfo) {
+    el.pageInfo.textContent = total
+      ? `${int(from)}–${int(to)} av ${int(total)} serier · side ${int(page)} av ${int(totalPages)}`
+      : "Ingen serier matcher filtrene.";
+  }
+
+  if (el.pageSizeSelect) {
+    el.pageSizeSelect.value = String(pageSize);
+  }
+
+  if (el.prevPageBtn) {
+    el.prevPageBtn.disabled = !state.pagination.has_previous;
+  }
+
+  if (el.nextPageBtn) {
+    el.nextPageBtn.disabled = !state.pagination.has_next;
+  }
 }
 
-async function loadData() {
+function render(data) {
+  if (data.summary) {
+    state.summary = data.summary;
+    state.hasLoadedSummary = true;
+    renderKpis(state.summary);
+    renderChart("locations", el.locationChart, el.locationBars, state.summary.locations || [], "Ingen lokasjonsdata funnet.");
+    renderChart("archives", el.archiveChart, el.archiveBars, state.summary.archives || [], "Ingen arkivdata funnet.");
+    renderLocationFilter(state.summary);
+  }
+
+  state.rows = data.items || [];
+  state.pagination = {
+    ...state.pagination,
+    ...(data.pagination || {}),
+  };
+
+  renderTable();
+  renderPagination();
+}
+
+function currentQueryParams(page, includeSummary) {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(state.pagination.page_size || 50),
+    include_summary: includeSummary ? "true" : "false",
+  });
+  const q = safeText(el.searchInput.value);
+  const location = safeText(el.locationFilter.value);
+
+  if (q) params.set("q", q);
+  if (location) params.set("location", location);
+
+  return params.toString();
+}
+
+async function loadData({ page = state.pagination.page, includeSummary = !state.hasLoadedSummary } = {}) {
   setLoading(true);
   setStatus("Laster data...");
   try {
-    const data = await apiGet("/api/missing-date-series");
+    const query = currentQueryParams(page, includeSummary);
+    const data = await apiGet(`/api/missing-date-series?${query}`);
     if (data?.error) {
       throw new Error(data.error);
     }
@@ -374,11 +431,16 @@ async function loadData() {
     setStatus(`Sist oppdatert ${new Date().toLocaleString("no-NO")}`);
   } catch (error) {
     console.error(error);
-    destroyChart("locations");
-    destroyChart("archives");
-    el.kpiGrid.innerHTML = "";
-    el.locationBars.innerHTML = "";
-    el.archiveBars.innerHTML = "";
+    if (!state.hasLoadedSummary) {
+      destroyChart("locations");
+      destroyChart("archives");
+      el.kpiGrid.innerHTML = "";
+      el.locationBars.innerHTML = "";
+      el.archiveBars.innerHTML = "";
+    }
+    if (el.pageInfo) {
+      el.pageInfo.textContent = "Kunne ikke hente data.";
+    }
     el.tableBody.innerHTML = `
       <tr>
         <td colspan="6" class="error-state">Kunne ikke hente data: ${escapeHtml(error.message)}</td>
@@ -394,8 +456,31 @@ async function init() {
   const me = await initProtectedPage();
   if (!me) return;
 
-  el.searchInput.addEventListener("input", renderTable);
-  el.locationFilter.addEventListener("change", renderTable);
+  el.searchInput.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      loadData({ page: 1, includeSummary: false });
+    }, 350);
+  });
+
+  el.locationFilter.addEventListener("change", () => {
+    loadData({ page: 1, includeSummary: false });
+  });
+
+  el.pageSizeSelect.addEventListener("change", () => {
+    state.pagination.page_size = Number(el.pageSizeSelect.value) || 50;
+    loadData({ page: 1, includeSummary: false });
+  });
+
+  el.prevPageBtn.addEventListener("click", () => {
+    if (!state.pagination.has_previous) return;
+    loadData({ page: Math.max(1, toNum(state.pagination.page) - 1), includeSummary: false });
+  });
+
+  el.nextPageBtn.addEventListener("click", () => {
+    if (!state.pagination.has_next) return;
+    loadData({ page: toNum(state.pagination.page) + 1, includeSummary: false });
+  });
 
   await loadData();
 }
