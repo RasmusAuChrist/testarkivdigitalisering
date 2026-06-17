@@ -231,7 +231,10 @@ def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, in
     }
     sort_expression = sort_map.get(sort_by, "s.missing_count")
     direction = "ASC" if str(sort_dir or "").lower() == "asc" else "DESC"
-    secondary_direction = "ASC" if direction == "DESC" else "DESC"
+    if sort_expression == "s.missing_count":
+        order_by = f"{sort_expression} {direction}, s.serie_path ASC"
+    else:
+        order_by = f"{sort_expression} {direction}, s.missing_count DESC, s.serie_path ASC"
     if where:
         cursor.execute(f"""
             SELECT COUNT(1) AS total_items
@@ -261,7 +264,7 @@ def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, in
             slutt_only_count
         FROM dbo.tbl_ref_missing_date_series s
         {where_sql}
-        ORDER BY {sort_expression} {direction}, s.missing_count {secondary_direction}, s.serie_path ASC
+        ORDER BY {order_by}
         OFFSET %s ROWS
         FETCH NEXT %s ROWS ONLY;
     """, tuple(params + [offset, page_size]))
