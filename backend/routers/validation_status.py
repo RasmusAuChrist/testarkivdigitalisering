@@ -48,12 +48,15 @@ def _table_exists(cursor, table_name):
     return bool(row.get("exists_flag"))
 
 def _table_row_count(cursor, table_name):
-    cursor.execute("""
-        SELECT COALESCE(SUM(row_count), 0) AS row_count
-        FROM sys.dm_db_partition_stats
-        WHERE object_id = OBJECT_ID(%s)
-          AND index_id IN (0, 1);
-    """, (f"dbo.{table_name}",))
+    allowed_tables = {
+        "tbl_ref_missing_date_series",
+        "tbl_ref_missing_date_series_detail",
+        "tbl_ref_missing_date_series_summary",
+    }
+    if table_name not in allowed_tables:
+        raise ValueError(f"Unsupported row count table: {table_name}")
+
+    cursor.execute(f"SELECT COUNT(1) AS row_count FROM dbo.{_quote_ident(table_name)};")
     row = cursor.fetchone() or {}
     return int(row.get("row_count") or 0)
 
