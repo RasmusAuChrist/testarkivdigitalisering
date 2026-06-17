@@ -157,6 +157,26 @@ function renderKpis(summary) {
   ].join("");
 }
 
+function renderSummaryLoading() {
+  el.kpiGrid.innerHTML = [
+    kpiCard("Berørte serier", "...", "Totalstatistikk lastes separat"),
+    kpiCard("Stykker med avvik", "...", "Listen kan brukes imens"),
+    kpiCard("Mangler begge år", "...", "Venter på summering"),
+    kpiCard("Bare startår", "...", "Venter på summering"),
+    kpiCard("Bare sluttår", "...", "Venter på summering"),
+    kpiCard("Kjent lokasjon", "...", "Venter på summering"),
+  ].join("");
+}
+
+function renderSummary(summary) {
+  state.summary = summary || {};
+  state.hasLoadedSummary = true;
+  renderKpis(state.summary);
+  renderChart("locations", el.locationChart, el.locationBars, state.summary.locations || [], "Ingen lokasjonsdata funnet.");
+  renderChart("archives", el.archiveChart, el.archiveBars, state.summary.archives || [], "Ingen arkivdata funnet.");
+  renderLocationFilter(state.summary);
+}
+
 function chartRows(rows, limit = 5) {
   const visible = (rows || []).slice(0, limit).map((row, index) => ({
     ...row,
@@ -359,15 +379,23 @@ function renderTable() {
 function renderPagination() {
   const page = toNum(state.pagination.page) || 1;
   const pageSize = toNum(state.pagination.page_size) || 50;
-  const total = toNum(state.pagination.total_items);
-  const totalPages = Math.max(1, toNum(state.pagination.total_pages) || 1);
-  const from = total ? ((page - 1) * pageSize) + 1 : 0;
-  const to = total ? Math.min(page * pageSize, total) : 0;
+  const totalKnown = state.pagination.total_items !== null && state.pagination.total_items !== undefined;
+  const total = totalKnown ? toNum(state.pagination.total_items) : null;
+  const totalPages = state.pagination.total_pages
+    ? Math.max(1, toNum(state.pagination.total_pages) || 1)
+    : null;
+  const rowCount = (state.rows || []).length;
+  const from = rowCount ? ((page - 1) * pageSize) + 1 : 0;
+  const to = rowCount ? from + rowCount - 1 : 0;
 
   if (el.pageInfo) {
-    el.pageInfo.textContent = total
-      ? `${int(from)}–${int(to)} av ${int(total)} serier · side ${int(page)} av ${int(totalPages)}`
-      : "Ingen serier matcher filtrene.";
+    if (!rowCount) {
+      el.pageInfo.textContent = "Ingen serier matcher filtrene.";
+    } else if (totalKnown) {
+      el.pageInfo.textContent = `${int(from)}–${int(Math.min(to, total))} av ${int(total)} serier · side ${int(page)} av ${int(totalPages)}`;
+    } else {
+      el.pageInfo.textContent = `${int(from)}–${int(to)} · side ${int(page)}${state.pagination.has_next ? " · flere finnes" : ""}`;
+    }
   }
 
   if (el.pageSizeSelect) {
@@ -385,12 +413,7 @@ function renderPagination() {
 
 function render(data) {
   if (data.summary) {
-    state.summary = data.summary;
-    state.hasLoadedSummary = true;
-    renderKpis(state.summary);
-    renderChart("locations", el.locationChart, el.locationBars, state.summary.locations || [], "Ingen lokasjonsdata funnet.");
-    renderChart("archives", el.archiveChart, el.archiveBars, state.summary.archives || [], "Ingen arkivdata funnet.");
-    renderLocationFilter(state.summary);
+    renderSummary(data.summary);
   }
 
   state.rows = data.items || [];
@@ -418,7 +441,7 @@ function currentQueryParams(page, includeSummary) {
   return params.toString();
 }
 
-async function loadData({ page = state.pagination.page, includeSummary = !state.hasLoadedSummary } = {}) {
+async function loadData({ page = state.pagination.page, includeSummary = false } = {}) {
   setLoading(true);
   setStatus("Laster data...");
   try {
@@ -452,6 +475,23 @@ async function loadData({ page = state.pagination.page, includeSummary = !state.
   }
 }
 
+async function loadSummary() {
+  setStatus("Laster totalstatistikk...");
+  try {
+    const data = await apiGet("/api/missing-date-series?page=1&page_size=10&include_summary=true&summary_only=true");
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    if (data.summary) {
+      renderSummary(data.summary);
+    }
+    setStatus(`Sist oppdatert ${new Date().toLocaleString("no-NO")}`);
+  } catch (error) {
+    console.error(error);
+    setStatus("Listen er lastet, men totalstatistikk tok for lang tid", true);
+  }
+}
+
 async function init() {
   const me = await initProtectedPage();
   if (!me) return;
@@ -482,7 +522,9 @@ async function init() {
     loadData({ page: toNum(state.pagination.page) + 1, includeSummary: false });
   });
 
-  await loadData();
+  renderSummaryLoading();
+  await loadData({ page: 1, includeSummary: false });
+  loadSummary();
 }
 
 document.addEventListener("DOMContentLoaded", init);

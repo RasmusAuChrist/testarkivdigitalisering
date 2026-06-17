@@ -110,6 +110,7 @@ def get_missing_date_series(
     q: str | None = Query(None),
     location: str | None = Query(None),
     include_summary: bool = Query(True),
+    summary_only: bool = Query(False),
 ):
     """
     Returns all Asta series that contain stykker with missing start-/sluttår,
@@ -182,19 +183,32 @@ def get_missing_date_series(
 
         series_base_cte = f"""
             {base_cte},
-            series_base AS (
+            missing_series AS (
                 SELECT
                     serie_path,
                     MAX(serie_identifikator) AS serie_identifikator,
                     MAX(serie_navn) AS serie_navn,
-                    COUNT(1) AS stykke_count,
-                    SUM(CASE WHEN start_missing = 1 OR slutt_missing = 1 THEN 1 ELSE 0 END) AS missing_count,
+                    COUNT(1) AS missing_count,
                     SUM(start_missing) AS start_missing_count,
                     SUM(slutt_missing) AS slutt_missing_count,
                     SUM(CASE WHEN start_missing = 1 AND slutt_missing = 1 THEN 1 ELSE 0 END) AS both_missing_count
                 FROM item_base
+                WHERE start_missing = 1 OR slutt_missing = 1
                 GROUP BY serie_path
-                HAVING SUM(CASE WHEN start_missing = 1 OR slutt_missing = 1 THEN 1 ELSE 0 END) > 0
+            ),
+            series_base AS (
+                SELECT
+                    ms.serie_path,
+                    COALESCE(CONVERT(NVARCHAR(255), h.identifikator), ms.serie_identifikator) AS serie_identifikator,
+                    COALESCE(CONVERT(NVARCHAR(500), h.navn), ms.serie_navn) AS serie_navn,
+                    COALESCE(h.stykke_count, ms.missing_count) AS stykke_count,
+                    ms.missing_count,
+                    ms.start_missing_count,
+                    ms.slutt_missing_count,
+                    ms.both_missing_count
+                FROM missing_series ms
+                LEFT JOIN dbo.tbl_gold_serie_hierarchy h
+                  ON h.path = ms.serie_path
             )
         """
 
@@ -246,12 +260,123 @@ def get_missing_date_series(
             )
         """
 
-        cursor.execute(f"""
-            {filtered_cte}
-            SELECT COUNT(1) AS total_items
-            FROM filtered_series;
-        """, tuple(filter_params))
-        filtered_total = int((cursor.fetchone() or {}).get("total_items") or 0)
+        def build_summary():
+            cursor.execute(f"""
+                {base_cte}
+                SELECT
+                    COUNT(DISTINCT serie_path) AS total_series,
+                    COUNT(1) AS total_stykker
+                FROM item_base;
+            """)
+            totals = cursor.fetchone() or {}
+            total_series = int(totals.get("total_series") or 0)
+            total_stykker = int(totals.get("total_stykker") or 0)
+
+            cursor.execute(f"""
+                {series_base_cte}
+                SELECT
+                    COUNT(1) AS series_with_missing,
+                    SUM(stykke_count) AS stykker_in_affected_series,
+                    SUM(missing_count) AS missing_items,
+                    SUM(both_missing_count) AS both_missing_items,
+                    SUM(start_missing_count - both_missing_count) AS start_only_items,
+                    SUM(slutt_missing_count - both_missing_count) AS slutt_only_items,
+                    SUM(CASE WHEN missing_count = stykke_count THEN 1 ELSE 0 END) AS fully_missing_series
+                FROM series_base;
+            """)
+            issue_totals = cursor.fetchone() or {}
+            series_with_missing = int(issue_totals.get("series_with_missing") or 0)
+            missing_total = int(issue_totals.get("missing_items") or 0)
+            both_missing_total = int(issue_totals.get("both_missing_items") or 0)
+            start_only_total = int(issue_totals.get("start_only_items") or 0)
+            slutt_only_total = int(issue_totals.get("slutt_only_items") or 0)
+            fully_missing_series = int(issue_totals.get("fully_missing_series") or 0)
+
+            cursor.execute(f"""
+                {base_cte}
+                SELECT
+                    COALESCE(NULLIF(lokasjon, ''), 'Ukjent') AS name,
+                    COUNT(1) AS count
+                FROM item_base
+                WHERE start_missing = 1 OR slutt_missing = 1
+                GROUP BY COALESCE(NULLIF(lokasjon, ''), 'Ukjent')
+                ORDER BY count DESC;
+            """)
+            location_rows = cursor.fetchall()
+
+            cursor.execute(f"""
+                {base_cte}
+                SELECT
+                    COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent') AS name,
+                    COUNT(1) AS count
+                FROM item_base
+                WHERE start_missing = 1 OR slutt_missing = 1
+                GROUP BY COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent')
+                ORDER BY count DESC;
+            """)
+            archive_rows = cursor.fetchall()
+
+            known_location_count = sum(
+                int(row.get("count") or 0)
+                for row in location_rows
+                if row.get("name") != "Ukjent"
+            )
+
+            return {
+                "series_with_missing": series_with_missing,
+                "total_series": total_series,
+                "affected_series_percent": _pct(series_with_missing, total_series),
+                "fully_missing_series": fully_missing_series,
+                "fully_missing_series_percent": _pct(fully_missing_series, series_with_missing),
+                "stykker_in_affected_series": int(issue_totals.get("stykker_in_affected_series") or 0),
+                "missing_items": missing_total,
+                "total_stykker": total_stykker,
+                "missing_items_percent": _pct(missing_total, total_stykker),
+                "both_missing_items": both_missing_total,
+                "both_missing_items_percent": _pct(both_missing_total, missing_total),
+                "start_only_items": start_only_total,
+                "start_only_items_percent": _pct(start_only_total, missing_total),
+                "slutt_only_items": slutt_only_total,
+                "slutt_only_items_percent": _pct(slutt_only_total, missing_total),
+                "items_with_known_location": known_location_count,
+                "items_with_known_location_percent": _pct(known_location_count, missing_total),
+                "locations": [
+                    {
+                        "name": row.get("name") or "Ukjent",
+                        "count": int(row.get("count") or 0),
+                        "percent": _pct(int(row.get("count") or 0), missing_total),
+                    }
+                    for row in location_rows[:12]
+                ],
+                "location_options": [
+                    row.get("name") or "Ukjent"
+                    for row in location_rows
+                ],
+                "archives": [
+                    {
+                        "name": row.get("name") or "Ukjent",
+                        "count": int(row.get("count") or 0),
+                        "percent": _pct(int(row.get("count") or 0), missing_total),
+                    }
+                    for row in archive_rows[:12]
+                ],
+                "source": "dbo.tbl_gold_stykke_hierarchy",
+                "date_columns": {"start": start_col, "end": end_col},
+            }
+
+        if summary_only:
+            return {
+                "summary": build_summary(),
+                "items": [],
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total_items": None,
+                    "total_pages": None,
+                    "has_previous": False,
+                    "has_next": False,
+                },
+            }
 
         offset = (page - 1) * page_size
         cursor.execute(f"""
@@ -269,8 +394,10 @@ def get_missing_date_series(
             ORDER BY missing_count DESC, serie_path
             OFFSET %s ROWS
             FETCH NEXT %s ROWS ONLY;
-        """, tuple(filter_params + [offset, page_size]))
-        series_rows = cursor.fetchall()
+        """, tuple(filter_params + [offset, page_size + 1]))
+        fetched_series_rows = cursor.fetchall()
+        has_next = len(fetched_series_rows) > page_size
+        series_rows = fetched_series_rows[:page_size]
 
         serie_paths = sorted({
             row.get("serie_path")
@@ -302,28 +429,24 @@ def get_missing_date_series(
             cursor.execute(f"""
                 {base_cte}
                 SELECT
-                    serie_path,
-                    COALESCE(NULLIF(lokasjon, ''), 'Ukjent') AS name,
+                    ib.serie_path,
+                    v.kind,
+                    v.name,
                     COUNT(1) AS count
-                FROM item_base
-                WHERE (start_missing = 1 OR slutt_missing = 1)
-                  AND serie_path IN ({placeholders})
-                GROUP BY serie_path, COALESCE(NULLIF(lokasjon, ''), 'Ukjent');
+                FROM item_base ib
+                CROSS APPLY (VALUES
+                    ('location', COALESCE(NULLIF(ib.lokasjon, ''), 'Ukjent')),
+                    ('archive', COALESCE(NULLIF(ib.arkiv_identifikator, ''), 'Ukjent'))
+                ) AS v(kind, name)
+                WHERE (ib.start_missing = 1 OR ib.slutt_missing = 1)
+                  AND ib.serie_path IN ({placeholders})
+                GROUP BY ib.serie_path, v.kind, v.name;
             """, tuple(chunk))
-            location_by_series_rows.extend(cursor.fetchall())
-
-            cursor.execute(f"""
-                {base_cte}
-                SELECT
-                    serie_path,
-                    COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent') AS name,
-                    COUNT(1) AS count
-                FROM item_base
-                WHERE (start_missing = 1 OR slutt_missing = 1)
-                  AND serie_path IN ({placeholders})
-                GROUP BY serie_path, COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent');
-            """, tuple(chunk))
-            archive_by_series_rows.extend(cursor.fetchall())
+            for detail_row in cursor.fetchall():
+                if detail_row.get("kind") == "location":
+                    location_by_series_rows.append(detail_row)
+                elif detail_row.get("kind") == "archive":
+                    archive_by_series_rows.append(detail_row)
 
         locations_by_series = {}
         for item in location_by_series_rows:
@@ -391,117 +514,13 @@ def get_missing_date_series(
             })
 
         summary = None
-        if include_summary:
-            cursor.execute(f"""
-                {base_cte}
-                SELECT
-                    COUNT(DISTINCT serie_path) AS total_series,
-                    COUNT(1) AS total_stykker
-                FROM item_base;
-            """)
-            totals = cursor.fetchone() or {}
-            total_series = int(totals.get("total_series") or 0)
-            total_stykker = int(totals.get("total_stykker") or 0)
-
-            cursor.execute(f"""
-                {series_base_cte}
-                SELECT
-                    COUNT(1) AS series_with_missing,
-                    SUM(stykke_count) AS stykker_in_affected_series,
-                    SUM(missing_count) AS missing_items,
-                    SUM(both_missing_count) AS both_missing_items,
-                    SUM(start_missing_count - both_missing_count) AS start_only_items,
-                    SUM(slutt_missing_count - both_missing_count) AS slutt_only_items,
-                    SUM(CASE WHEN missing_count = stykke_count THEN 1 ELSE 0 END) AS fully_missing_series
-                FROM series_base;
-            """)
-            issue_totals = cursor.fetchone() or {}
-            series_with_missing = int(issue_totals.get("series_with_missing") or 0)
-            missing_total = int(issue_totals.get("missing_items") or 0)
-            both_missing_total = int(issue_totals.get("both_missing_items") or 0)
-            start_only_total = int(issue_totals.get("start_only_items") or 0)
-            slutt_only_total = int(issue_totals.get("slutt_only_items") or 0)
-            fully_missing_series = int(issue_totals.get("fully_missing_series") or 0)
-
-            cursor.execute(f"""
-                {base_cte}
-                SELECT
-                    COALESCE(NULLIF(lokasjon, ''), 'Ukjent') AS name,
-                    COUNT(1) AS count
-                FROM item_base
-                WHERE start_missing = 1 OR slutt_missing = 1
-                GROUP BY COALESCE(NULLIF(lokasjon, ''), 'Ukjent')
-                ORDER BY count DESC;
-            """)
-            location_rows = cursor.fetchall()
-
-            cursor.execute(f"""
-                {base_cte}
-                SELECT
-                    COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent') AS name,
-                    COUNT(1) AS count
-                FROM item_base
-                WHERE start_missing = 1 OR slutt_missing = 1
-                GROUP BY COALESCE(NULLIF(arkiv_identifikator, ''), 'Ukjent')
-                ORDER BY count DESC;
-            """)
-            archive_rows = cursor.fetchall()
-
-            known_location_count = sum(
-                int(row.get("count") or 0)
-                for row in location_rows
-                if row.get("name") != "Ukjent"
-            )
-            summary = {
-                "series_with_missing": series_with_missing,
-                "total_series": total_series,
-                "affected_series_percent": _pct(series_with_missing, total_series),
-                "fully_missing_series": fully_missing_series,
-                "fully_missing_series_percent": _pct(fully_missing_series, series_with_missing),
-                "stykker_in_affected_series": int(issue_totals.get("stykker_in_affected_series") or 0),
-                "missing_items": missing_total,
-                "total_stykker": total_stykker,
-                "missing_items_percent": _pct(missing_total, total_stykker),
-                "both_missing_items": both_missing_total,
-                "both_missing_items_percent": _pct(both_missing_total, missing_total),
-                "start_only_items": start_only_total,
-                "start_only_items_percent": _pct(start_only_total, missing_total),
-                "slutt_only_items": slutt_only_total,
-                "slutt_only_items_percent": _pct(slutt_only_total, missing_total),
-                "items_with_known_location": known_location_count,
-                "items_with_known_location_percent": _pct(known_location_count, missing_total),
-                "locations": [
-                    {
-                        "name": row.get("name") or "Ukjent",
-                        "count": int(row.get("count") or 0),
-                        "percent": _pct(int(row.get("count") or 0), missing_total),
-                    }
-                    for row in location_rows[:12]
-                ],
-                "location_options": [
-                    row.get("name") or "Ukjent"
-                    for row in location_rows
-                ],
-                "archives": [
-                    {
-                        "name": row.get("name") or "Ukjent",
-                        "count": int(row.get("count") or 0),
-                        "percent": _pct(int(row.get("count") or 0), missing_total),
-                    }
-                    for row in archive_rows[:12]
-                ],
-                "source": "dbo.tbl_gold_stykke_hierarchy",
-                "date_columns": {"start": start_col, "end": end_col},
-            }
-
-        total_pages = max(1, (filtered_total + page_size - 1) // page_size)
         pagination = {
             "page": page,
             "page_size": page_size,
-            "total_items": filtered_total,
-            "total_pages": total_pages,
+            "total_items": None,
+            "total_pages": None,
             "has_previous": page > 1,
-            "has_next": page < total_pages,
+            "has_next": has_next,
         }
 
         return {"summary": summary, "items": rows, "pagination": pagination}
