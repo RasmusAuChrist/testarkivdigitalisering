@@ -170,7 +170,7 @@ def _get_missing_date_summary_from_cache(cursor):
         "refreshed_at_utc": row.get("refreshed_at_utc"),
     }
 
-def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, include_summary, summary_only):
+def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, include_summary, summary_only, sort_by, sort_dir):
     summary = _get_missing_date_summary_from_cache(cursor) if (include_summary or summary_only) else None
     if summary_only:
         return {
@@ -219,6 +219,19 @@ def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, in
         params.append(location_value)
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
+    sort_map = {
+        "serie": "s.serie_identifikator",
+        "path": "s.serie_path",
+        "stykker": "s.stykke_count",
+        "missing": "s.missing_count",
+        "andel": "CAST(s.missing_count AS FLOAT) / NULLIF(s.stykke_count, 0)",
+        "avvik": "s.missing_count",
+        "start": "s.start_only_count",
+        "slutt": "s.slutt_only_count",
+    }
+    sort_expression = sort_map.get(sort_by, "s.missing_count")
+    direction = "ASC" if str(sort_dir or "").lower() == "asc" else "DESC"
+    secondary_direction = "ASC" if direction == "DESC" else "DESC"
     if where:
         cursor.execute(f"""
             SELECT COUNT(1) AS total_items
@@ -248,7 +261,7 @@ def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, in
             slutt_only_count
         FROM dbo.tbl_ref_missing_date_series s
         {where_sql}
-        ORDER BY missing_count DESC, serie_path
+        ORDER BY {sort_expression} {direction}, s.missing_count {secondary_direction}, s.serie_path ASC
         OFFSET %s ROWS
         FETCH NEXT %s ROWS ONLY;
     """, tuple(params + [offset, page_size]))
@@ -384,6 +397,8 @@ def get_missing_date_series(
     location: str | None = Query(None),
     include_summary: bool = Query(True),
     summary_only: bool = Query(False),
+    sort_by: str = Query("missing"),
+    sort_dir: str = Query("desc"),
 ):
     """
     Returns all Asta series that contain stykker with missing start-/sluttår,
@@ -404,6 +419,8 @@ def get_missing_date_series(
                 location=location,
                 include_summary=include_summary,
                 summary_only=summary_only,
+                sort_by=sort_by,
+                sort_dir=sort_dir,
             )
 
         return {

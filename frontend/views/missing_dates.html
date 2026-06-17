@@ -221,6 +221,44 @@
       letter-spacing: 0.02em;
     }
 
+    .sort-header {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sort-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 6px;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      text-align: inherit;
+      text-transform: inherit;
+      letter-spacing: inherit;
+    }
+
+    .number .sort-button {
+      justify-content: flex-end;
+    }
+
+    .sort-arrow {
+      display: inline-block;
+      min-width: 10px;
+      color: #c7a13b;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .sort-header.is-active {
+      color: #111827;
+    }
+
     .number {
       text-align: right !important;
       white-space: nowrap;
@@ -438,12 +476,22 @@
         <table class="missing-table">
           <thead>
             <tr>
-              <th>Serie</th>
-              <th class="number">Stykker</th>
-              <th class="number">Manglende</th>
-              <th class="number">Andel</th>
+              <th class="sort-header" data-sort-key="serie" data-sort-label="Serie">
+                <button class="sort-button" type="button"><span class="sort-label">Serie</span><span class="sort-arrow"></span></button>
+              </th>
+              <th class="number sort-header" data-sort-key="stykker" data-sort-label="Stykker">
+                <button class="sort-button" type="button"><span class="sort-label">Stykker</span><span class="sort-arrow"></span></button>
+              </th>
+              <th class="number sort-header" data-sort-key="missing" data-sort-label="Manglende">
+                <button class="sort-button" type="button"><span class="sort-label">Manglende</span><span class="sort-arrow"></span></button>
+              </th>
+              <th class="number sort-header" data-sort-key="andel" data-sort-label="Andel">
+                <button class="sort-button" type="button"><span class="sort-label">Andel</span><span class="sort-arrow"></span></button>
+              </th>
               <th>Lokasjoner</th>
-              <th>Avvik</th>
+              <th class="sort-header" data-sort-key="avvik" data-sort-label="Avvik">
+                <button class="sort-button" type="button"><span class="sort-label">Avvik</span><span class="sort-arrow"></span></button>
+              </th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>

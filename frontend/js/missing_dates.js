@@ -15,6 +15,7 @@ const el = {
   pageSizeSelect: document.getElementById("pageSizeSelect"),
   prevPageBtn: document.getElementById("prevPageBtn"),
   nextPageBtn: document.getElementById("nextPageBtn"),
+  sortableHeaders: document.querySelectorAll("[data-sort-key]"),
 };
 
 const state = {
@@ -28,6 +29,10 @@ const state = {
     total_pages: 1,
     has_previous: false,
     has_next: false,
+  },
+  sort: {
+    by: "missing",
+    dir: "desc",
   },
   charts: {
     locations: null,
@@ -376,6 +381,20 @@ function renderTable() {
   }).join("");
 }
 
+function renderSortHeaders() {
+  el.sortableHeaders.forEach(header => {
+    const key = header.dataset.sortKey;
+    const label = header.dataset.sortLabel || header.textContent.replace(/[▲▼]/g, "").trim();
+    const isActive = state.sort.by === key;
+    const arrow = isActive ? (state.sort.dir === "asc" ? "▲" : "▼") : "";
+
+    header.classList.toggle("is-active", isActive);
+    header.setAttribute("aria-sort", isActive ? (state.sort.dir === "asc" ? "ascending" : "descending") : "none");
+    header.querySelector(".sort-label").textContent = label;
+    header.querySelector(".sort-arrow").textContent = arrow;
+  });
+}
+
 function renderPagination() {
   const page = toNum(state.pagination.page) || 1;
   const pageSize = toNum(state.pagination.page_size) || 50;
@@ -423,6 +442,7 @@ function render(data) {
   };
 
   renderTable();
+  renderSortHeaders();
   renderPagination();
 }
 
@@ -431,6 +451,8 @@ function currentQueryParams(page, includeSummary) {
     page: String(page),
     page_size: String(state.pagination.page_size || 50),
     include_summary: includeSummary ? "true" : "false",
+    sort_by: state.sort.by,
+    sort_dir: state.sort.dir,
   });
   const q = safeText(el.searchInput.value);
   const location = safeText(el.locationFilter.value);
@@ -495,6 +517,22 @@ async function loadSummary() {
 async function init() {
   const me = await initProtectedPage();
   if (!me) return;
+
+  el.sortableHeaders.forEach(header => {
+    header.addEventListener("click", () => {
+      const key = header.dataset.sortKey;
+      if (!key) return;
+
+      if (state.sort.by === key) {
+        state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+      } else {
+        state.sort.by = key;
+        state.sort.dir = key === "serie" ? "asc" : "desc";
+      }
+
+      loadData({ page: 1, includeSummary: false });
+    });
+  });
 
   el.searchInput.addEventListener("input", () => {
     window.clearTimeout(searchTimer);
