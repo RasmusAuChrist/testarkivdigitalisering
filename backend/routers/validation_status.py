@@ -39,6 +39,251 @@ def _pick_column(columns, candidates):
             return found
     return None
 
+def _table_exists(cursor, table_name):
+    cursor.execute(
+        "SELECT CASE WHEN OBJECT_ID(%s, 'U') IS NULL THEN 0 ELSE 1 END AS exists_flag;",
+        (f"dbo.{table_name}",),
+    )
+    row = cursor.fetchone() or {}
+    return bool(row.get("exists_flag"))
+
+def _missing_date_issue_types(row):
+    both_missing_count = int(row.get("both_missing_count") or 0)
+    start_missing_count = int(row.get("start_missing_count") or 0)
+    slutt_missing_count = int(row.get("slutt_missing_count") or 0)
+    start_only_count = max(0, int(row.get("start_only_count") or (start_missing_count - both_missing_count)))
+    slutt_only_count = max(0, int(row.get("slutt_only_count") or (slutt_missing_count - both_missing_count)))
+
+    issue_types = []
+    if both_missing_count:
+        issue_types.append(f"{both_missing_count} stykker mangler både start- og sluttår")
+    if start_only_count:
+        issue_types.append(f"{start_only_count} stykker mangler bare startår")
+    if slutt_only_count:
+        issue_types.append(f"{slutt_only_count} stykker mangler bare sluttår")
+    return issue_types
+
+def _get_missing_date_summary_from_cache(cursor):
+    cursor.execute("""
+        SELECT TOP 1
+            total_series,
+            total_stykker,
+            series_with_missing,
+            stykker_in_affected_series,
+            missing_items,
+            both_missing_items,
+            start_only_items,
+            slutt_only_items,
+            fully_missing_series,
+            items_with_known_location,
+            refreshed_at_utc
+        FROM dbo.tbl_ref_missing_date_series_summary;
+    """)
+    row = cursor.fetchone() or {}
+    missing_total = int(row.get("missing_items") or 0)
+    total_series = int(row.get("total_series") or 0)
+    total_stykker = int(row.get("total_stykker") or 0)
+    series_with_missing = int(row.get("series_with_missing") or 0)
+
+    cursor.execute("""
+        SELECT name, SUM(count) AS count
+        FROM dbo.tbl_ref_missing_date_series_detail
+        WHERE kind = 'location'
+        GROUP BY name
+        ORDER BY count DESC;
+    """)
+    location_rows = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT name, SUM(count) AS count
+        FROM dbo.tbl_ref_missing_date_series_detail
+        WHERE kind = 'archive'
+        GROUP BY name
+        ORDER BY count DESC;
+    """)
+    archive_rows = cursor.fetchall()
+
+    return {
+        "series_with_missing": series_with_missing,
+        "total_series": total_series,
+        "affected_series_percent": _pct(series_with_missing, total_series),
+        "fully_missing_series": int(row.get("fully_missing_series") or 0),
+        "fully_missing_series_percent": _pct(int(row.get("fully_missing_series") or 0), series_with_missing),
+        "stykker_in_affected_series": int(row.get("stykker_in_affected_series") or 0),
+        "missing_items": missing_total,
+        "total_stykker": total_stykker,
+        "missing_items_percent": _pct(missing_total, total_stykker),
+        "both_missing_items": int(row.get("both_missing_items") or 0),
+        "both_missing_items_percent": _pct(int(row.get("both_missing_items") or 0), missing_total),
+        "start_only_items": int(row.get("start_only_items") or 0),
+        "start_only_items_percent": _pct(int(row.get("start_only_items") or 0), missing_total),
+        "slutt_only_items": int(row.get("slutt_only_items") or 0),
+        "slutt_only_items_percent": _pct(int(row.get("slutt_only_items") or 0), missing_total),
+        "items_with_known_location": int(row.get("items_with_known_location") or 0),
+        "items_with_known_location_percent": _pct(int(row.get("items_with_known_location") or 0), missing_total),
+        "locations": [
+            {
+                "name": item.get("name") or "Ukjent",
+                "count": int(item.get("count") or 0),
+                "percent": _pct(int(item.get("count") or 0), missing_total),
+            }
+            for item in location_rows[:12]
+        ],
+        "location_options": [
+            item.get("name") or "Ukjent"
+            for item in location_rows
+        ],
+        "archives": [
+            {
+                "name": item.get("name") or "Ukjent",
+                "count": int(item.get("count") or 0),
+                "percent": _pct(int(item.get("count") or 0), missing_total),
+            }
+            for item in archive_rows[:12]
+        ],
+        "source": "dbo.tbl_ref_missing_date_series",
+        "refreshed_at_utc": row.get("refreshed_at_utc"),
+    }
+
+def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, include_summary, summary_only):
+    summary = _get_missing_date_summary_from_cache(cursor) if (include_summary or summary_only) else None
+    if summary_only:
+        return {
+            "summary": summary,
+            "items": [],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_items": 0,
+                "total_pages": 1,
+                "has_previous": False,
+                "has_next": False,
+            },
+        }
+
+    where = []
+    params = []
+    q_value = (q or "").strip()
+    location_value = (location or "").strip()
+    if q_value:
+        q_like = f"%{q_value}%"
+        where.append("""
+            (
+                s.serie_path LIKE %s
+                OR s.serie_identifikator LIKE %s
+                OR s.serie_navn LIKE %s
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.tbl_ref_missing_date_series_detail d
+                    WHERE d.serie_path = s.serie_path
+                      AND d.name LIKE %s
+                )
+            )
+        """)
+        params.extend([q_like, q_like, q_like, q_like])
+    if location_value:
+        where.append("""
+            EXISTS (
+                SELECT 1
+                FROM dbo.tbl_ref_missing_date_series_detail d
+                WHERE d.serie_path = s.serie_path
+                  AND d.kind = 'location'
+                  AND d.name = %s
+            )
+        """)
+        params.append(location_value)
+
+    where_sql = "WHERE " + " AND ".join(where) if where else ""
+    cursor.execute(f"""
+        SELECT COUNT(1) AS total_items
+        FROM dbo.tbl_ref_missing_date_series s
+        {where_sql};
+    """, tuple(params))
+    total_items = int((cursor.fetchone() or {}).get("total_items") or 0)
+
+    offset = (page - 1) * page_size
+    cursor.execute(f"""
+        SELECT
+            serie_path,
+            serie_identifikator,
+            serie_navn,
+            external_amid,
+            stykke_count,
+            hyllemeter,
+            startaar,
+            sluttaar,
+            missing_count,
+            start_missing_count,
+            slutt_missing_count,
+            both_missing_count,
+            start_only_count,
+            slutt_only_count
+        FROM dbo.tbl_ref_missing_date_series s
+        {where_sql}
+        ORDER BY missing_count DESC, serie_path
+        OFFSET %s ROWS
+        FETCH NEXT %s ROWS ONLY;
+    """, tuple(params + [offset, page_size]))
+    series_rows = cursor.fetchall()
+
+    serie_paths = [row.get("serie_path") for row in series_rows if row.get("serie_path")]
+    detail_rows = []
+    if serie_paths:
+        for chunk in _chunked(serie_paths):
+            placeholders = ", ".join(["%s"] * len(chunk))
+            cursor.execute(f"""
+                SELECT serie_path, kind, name, count
+                FROM dbo.tbl_ref_missing_date_series_detail
+                WHERE serie_path IN ({placeholders})
+                ORDER BY count DESC, name;
+            """, tuple(chunk))
+            detail_rows.extend(cursor.fetchall())
+
+    details_by_series = {}
+    for detail in detail_rows:
+        details_by_series.setdefault(detail.get("serie_path"), {}).setdefault(detail.get("kind"), []).append({
+            "name": detail.get("name") or "Ukjent",
+            "count": int(detail.get("count") or 0),
+        })
+
+    items = []
+    for row in series_rows:
+        serie_path = row.get("serie_path") or ""
+        detail = details_by_series.get(serie_path, {})
+        items.append({
+            "serie_path": serie_path,
+            "serie_identifikator": row.get("serie_identifikator") or _leaf(serie_path),
+            "serie_navn": row.get("serie_navn"),
+            "_amid": row.get("external_amid"),
+            "external_amid": row.get("external_amid"),
+            "stykke_count": int(row.get("stykke_count") or 0),
+            "hyllemeter": float(row.get("hyllemeter") or 0),
+            "startaar": row.get("startaar"),
+            "sluttaar": row.get("sluttaar"),
+            "missing_count": int(row.get("missing_count") or 0),
+            "start_missing_count": int(row.get("start_missing_count") or 0),
+            "slutt_missing_count": int(row.get("slutt_missing_count") or 0),
+            "both_missing_count": int(row.get("both_missing_count") or 0),
+            "matched_item_count": int(row.get("missing_count") or 0),
+            "location_counts": detail.get("location", []),
+            "archive_counts": detail.get("archive", [])[:5],
+            "issue_types": _missing_date_issue_types(row),
+        })
+
+    total_pages = max(1, (total_items + page_size - 1) // page_size)
+    return {
+        "summary": summary,
+        "items": items,
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total_items": total_items,
+            "total_pages": total_pages,
+            "has_previous": page > 1,
+            "has_next": page < total_pages,
+        },
+    }
+
 def _missing_year_expr(column):
     q = _quote_ident(column)
     return f"""
@@ -121,6 +366,25 @@ def get_missing_date_series(
     try:
         conn = get_connection()
         cursor = conn.cursor(as_dict=True)
+
+        if _table_exists(cursor, "tbl_ref_missing_date_series"):
+            return _get_missing_date_series_from_cache(
+                cursor,
+                page=page,
+                page_size=page_size,
+                q=q,
+                location=location,
+                include_summary=include_summary,
+                summary_only=summary_only,
+            )
+
+        return {
+            "error": (
+                "Mangler hurtigbuffer for manglende år. "
+                "Kjør dbo.usp_refresh_missing_date_series_cache i databasen først."
+            ),
+            "missing_cache": True,
+        }
 
         columns = _columns_for_table(cursor, "tbl_gold_stykke_hierarchy")
         serie_columns = _columns_for_table(cursor, "tbl_gold_serie_hierarchy")
@@ -527,6 +791,23 @@ def get_missing_date_series(
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
+
+@router.post("/missing-date-series/refresh-cache")
+def refresh_missing_date_series_cache():
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute("EXEC dbo.usp_refresh_missing_date_series_cache;")
+        conn.commit()
+        cursor.execute("SELECT COUNT(1) AS cnt FROM dbo.tbl_ref_missing_date_series;")
+        count = int((cursor.fetchone() or {}).get("cnt") or 0)
+        return {"ok": True, "count": count}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
     finally:
         if conn:
             conn.close()
