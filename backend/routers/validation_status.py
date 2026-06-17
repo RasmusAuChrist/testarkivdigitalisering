@@ -47,6 +47,28 @@ def _table_exists(cursor, table_name):
     row = cursor.fetchone() or {}
     return bool(row.get("exists_flag"))
 
+def _table_row_count(cursor, table_name):
+    cursor.execute("""
+        SELECT COALESCE(SUM(row_count), 0) AS row_count
+        FROM sys.dm_db_partition_stats
+        WHERE object_id = OBJECT_ID(%s)
+          AND index_id IN (0, 1);
+    """, (f"dbo.{table_name}",))
+    row = cursor.fetchone() or {}
+    return int(row.get("row_count") or 0)
+
+def _index_exists(cursor, table_name, index_name):
+    cursor.execute("""
+        SELECT CASE WHEN EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE object_id = OBJECT_ID(%s)
+              AND name = %s
+        ) THEN 1 ELSE 0 END AS exists_flag;
+    """, (f"dbo.{table_name}", index_name))
+    row = cursor.fetchone() or {}
+    return bool(row.get("exists_flag"))
+
 def _missing_date_issue_types(row):
     both_missing_count = int(row.get("both_missing_count") or 0)
     start_missing_count = int(row.get("start_missing_count") or 0)
@@ -194,12 +216,15 @@ def _get_missing_date_series_from_cache(cursor, page, page_size, q, location, in
         params.append(location_value)
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
-    cursor.execute(f"""
-        SELECT COUNT(1) AS total_items
-        FROM dbo.tbl_ref_missing_date_series s
-        {where_sql};
-    """, tuple(params))
-    total_items = int((cursor.fetchone() or {}).get("total_items") or 0)
+    if where:
+        cursor.execute(f"""
+            SELECT COUNT(1) AS total_items
+            FROM dbo.tbl_ref_missing_date_series s
+            {where_sql};
+        """, tuple(params))
+        total_items = int((cursor.fetchone() or {}).get("total_items") or 0)
+    else:
+        total_items = _table_row_count(cursor, "tbl_ref_missing_date_series")
 
     offset = (page - 1) * page_size
     cursor.execute(f"""
@@ -791,6 +816,60 @@ def get_missing_date_series(
 
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        if conn:
+            conn.close()
+
+@router.get("/missing-date-series/cache-status")
+def get_missing_date_series_cache_status():
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(as_dict=True)
+
+        tables = [
+            "tbl_ref_missing_date_series",
+            "tbl_ref_missing_date_series_detail",
+            "tbl_ref_missing_date_series_summary",
+        ]
+        table_status = {}
+        for table_name in tables:
+            exists = _table_exists(cursor, table_name)
+            table_status[table_name] = {
+                "exists": exists,
+                "row_count": _table_row_count(cursor, table_name) if exists else 0,
+            }
+
+        refreshed_at_utc = None
+        if table_status["tbl_ref_missing_date_series_summary"]["exists"]:
+            cursor.execute("""
+                SELECT TOP 1 refreshed_at_utc
+                FROM dbo.tbl_ref_missing_date_series_summary;
+            """)
+            refreshed_at_utc = (cursor.fetchone() or {}).get("refreshed_at_utc")
+
+        indexes = {}
+        if table_status["tbl_ref_missing_date_series_detail"]["exists"]:
+            indexes["IX_tbl_ref_missing_date_series_detail_path"] = _index_exists(
+                cursor,
+                "tbl_ref_missing_date_series_detail",
+                "IX_tbl_ref_missing_date_series_detail_path",
+            )
+            indexes["IX_tbl_ref_missing_date_series_detail_kind_name"] = _index_exists(
+                cursor,
+                "tbl_ref_missing_date_series_detail",
+                "IX_tbl_ref_missing_date_series_detail_kind_name",
+            )
+
+        return {
+            "ok": True,
+            "cache_ready": all(item["exists"] for item in table_status.values()),
+            "tables": table_status,
+            "indexes": indexes,
+            "refreshed_at_utc": refreshed_at_utc,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
     finally:
         if conn:
             conn.close()
