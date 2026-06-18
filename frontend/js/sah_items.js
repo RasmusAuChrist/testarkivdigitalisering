@@ -2,6 +2,7 @@ import { initProtectedPage, apiGet } from "./page_auth.js";
 
 const arkivFilter = document.getElementById("arkivFilter");
 const searchInput = document.getElementById("searchInput");
+const pageSizeSelect = document.getElementById("pageSizeSelect");
 const summary = document.getElementById("summary");
 const content = document.getElementById("content");
 const loadingOverlay = document.getElementById("loadingOverlay");
@@ -15,10 +16,11 @@ const progressLabel = document.getElementById("progressLabel");
 const statusButtons = Array.from(document.querySelectorAll(".status-btn"));
 
 let currentPage = 1;
-let pageSize = 250;
+let pageSize = "250";
 let currentTotalPages = 1;
 let currentItems = [];
 let currentStatus = "";
+let sortBy = "asta_sti";
 let sortDirection = "asc";
 
 function showLoading() {
@@ -87,18 +89,33 @@ function renderSummaryCards(summaryData) {
   progressLabel.textContent = `${String(progressPercent).replace(".", ",")}%`;
 }
 
-function sortItemsByAstaSti(items) {
-  return [...items].sort((a, b) => {
-    const aValue = (a.asta_sti || "").trim();
-    const bValue = (b.asta_sti || "").trim();
+function sortArrowFor(key) {
+  if (sortBy !== key) return "";
+  return sortDirection === "asc" ? "▲" : "▼";
+}
 
-    const result = aValue.localeCompare(bValue, "no", {
-      numeric: true,
-      sensitivity: "base"
-    });
+function sortTitleFor(key) {
+  if (sortBy !== key) return "Sorter stigende";
+  return sortDirection === "asc" ? "Sorter synkende" : "Sorter stigende";
+}
 
-    return sortDirection === "asc" ? result : -result;
-  });
+async function applySort(key) {
+  if (sortBy === key) {
+    sortDirection = sortDirection === "asc" ? "desc" : "asc";
+  } else {
+    sortBy = key;
+    sortDirection = "asc";
+  }
+
+  try {
+    showLoading();
+    await loadItems(1);
+  } catch (error) {
+    console.error(error);
+    renderError(error.message || "Ukjent feil");
+  } finally {
+    hideLoading();
+  }
 }
 
 async function fetchJson(path) {
@@ -125,6 +142,8 @@ async function loadItems(page = 1) {
 
   params.set("page", page);
   params.set("page_size", pageSize);
+  params.set("sort_by", sortBy);
+  params.set("sort_dir", sortDirection);
 
   if (selectedArkivNavn) {
     params.set("arkiv_navn", selectedArkivNavn);
@@ -150,18 +169,24 @@ async function loadItems(page = 1) {
 
 function renderTable(total, page, pageSize, totalPages) {
   const statusText = currentStatus ? `, status: ${statusLabel(currentStatus)}` : "";
-  summary.textContent = `Viser side ${page} av ${totalPages || 1} — ${formatNumber(total)} treff totalt${statusText}`;
 
   if (!currentItems.length) {
+    const pageText = pageSizeSelect?.value === "all"
+      ? `Viser alle ${formatNumber(total)} treff`
+      : `Viser side ${page} av ${totalPages || 1} - ${formatNumber(total)} treff totalt`;
+    summary.textContent = `${pageText}${statusText}`;
     content.innerHTML = `
       <div class="empty-state">Ingen treff funnet.</div>
     `;
     return;
   }
 
-  const sortedItems = sortItemsByAstaSti(currentItems);
+  const pageText = pageSizeSelect?.value === "all"
+    ? `Viser alle ${formatNumber(total)} treff`
+    : `Viser side ${page} av ${totalPages || 1} - ${formatNumber(total)} treff totalt`;
+  summary.textContent = `${pageText}${statusText}`;
 
-  const rowsHtml = sortedItems.map(item => {
+  const rowsHtml = currentItems.map(item => {
     const stykkeIdentifikator = escapeHtml(item.stykke_identifikator || "");
     const arkivIdentifikator = escapeHtml(item.arkiv_identifikator || "");
     const arkivNavn = escapeHtml(item.arkiv_navn || "");
@@ -190,7 +215,6 @@ function renderTable(total, page, pageSize, totalPages) {
 
   const prevDisabled = page <= 1 ? "disabled" : "";
   const nextDisabled = page >= totalPages ? "disabled" : "";
-  const sortArrow = sortDirection === "asc" ? "▲" : "▼";
 
   content.innerHTML = `
     <div class="table-wrapper">
@@ -202,8 +226,8 @@ function renderTable(total, page, pageSize, totalPages) {
             <th>arkiv_identifikator</th>
             <th>arkiv_navn</th>
             <th>lokasjon</th>
-            <th>hylleplassering</th>
-            <th id="astaSortHeader" class="sortable-header">asta_sti ${sortArrow}</th>
+            <th id="hylleSortHeader" class="sortable-header" title="${sortTitleFor("hylleplassering")}">hylleplassering ${sortArrowFor("hylleplassering")}</th>
+            <th id="astaSortHeader" class="sortable-header" title="${sortTitleFor("asta_sti")}">asta_sti ${sortArrowFor("asta_sti")}</th>
           </tr>
         </thead>
         <tbody>
@@ -221,6 +245,7 @@ function renderTable(total, page, pageSize, totalPages) {
 
   const prevBtn = document.getElementById("prevPage");
   const nextBtn = document.getElementById("nextPage");
+  const hylleSortHeader = document.getElementById("hylleSortHeader");
   const sortHeader = document.getElementById("astaSortHeader");
 
   if (prevBtn) {
@@ -255,11 +280,12 @@ function renderTable(total, page, pageSize, totalPages) {
     });
   }
 
+  if (hylleSortHeader) {
+    hylleSortHeader.addEventListener("click", () => applySort("hylleplassering"));
+  }
+
   if (sortHeader) {
-    sortHeader.addEventListener("click", () => {
-      sortDirection = sortDirection === "asc" ? "desc" : "asc";
-      renderTable(total, page, pageSize, totalPages);
-    });
+    sortHeader.addEventListener("click", () => applySort("asta_sti"));
   }
 }
 
@@ -302,6 +328,19 @@ async function init() {
 
     arkivFilter.addEventListener("change", debouncedReload);
     searchInput.addEventListener("input", debouncedReload);
+    pageSizeSelect.addEventListener("change", async () => {
+      try {
+        pageSize = pageSizeSelect.value || "250";
+        currentPage = 1;
+        showLoading();
+        await loadItems(1);
+      } catch (error) {
+        console.error(error);
+        renderError(error.message || "Ukjent feil");
+      } finally {
+        hideLoading();
+      }
+    });
 
     statusButtons.forEach(button => {
       button.addEventListener("click", async () => {

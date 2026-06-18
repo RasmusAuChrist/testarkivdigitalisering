@@ -188,7 +188,9 @@ def get_sah_items(
     search: str | None = Query(default=None),
     status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=100, ge=1, le=500),
+    page_size: str = Query(default="100"),
+    sort_by: str = Query(default="asta_sti"),
+    sort_dir: str = Query(default="asc"),
 ):
     conn = None
     try:
@@ -228,8 +230,25 @@ def get_sah_items(
             """)
             params.extend([like_value, like_value, like_value, like_value, like_value])
 
+        page_size_raw = str(page_size).strip().lower()
+        show_all = page_size_raw == "all"
+        if show_all:
+            effective_page_size = None
+        else:
+            try:
+                effective_page_size = int(page_size_raw)
+            except ValueError:
+                effective_page_size = 100
+            effective_page_size = max(1, min(effective_page_size, 5000))
+
+        sortable_columns = {
+            "asta_sti": "asta_sti",
+            "hylleplassering": "hylleplassering",
+        }
+        sort_column = sortable_columns.get(sort_by, "asta_sti")
+        sort_direction = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+
         where_clause = " AND ".join(filters)
-        offset = (page - 1) * page_size
 
         count_query = f"""
             SELECT
@@ -256,6 +275,13 @@ def get_sah_items(
         cursor.execute(count_query, tuple(params))
         totals = cursor.fetchone() or {}
 
+        order_by_clause = f"""
+            CASE WHEN {sort_column} IS NULL OR LTRIM(RTRIM({sort_column})) = '' THEN 1 ELSE 0 END,
+            {sort_column} {sort_direction},
+            arkiv_identifikator,
+            stykke_identifikator
+        """
+
         data_query = f"""
             SELECT
                 stykke_identifikator,
@@ -271,29 +297,34 @@ def get_sah_items(
                 END AS movement_status
             FROM tbl_gold_stykke_hierarchy
             WHERE {where_clause}
-            ORDER BY
-                CASE WHEN asta_sti IS NULL OR LTRIM(RTRIM(asta_sti)) = '' THEN 1 ELSE 0 END,
-                asta_sti,
-                arkiv_identifikator,
-                stykke_identifikator
-            OFFSET %s ROWS FETCH NEXT %s ROWS ONLY
+            ORDER BY {order_by_clause}
         """
 
-        cursor.execute(data_query, tuple(params + [offset, page_size]))
+        total = totals.get("total") or 0
+        if show_all:
+            cursor.execute(data_query, tuple(params))
+            response_page = 1
+            response_page_size = total
+            total_pages = 1 if total else 0
+        else:
+            offset = (page - 1) * effective_page_size
+            paged_query = f"{data_query} OFFSET %s ROWS FETCH NEXT %s ROWS ONLY"
+            cursor.execute(paged_query, tuple(params + [offset, effective_page_size]))
+            response_page = page
+            response_page_size = effective_page_size
+            total_pages = (total + effective_page_size - 1) // effective_page_size if total else 0
         rows = cursor.fetchall()
 
-        total = totals.get("total") or 0
         moved_total = totals.get("moved_total") or 0
         not_moved_total = totals.get("not_moved_total") or 0
         deviation_total = totals.get("deviation_total") or 0
-        total_pages = (total + page_size - 1) // page_size if total else 0
         progress_percent = round((moved_total / total) * 100, 2) if total else 0
 
         return {
             "items": rows,
             "total": total,
-            "page": page,
-            "page_size": page_size,
+            "page": response_page,
+            "page_size": response_page_size,
             "total_pages": total_pages,
             "summary": {
                 "total_items": total,
