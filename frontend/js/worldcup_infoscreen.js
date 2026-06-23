@@ -404,6 +404,21 @@ function toNum(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function toOptionalNum(value) {
+  const text = safeText(value).replace(",", ".");
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+}
+
+function firstOptionalNum(...values) {
+  for (const value of values) {
+    const n = toOptionalNum(value);
+    if (n !== null) return n;
+  }
+  return null;
+}
+
 function int(value) {
   return Math.round(toNum(value)).toLocaleString("no-NO");
 }
@@ -781,6 +796,29 @@ function teamFlagFromTeamRow(row, originalName) {
   return safeText(row.flag) || teamFlag(originalName) || safeText(row.iso2).toLowerCase();
 }
 
+function fifaRankFromTeamRow(row) {
+  return firstOptionalNum(
+    row.fifa_rank,
+    row.fifa_ranking,
+    row.fifaRanking,
+    row.fifaRank,
+    row.world_rank,
+    row.world_ranking,
+    row.rank,
+    row.ranking
+  );
+}
+
+function conductScoreFromTeamRow(row) {
+  return firstOptionalNum(
+    row.team_conduct_score,
+    row.conduct_score,
+    row.fair_play_score,
+    row.fairplay_score,
+    row.discipline_score
+  );
+}
+
 function normalizeTeam(row) {
   const teamId = safeText(row.id || row.team_id);
   const originalName = safeText(
@@ -799,6 +837,8 @@ function normalizeTeam(row) {
     originalName,
     flag: teamFlagFromTeamRow(row, originalName),
     group: safeText(row.groups || row.group || row.group_name),
+    fifaRank: fifaRankFromTeamRow(row),
+    conductScore: conductScoreFromTeamRow(row),
   };
 }
 
@@ -810,6 +850,8 @@ function gameTeamInfo(game, side) {
     originalName: isHome ? game.home_team_name_original : game.away_team_name_original,
     flag: isHome ? game.home_flag : game.away_flag,
     group: game.group,
+    fifaRank: null,
+    conductScore: null,
   };
 }
 
@@ -834,6 +876,8 @@ function buildTeamDirectory(teamsPayload, games) {
         existing.flag ||= team.flag;
         existing.name ||= team.name;
         existing.originalName ||= team.originalName;
+        if (existing.fifaRank === null && team.fifaRank !== null) existing.fifaRank = team.fifaRank;
+        if (existing.conductScore === null && team.conductScore !== null) existing.conductScore = team.conductScore;
       } else {
         map.set(team.team_id, team);
       }
@@ -876,6 +920,8 @@ function emptyStanding(team) {
     gf: 0,
     ga: 0,
     gd: 0,
+    fifaRank: team.fifaRank ?? null,
+    conductScore: team.conductScore ?? null,
   };
 }
 
@@ -920,8 +966,134 @@ function applyGroupResult(home, away, homeGoals, awayGoals) {
   }
 }
 
+function addHeadToHeadResult(home, away, homeGoals, awayGoals) {
+  home.gf += homeGoals;
+  home.ga += awayGoals;
+  away.gf += awayGoals;
+  away.ga += homeGoals;
+  home.gd = home.gf - home.ga;
+  away.gd = away.gf - away.ga;
+
+  if (homeGoals > awayGoals) {
+    home.pts += 3;
+  } else if (awayGoals > homeGoals) {
+    away.pts += 3;
+  } else {
+    home.pts += 1;
+    away.pts += 1;
+  }
+}
+
+function buildHeadToHeadStats(teams, groupGames) {
+  const teamIds = new Set(teams.map(team => team.team_id));
+  const stats = new Map(
+    teams.map(team => [team.team_id, { pts: 0, gf: 0, ga: 0, gd: 0 }])
+  );
+
+  for (const game of groupGames) {
+    if (!game.finished) continue;
+    if (!teamIds.has(game.home_team_id) || !teamIds.has(game.away_team_id)) continue;
+
+    const home = stats.get(game.home_team_id);
+    const away = stats.get(game.away_team_id);
+    if (!home || !away) continue;
+    addHeadToHeadResult(home, away, game.home_score, game.away_score);
+  }
+
+  return stats;
+}
+
+function splitGroupsByMetric(groups, metricFn, direction = "desc") {
+  const sortedGroups = [];
+
+  for (const group of groups) {
+    if (group.length <= 1) {
+      sortedGroups.push(group);
+      continue;
+    }
+
+    const rows = group.map(team => {
+      const value = metricFn(team);
+      const numberValue = Number(value);
+      return {
+        team,
+        value: Number.isFinite(numberValue) ? numberValue : null,
+      };
+    });
+
+    if (!rows.some(row => row.value !== null)) {
+      sortedGroups.push(group);
+      continue;
+    }
+
+    rows.sort((a, b) => {
+      if (a.value === null && b.value === null) return 0;
+      if (a.value === null) return 1;
+      if (b.value === null) return -1;
+      return direction === "asc" ? a.value - b.value : b.value - a.value;
+    });
+
+    let currentValue = rows[0].value;
+    let currentGroup = [];
+
+    for (const row of rows) {
+      if (row.value !== currentValue) {
+        sortedGroups.push(currentGroup);
+        currentGroup = [];
+        currentValue = row.value;
+      }
+      currentGroup.push(row.team);
+    }
+    if (currentGroup.length) sortedGroups.push(currentGroup);
+  }
+
+  return sortedGroups;
+}
+
+function flattenRankGroups(groups) {
+  return groups.flatMap(group =>
+    group.length > 1
+      ? [...group].sort((a, b) => a.name.localeCompare(b.name, "no"))
+      : group
+  );
+}
+
+function splitGroupsByHeadToHeadMetric(groups, groupGames, metricKey) {
+  return groups.flatMap(group => {
+    if (group.length <= 1) return [group];
+    const headToHead = buildHeadToHeadStats(group, groupGames);
+    return splitGroupsByMetric(
+      [group],
+      team => headToHead.get(team.team_id)?.[metricKey] ?? 0
+    );
+  });
+}
+
+function rankTeamsTiedOnPoints(teams, groupGames) {
+  let groups = [teams];
+
+  groups = splitGroupsByHeadToHeadMetric(groups, groupGames, "pts");
+  groups = splitGroupsByHeadToHeadMetric(groups, groupGames, "gd");
+  groups = splitGroupsByHeadToHeadMetric(groups, groupGames, "gf");
+
+  groups = splitGroupsByMetric(groups, team => team.gd);
+  groups = splitGroupsByMetric(groups, team => team.gf);
+  groups = splitGroupsByMetric(groups, team => team.conductScore);
+  groups = splitGroupsByMetric(groups, team => team.fifaRank, "asc");
+
+  return flattenRankGroups(groups);
+}
+
+function sortGroupStandings(teams, groupGames) {
+  const pointGroups = splitGroupsByMetric([teams], team => team.pts);
+  return pointGroups.flatMap(group =>
+    group.length > 1 ? rankTeamsTiedOnPoints(group, groupGames) : group
+  );
+}
+
 function buildComputedGroups(games, teamDirectory) {
   const standingsByGroup = new Map();
+  const groupGamesByGroup = new Map();
 
   for (const team of teamDirectory.values()) {
     standingFor(standingsByGroup, team);
@@ -937,16 +1109,17 @@ function buildComputedGroups(games, teamDirectory) {
     if (!home || !away) continue;
 
     applyGroupResult(home, away, game.home_score, game.away_score);
+
+    if (!groupGamesByGroup.has(game.group)) {
+      groupGamesByGroup.set(game.group, []);
+    }
+    groupGamesByGroup.get(game.group).push(game);
   }
 
   return [...standingsByGroup.entries()]
     .map(([name, teams]) => ({
       name,
-      teams: [...teams.values()].sort((a, b) =>
-        b.pts - a.pts ||
-        b.gd - a.gd ||
-        a.name.localeCompare(b.name, "no")
-      ),
+      teams: sortGroupStandings([...teams.values()], groupGamesByGroup.get(name) || []),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "no"));
 }
